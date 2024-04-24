@@ -91,7 +91,9 @@ type Commitment @entity {
 type CommitmentRecipient {
   workerId: ID!
   workerReward: BigInt!
+  workerApr: Float!
   stakerReward: BigInt!
+  stakerApr: Float!
 }
 
 type Block @entity {

@@ -4,7 +4,7 @@ import { In } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
 
-import { WorkerStatus, Worker } from '~/model';
+import { WorkerStatus, Worker, WorkerReward, Commitment } from '~/model';
 import { toPercent } from '~/utils/misc';
 import { MINUTE_MS } from '~/utils/time';
 
@@ -123,4 +123,53 @@ export function listenMetricsUpdate(ctx: MappingContext) {
       ctx.log.info(`workers stats of ${activeWorkers.length} updated`);
     }
   });
+}
+
+let INIT_APRS = false;
+
+export function listenRewardsDistributed(ctx: MappingContext) {
+  if (!INIT_APRS) {
+    ctx.events.on(Events.Initialization, async () => {
+      await calculateAprs(ctx);
+    });
+
+    INIT_APRS = true;
+  }
+
+  ctx.events.on(Events.RewardsDistibuted, async () => {
+    await calculateAprs(ctx);
+  });
+}
+
+export async function calculateAprs(ctx: MappingContext) {
+  const activeWorkers = await ctx.store.find(Worker, {
+    where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+  });
+
+  const commitments = await ctx.store.find(Commitment, { take: 30 });
+
+  for (const worker of activeWorkers) {
+    const apr = commitments.reduce(
+      (r, c) => {
+        const payment = c.recipients.find((r) => r.workerId === worker.id);
+
+        if (payment) {
+          r.worker += payment.workerApr;
+          r.staker += payment.stakerApr;
+          r.count += 1;
+        }
+        return r;
+      },
+      { worker: 0, staker: 0, count: 0 },
+    );
+
+    if (apr.count) {
+      worker.apr = apr.worker / apr.count;
+      worker.stakerApr = apr.staker / apr.count;
+    }
+  }
+
+  await ctx.store.upsert(activeWorkers);
+
+  ctx.log.info(`workers aprs of ${activeWorkers.length} updated`);
 }

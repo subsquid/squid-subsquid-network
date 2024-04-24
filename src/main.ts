@@ -7,7 +7,7 @@ import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
 import { listenStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
 import { createSettings, createBlock } from './core/helpers/entities';
 import { createEpochId } from './core/helpers/ids';
-import { listenOnlineUpdate, listenMetricsUpdate } from './core/metrics';
+import { listenOnlineUpdate, listenMetricsUpdate, listenRewardsDistributed } from './core/metrics';
 import { listenDelegationUnlock } from './core/staking/CheckDelegationUnlock.listener';
 import { listenStatusCheck } from './core/worker/CheckStatus.listener';
 import { sortItems } from './item';
@@ -58,6 +58,7 @@ async function mapBlocks(ctx: MappingContext) {
   if (ctx.isHead) {
     listenOnlineUpdate(ctx);
     listenMetricsUpdate(ctx);
+    listenRewardsDistributed(ctx);
   }
 
   ctx.queue.add(() => ctx.events.emit(Events.Initialization));

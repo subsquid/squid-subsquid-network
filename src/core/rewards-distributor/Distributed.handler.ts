@@ -1,9 +1,9 @@
 import { BigDecimal } from '@subsquid/big-decimal';
 import { keyBy } from 'lodash';
-import { In, MoreThan } from 'typeorm';
+import { In, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
 
 import { isContract, isLog, LogItem } from '../../item';
-import { MappingContext } from '../../types';
+import { Events, MappingContext } from '../../types';
 import { createHandler } from '../base';
 import { createCommitment } from '../helpers/entities';
 import { createCommitmentId, createWorkerId } from '../helpers/ids';
@@ -11,9 +11,18 @@ import { createCommitmentId, createWorkerId } from '../helpers/ids';
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
 import { network } from '~/config/network';
 import { Log } from '~/config/processor';
-import { Worker, Block, Delegation, DelegationReward, WorkerReward, WorkerStatus } from '~/model';
+import {
+  Worker,
+  Block,
+  Delegation,
+  DelegationReward,
+  WorkerReward,
+  WorkerStatus,
+  Commitment,
+  CommitmentRecipient,
+} from '~/model';
 import { toPercent } from '~/utils/misc';
-import { DAY_MS } from '~/utils/time';
+import { DAY_MS, YEAR_MS } from '~/utils/time';
 
 export const handleDistributed = createHandler({
   filter(_, item): item is LogItem {
@@ -26,32 +35,21 @@ export const handleDistributed = createHandler({
   handle(ctx, { value: log }) {
     const event = RewardsDistribution.events.Distributed.decode(log);
 
-    const commitmentId = createCommitmentId(event.fromBlock, event.toBlock);
-
     const recipientIds = event.recipients.map((r) => createWorkerId(r));
 
     ctx.queue.add(async () => {
-      const commitment = createCommitment(commitmentId, {
-        from: event.fromBlock,
-        to: event.toBlock,
-        recipientIds,
-        workerRewards: event.workerRewards,
-        stakerRewards: event.stakerRewards,
-      });
-      await ctx.store.insert(commitment);
-
       if (recipientIds.length === 0) {
         ctx.log.info(`nothing to reward`);
         return;
       }
 
       const fromBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: Number(event.fromBlock) },
-        order: { height: 'ASC' },
+        where: { l1BlockNumber: LessThanOrEqual(Number(event.fromBlock)) },
+        order: { height: 'DESC' },
       });
 
       const toBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: Number(event.toBlock) },
+        where: { l1BlockNumber: MoreThanOrEqual(Number(event.toBlock)) },
         order: { height: 'ASC' },
       });
 
@@ -62,57 +60,70 @@ export const handleDistributed = createHandler({
       const payments = keyBy(
         recipientIds.map((workerId, i) => ({
           workerId,
-          worker: event.workerRewards[i],
-          staker: event.stakerRewards[i],
+          workerReward: event.workerRewards[i],
+          workerApr: 0,
+          stakerRewards: event.stakerRewards[i],
+          stakerApr: 0,
         })),
         (r) => r.workerId,
       );
 
       let delegationRewardsCount = 0;
       for (const worker of activeWorkers) {
-        const payment = payments[worker.id] || { workerId: worker.id, worker: 0n, staker: 0n };
+        let payment = payments[worker.id];
+        if (!payment) {
+          payment = {
+            workerId: worker.id,
+            workerReward: 0n,
+            workerApr: 0,
+            stakerRewards: 0n,
+            stakerApr: 0,
+          };
+          payments[worker.id] = payment;
+        }
 
-        worker.claimableReward += payment.worker;
         if (fromBlock && toBlock) {
           const interval = toBlock.timestamp.getTime() - fromBlock.timestamp.getTime();
-          worker.apr = worker.bond
+          payment.workerApr = worker.bond
             ? toPercent(
-                BigDecimal(payment.worker)
+                BigDecimal(payment.workerReward)
                   .div(interval)
-                  .mul(365 * DAY_MS)
+                  .mul(YEAR_MS)
                   .div(worker.bond)
                   .toNumber(),
                 true,
               )
             : 0;
-          worker.stakerApr = worker.totalDelegation
+          payment.stakerApr = worker.totalDelegation
             ? toPercent(
-                BigDecimal(payment.staker)
+                BigDecimal(payment.stakerRewards)
                   .div(interval)
-                  .mul(365 * DAY_MS)
+                  .mul(YEAR_MS)
                   .div(worker.totalDelegation)
                   .toNumber(),
                 true,
               )
             : 0;
         }
+
+        worker.claimableReward += payment.workerReward;
         await ctx.store.upsert(worker);
 
-        if (payment.worker > 0) {
+        if (payment.workerReward > 0) {
           const reward = new WorkerReward({
             id: `${log.id}-${worker.id.padStart(5, '0')}`,
             blockNumber: log.block.height,
             timestamp: new Date(log.block.timestamp),
             worker,
-            amount: payment.worker,
-            stakersReward: payment.staker,
+            amount: payment.workerReward,
+            stakersReward: payment.stakerRewards,
           });
 
           await ctx.store.insert(reward);
         }
 
-        if (payment.staker > 0) {
-          const rewardsPerShare = (payment.staker * 10n ** 18n) / worker.totalDelegation;
+        if (payment.stakerRewards > 0) {
+          const rewardsPerShare = (payment.stakerRewards * 10n ** 18n) / worker.totalDelegation;
 
           const count = await distributeReward(ctx, log, {
             workerId: worker.id,
@@ -122,6 +133,17 @@ export const handleDistributed = createHandler({
           delegationRewardsCount += count;
         }
       }
+
+      await ctx.store.insert(
+        new Commitment({
+          id: createCommitmentId(event.fromBlock, event.toBlock),
+          from: Number(event.fromBlock),
+          to: Number(event.toBlock),
+          recipients: Object.values(payments).map((p) => new CommitmentRecipient(p)),
+        }),
+      );
+
+      await ctx.events.emit(Events.RewardsDistibuted, log.block);
 
       ctx.log.info(
         `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,

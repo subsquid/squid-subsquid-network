@@ -13,6 +13,7 @@ export enum Events {
   BlockEnd = 'block_end',
   EpochStart = 'epoch_start',
   EpochEnd = 'epoch_end',
+  RewardsDistibuted = 'rewards_distributed',
 }
 
 export type EventMap = {
@@ -22,6 +23,7 @@ export type EventMap = {
   [Events.BlockEnd]: (block: Block) => Awaitable<void>;
   [Events.EpochStart]: (block: Block, epochId: string) => Awaitable<void>;
   [Events.EpochEnd]: (block: Block, epochId: string) => Awaitable<void>;
+  [Events.RewardsDistibuted]: (block: Block) => Awaitable<void>;
 };
 
 export type MappingContext = ProcessorContext<StoreWithCache> & {
