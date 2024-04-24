@@ -1,0 +1,3 @@
+[submodule "subsquid-network-contracts"]
+	path = subsquid-network-contracts
+	url = https://github.com/subsquid/subsquid-network-contracts.git

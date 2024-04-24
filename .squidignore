@@ -1,0 +1,15 @@
+/.git
+/builds
+/lib
+/node_modules
+/subsquid-network-contracts
+/abi
+
+.env
+.env.*
+
+# IDE files
+/.idea
+
+*.secrets
+*.log

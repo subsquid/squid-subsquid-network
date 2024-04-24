@@ -1,0 +1,315 @@
+enum AccountType {
+  USER
+  VESTING
+}
+
+type Account @entity {
+  id: ID!
+
+  type: AccountType!
+  balance: BigInt!
+
+  owner: Account
+  owned: [Account!]! @derivedFrom(field: "owner")
+
+  transfers: [AccountTransfer!] @derivedFrom(field: "account")
+  transfersTo: [Transfer!] @derivedFrom(field: "to")
+  transfersFrom: [Transfer!] @derivedFrom(field: "from")
+
+  workers: [Worker!] @derivedFrom(field: "realOwner")
+  
+  delegations: [Delegation!] @derivedFrom(field: "realOwner")
+  claimableDelegationCount: Int!
+
+  claims: [Claim!] @derivedFrom(field: "account")
+
+  gatewayOperator: GatewayOperator @derivedFrom(field: "account")
+  gateways: [Gateway!] @derivedFrom(field: "owner")
+  gatewayStakes: [GatewayStake!] @derivedFrom(field: "owner")
+}
+
+enum TransferDirection {
+  FROM
+  TO
+}
+
+type AccountTransfer @entity {
+  id: ID!
+
+  direction: TransferDirection!
+  account: Account!
+  transfer: Transfer!
+}
+
+type Transfer @entity {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  from: Account!
+  to: Account!
+
+  amount: BigInt!
+}
+
+type Settings @entity {
+  id: ID!
+  bondAmount: BigInt
+  delegationLimitCoefficient: Float!
+  epochLength: Int
+}
+
+enum ClaimType {
+  WORKER
+  DELEGATION
+}
+
+type Claim @entity {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  type: ClaimType!
+
+  worker: Worker
+  delegation: Delegation
+  "worker.realOwner or delegation.realOwner"
+  account: Account!
+
+  amount: BigInt!
+}
+
+type Commitment @entity {
+  id: ID!
+  from: Int!
+  to: Int!
+  recipients: [CommitmentRecipient!]!
+}
+
+type CommitmentRecipient {
+  workerId: ID!
+  workerReward: BigInt!
+  stakerReward: BigInt!
+}
+
+type Block @entity {
+  id: ID!
+  hash: String!
+  height: Int! @index
+  timestamp: DateTime!
+  l1BlockNumber: Int! @index
+}
+
+enum WorkerStatus {
+  REGISTERING
+  ACTIVE
+  DEREGISTERING
+  DEREGISTERED
+  WITHDRAWN
+  UNKNOW
+}
+
+type Worker
+  @entity
+  @index(fields: ["id", "createdAt", "status"])
+  @index(fields: ["id", "realOwner"]) {
+  id: ID!
+
+  peerId: String! @index
+  owner: Account!
+  "owner.owner for VESTING account"
+  realOwner: Account!
+  bond: BigInt!
+  createdAt: DateTime!
+
+  name: String
+  website: String
+  email: String
+  description: String
+
+  status: WorkerStatus!
+  statusHistory: [WorkerStatusChange!]! @derivedFrom(field: "worker")
+
+  claimableReward: BigInt!
+  rewards: [WorkerReward!] @derivedFrom(field: "worker")
+  claimedReward: BigInt!
+  claims: [Claim!] @derivedFrom(field: "worker")
+
+  apr: Float
+  stakerApr: Float
+
+  totalDelegation: BigInt!
+  delegationCount: Int!
+  delegations: [Delegation!] @derivedFrom(field: "worker")
+
+  # network metrics
+  online: Boolean @index
+  dialOk: Boolean
+  jailed: Boolean
+
+  version: String
+
+  storedData: BigInt
+
+  queries24Hours: BigInt
+  queries90Days: BigInt
+
+  servedData24Hours: BigInt
+  servedData90Days: BigInt
+
+  scannedData24Hours: BigInt
+  scannedData90Days: BigInt
+
+  uptime24Hours: Float
+  uptime90Days: Float
+
+  snapshots: [WorkerSnapshot!] @derivedFrom(field: "worker")
+}
+
+type WorkerStatusChange @entity {
+  worker: Worker!
+  status: WorkerStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+  pending: Boolean!
+}
+
+type WorkerReward @entity {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  worker: Worker!
+
+  amount: BigInt!
+  stakersReward: BigInt!
+}
+
+type WorkerSnapshot @entity {
+  id: ID!
+  worker: Worker!
+  timestamp: DateTime!
+  uptime: Float!
+  epoch: Epoch!
+}
+
+type Delegation @entity @index(fields: ["id", "realOwner"]) {
+  id: ID!
+
+  owner: Account!
+  "owner.owner for VESTING account"
+  realOwner: Account!
+  worker: Worker!
+
+  deposit: BigInt!
+  locked: Boolean
+  lockStart: Int
+  lockEnd: Int
+
+  claimableReward: BigInt!
+  rewards: [DelegationReward!] @derivedFrom(field: "delegation")
+  claimedReward: BigInt!
+  claims: [Claim!] @derivedFrom(field: "delegation")
+}
+
+type DelegationReward @entity {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  delegation: Delegation!
+
+  amount: BigInt!
+}
+
+enum GatewayStatus {
+  REGISTERED
+  DEREGISTERED
+  UNKNOWN
+}
+
+type Gateway @entity {
+  id: ID!
+
+  createdAt: DateTime!
+  
+  operator: GatewayOperator
+  owner: Account
+
+  status: GatewayStatus!
+  statusHistory: [GatewayStatusChange!]! @derivedFrom(field: "gateway")
+
+  name: String
+  website: String
+  email: String
+  description: String
+  endpointUrl: String
+}
+
+type GatewayStatusChange @entity {
+  gateway: Gateway!
+  status: GatewayStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+}
+
+type GatewayStake @entity {
+  id: ID!
+
+  index: Int!
+
+  operator: GatewayOperator!
+  owner: Account!
+
+  amount: BigInt!
+  computationUnits: BigInt!
+
+  locked: Boolean!
+  lockStart: Int!
+  lockEnd: Int!
+}
+
+type GatewayOperator @entity {
+  id: ID!
+
+  account: Account! @unique
+
+  autoExtension: Boolean!
+
+  gateways: [Gateway!]! @derivedFrom(field: "operator")
+  stake: GatewayStake
+  pendingStake: GatewayStake
+}
+
+type Statistics @entity {
+  id: ID!
+  currentEpoch: Int
+  lastSnapshotTimestamp: DateTime!
+  blockTime: Int!
+  lastBlock: Int!
+  lastBlockTimestamp: DateTime!
+  blockTimeL1: Int!
+  lastBlockL1: Int!
+  lastBlockTimestampL1: DateTime!
+}
+
+enum EpochStatus {
+  PLANNED
+  STARTED
+  ENDED
+}
+
+type Epoch @entity {
+  id: ID!
+  number: Int!
+  start: Int!
+  startedAt: DateTime
+  end: Int!
+  endedAt: DateTime
+  status: EpochStatus!
+  activeWorkerIds: [String!]
+}

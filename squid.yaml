@@ -1,0 +1,42 @@
+manifestVersion: subsquid.io/v0.1
+name: subsquid-network-testnet
+version: 1
+description: Subsquid network indexer
+build:
+deploy:
+  addons:
+    postgres:
+  env:
+    NETWORK: arbitrum-sepolia
+    RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
+    GATEWAY_URL: https://v2.archive.subsquid.io/network/arbitrum-sepolia
+    STAKING_CONTRACT_ADDRESS: "0x347E326b8b4EA27c87d5CA291e708cdEC6d65EB5"
+    WORKER_REGISTRY_CONTRACT_ADDRESS: "0xCD8e983F8c4202B0085825Cf21833927D1e2b6Dc"
+    SQD_CONTRACT_ADDRESS: "0x24f9C46d86c064a6FA2a568F918fe62fC6917B3c"
+    NETWORK_CONTROLLER_CONTRACT_ADDRESS: "0x68Fc7E375945d8C8dFb0050c337Ff09E962D976D"
+    REWARD_TREASURY_CONTRACT_ADDRESS: "0x785136e611E15D532C36502AaBdfE8E35008c7ca"
+    REWARDS_DISTRIBUTION_ADDRESS: "0x68f9fE3504652360afF430dF198E1Cb7B2dCfD57"
+    MULTICALL_3_CONTRACT_ADDRESS: "0xca11bde05977b3631167028862be2a173976ca11"
+    VESTING_FACTORY_CONTRACT_ADDRESS: "0x0eD5FB811167De1928322a0fa30Ed7F3c8C370Ca"
+    GATEWAY_REGISTRY_CONTRACT_ADDRESS: "0xAB46F688AbA4FcD1920F21E9BD16B229316D8b0a"
+    RANGE_FROM: 6_000_000
+    NETWORK_STATS_URL: https://pub-212a9d5e08794d2cb64c75941707394e.r2.dev
+  processor:
+    cmd:
+      - sqd
+      - process:prod
+  api:
+    cmd:
+      - sqd
+      - serve:prod
+  init:
+    cmd:
+      - sqd
+      - migration:apply
+scale:
+  dedicated: true
+  addons:
+    postgres:
+      storage: 20G
+  processor:
+    profile: medium
