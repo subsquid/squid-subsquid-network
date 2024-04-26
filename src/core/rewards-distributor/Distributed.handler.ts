@@ -62,7 +62,7 @@ export const handleDistributed = createHandler({
           workerId,
           workerReward: event.workerRewards[i],
           workerApr: 0,
-          stakerRewards: event.stakerRewards[i],
+          stakerReward: event.stakerRewards[i],
           stakerApr: 0,
         })),
         (r) => r.workerId,
@@ -76,7 +76,7 @@ export const handleDistributed = createHandler({
             workerId: worker.id,
             workerReward: 0n,
             workerApr: 0,
-            stakerRewards: 0n,
+            stakerReward: 0n,
             stakerApr: 0,
           };
           payments[worker.id] = payment;
@@ -96,7 +96,7 @@ export const handleDistributed = createHandler({
             : 0;
           payment.stakerApr = worker.totalDelegation
             ? toPercent(
-                BigDecimal(payment.stakerRewards)
+                BigDecimal(payment.stakerReward)
                   .div(interval)
                   .mul(YEAR_MS)
                   .div(worker.totalDelegation)
@@ -116,14 +116,14 @@ export const handleDistributed = createHandler({
             timestamp: new Date(log.block.timestamp),
             worker,
             amount: payment.workerReward,
-            stakersReward: payment.stakerRewards,
+            stakersReward: payment.stakerReward,
           });
 
           await ctx.store.insert(reward);
         }
 
-        if (payment.stakerRewards > 0) {
-          const rewardsPerShare = (payment.stakerRewards * 10n ** 18n) / worker.totalDelegation;
+        if (payment.stakerReward > 0) {
+          const rewardsPerShare = (payment.stakerReward * 10n ** 18n) / worker.totalDelegation;
 
           const count = await distributeReward(ctx, log, {
             workerId: worker.id,

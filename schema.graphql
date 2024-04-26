@@ -100,7 +100,7 @@ type Block @entity {
   id: ID!
   hash: String!
   height: Int! @index
-  timestamp: DateTime!
+  timestamp: DateTime! @index
   l1BlockNumber: Int! @index
 }
 

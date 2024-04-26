@@ -16,6 +16,7 @@ export class Block {
     @Column_("int4", {nullable: false})
     height!: number
 
+    @Index_()
     @Column_("timestamp with time zone", {nullable: false})
     timestamp!: Date
 

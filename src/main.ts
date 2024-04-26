@@ -1,6 +1,6 @@
 import { TypeormDatabaseWithCache } from '@belopash/typeorm-store';
 import { last } from 'lodash';
-import { LessThanOrEqual } from 'typeorm';
+import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 import { handlers } from './core';
 import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
@@ -41,15 +41,6 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
 });
 
 async function mapBlocks(ctx: MappingContext) {
-  // ctx.events.on(Events.BlockStart, async (block) => {
-  //   if (block.height === 7305465) {
-  //     const settings = createSettings(network.name);
-  //     settings.delegationLimitCoefficient = 0.2;
-  //     settings.epochLength = 100;
-  //     await ctx.store.upsert(settings);
-  //   }
-  // });
-
   scheduleInit(ctx);
   scheduleComplete(ctx);
 
@@ -169,14 +160,44 @@ function scheduleInit(ctx: MappingContext) {
   });
 }
 
+let blocksPassed = Infinity;
 function scheduleComplete(ctx: MappingContext) {
-  let blocksPassed = 0;
-
   ctx.events.on(Events.Finalization, async () => {
-    const firstBlock = ctx.blocks[0].header;
     const lastBlock = last(ctx.blocks)!.header;
 
+    const statistics = await ctx.store.getOrFail(Statistics, network.name);
+
+    const lb = lastBlock;
+    statistics.lastBlock = lb.height;
+    statistics.lastBlockTimestamp = new Date(lb.timestamp);
+
+    const lbL1 = lastBlock;
+    statistics.lastBlockL1 = lbL1.l1BlockNumber;
+    statistics.lastBlockTimestampL1 = new Date(lb.timestamp);
+
     if (blocksPassed > 1000) {
+      const blocks = await ctx.store.find(Block, {
+        where: {
+          timestamp: MoreThanOrEqual(new Date(lastBlock.timestamp - 10 * MINUTE_MS)),
+        },
+        order: { height: 'ASC' },
+      });
+
+      statistics.blockTime = Math.round((10 * MINUTE_MS) / blocks.length);
+      statistics.blockTimeL1 = Math.round(
+        (10 * MINUTE_MS) /
+          blocks.reduce(
+            (r, b) => {
+              if (b.l1BlockNumber > r.last) {
+                r.length += 1;
+                r.last = b.l1BlockNumber;
+              }
+              return r;
+            },
+            { length: 0, last: 0 },
+          ).length,
+      );
+
       const limit = 50_000;
       const offset = 0;
       while (true) {
@@ -194,38 +215,6 @@ function scheduleComplete(ctx: MappingContext) {
       blocksPassed = 0;
     }
     blocksPassed += ctx.blocks.length;
-
-    const statistics = await ctx.store.getOrFail(Statistics, network.name);
-
-    let lastBlockIndex = 0;
-    const diffs: number[] = [];
-
-    let lastBlockIndexL1 = 0;
-    const diffsL1: number[] = [];
-
-    for (let i = 1; i < ctx.blocks.length; i++) {
-      const cur = ctx.blocks[i].header;
-      const prev = ctx.blocks[lastBlockIndex].header;
-      const prevL1 = ctx.blocks[lastBlockIndexL1].header;
-
-      lastBlockIndex = i;
-      diffs.push(cur.timestamp - prev.timestamp);
-
-      if (cur.l1BlockNumber > prevL1.l1BlockNumber) {
-        lastBlockIndexL1 = i;
-        diffsL1.push((cur.timestamp - prevL1.timestamp) / (cur.l1BlockNumber - prev.l1BlockNumber));
-      }
-    }
-
-    const lb = ctx.blocks[lastBlockIndex].header;
-    statistics.lastBlock = lb.height;
-    statistics.lastBlockTimestamp = new Date(lb.timestamp);
-    // statistics.blockTime = diffs.sort((a, b) => a - b)[Math.floor(diffs.length / 2)];
-
-    const lbL1 = ctx.blocks[lastBlockIndexL1].header;
-    statistics.lastBlockL1 = lbL1.l1BlockNumber;
-    statistics.lastBlockTimestampL1 = new Date(lb.timestamp);
-    // statistics.blockTimeL1 = diffsL1.sort((a, b) => a - b)[Math.floor(diffsL1.length / 2)];
 
     await ctx.store.upsert(statistics);
   });
