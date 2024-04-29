@@ -75,6 +75,7 @@ export const handleWorkerRegistered = createHandler({
       });
       await ctx.store.insert(statusChange);
 
+      worker.bond = bond;
       worker.status = statusChange.status;
       await ctx.store.upsert(worker);
 
