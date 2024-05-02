@@ -14,6 +14,7 @@ const client = new HttpClient({
 
 const onlineUpdateInterval = 5 * MINUTE_MS;
 let lastOnlineUpdateTimestamp = -1;
+let lastOnlineUpdateOffest = 0;
 
 type WorkerOnline = {
   peerId: string;
@@ -28,14 +29,17 @@ export function listenOnlineUpdate(ctx: MappingContext) {
   ctx.log.debug(`listening for worker online updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
-    if (block.timestamp - onlineUpdateInterval >= lastOnlineUpdateTimestamp) {
+    if (
+      block.timestamp - onlineUpdateInterval >=
+      lastOnlineUpdateTimestamp + lastOnlineUpdateOffest
+    ) {
       const { timestamp, data }: { timestamp: string; data: WorkerOnline[] } = await client
         .get('/workers/online.json')
         .then((r) => JSON.parse(r));
 
       const snapshotTimestamp = new Date(timestamp).getTime();
       if (snapshotTimestamp === lastOnlineUpdateTimestamp) {
-        lastOnlineUpdateTimestamp += MINUTE_MS;
+        lastOnlineUpdateOffest += MINUTE_MS;
         return;
       }
 
@@ -59,6 +63,7 @@ export function listenOnlineUpdate(ctx: MappingContext) {
       await ctx.store.upsert(activeWorkers);
 
       lastOnlineUpdateTimestamp = snapshotTimestamp;
+      lastOnlineUpdateOffest = 0;
 
       ctx.log.info(
         `workers online of ${activeWorkers.length} updated. ${data?.length} workers online`,
@@ -69,6 +74,7 @@ export function listenOnlineUpdate(ctx: MappingContext) {
 
 const metricsUpdateInterval = 30 * MINUTE_MS;
 let lastMetricsUpdateTimestamp = -1;
+let lastMetricsUpdateOffest = 0;
 
 type WorkerStat = {
   peerId: string;
@@ -86,14 +92,17 @@ export function listenMetricsUpdate(ctx: MappingContext) {
   ctx.log.debug(`listening for worker stats updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
-    if (block.timestamp - metricsUpdateInterval > lastMetricsUpdateTimestamp) {
+    if (
+      block.timestamp - metricsUpdateInterval >
+      lastMetricsUpdateTimestamp + lastMetricsUpdateOffest
+    ) {
       const { timestamp, data }: { timestamp: string; data: WorkerStat[] } = await client
         .get('/workers/stats.json')
         .then((r) => JSON.parse(r));
 
       const snapshotTimestamp = new Date(timestamp).getTime();
       if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
-        lastMetricsUpdateTimestamp += MINUTE_MS;
+        lastMetricsUpdateOffest += MINUTE_MS;
         return;
       }
 
@@ -119,6 +128,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
       await ctx.store.upsert(activeWorkers);
 
       lastMetricsUpdateTimestamp = snapshotTimestamp;
+      lastMetricsUpdateOffest = 0;
 
       ctx.log.info(`workers stats of ${activeWorkers.length} updated`);
     }
@@ -146,7 +156,7 @@ export async function calculateAprs(ctx: MappingContext) {
     where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
   });
 
-  const commitments = await ctx.store.find(Commitment, { take: 30 });
+  const commitments = await ctx.store.find(Commitment, { take: 30, order: { id: 'DESC' } });
 
   for (const worker of activeWorkers) {
     const apr = commitments.reduce(
