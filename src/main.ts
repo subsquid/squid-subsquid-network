@@ -45,11 +45,11 @@ async function mapBlocks(ctx: MappingContext) {
   scheduleComplete(ctx);
 
   scheduleEpochs(ctx);
+  listenRewardsDistributed(ctx);
 
   if (ctx.isHead) {
     listenOnlineUpdate(ctx);
     listenMetricsUpdate(ctx);
-    listenRewardsDistributed(ctx);
   }
 
   ctx.queue.add(() => ctx.events.emit(Events.Initialization));

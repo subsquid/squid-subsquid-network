@@ -24,6 +24,9 @@ export const processor = new EvmBatchProcessor()
     url: assertNotNull(process.env.RPC_ARBITRUM_SEPOLIA_HTTP || process.env.RPC_ENDPOINT),
     rateLimit: 10,
   })
+  .setRpcDataIngestionSettings({
+    newHeadTimeout: 30_000,
+  })
   .setBlockRange(network.range)
   .setFinalityConfirmation(10)
   .setFields({
