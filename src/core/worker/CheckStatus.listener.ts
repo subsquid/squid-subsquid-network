@@ -1,14 +1,19 @@
 import assert from 'assert';
 
 import { MappingContext, Events } from '../../types';
+import { resetWorkerStats } from '../helpers/entities';
 
-import { WorkerStatusChange, WorkerStatus, Worker } from '~/model';
+import { listenUnlockCheck } from './CheckUnlock.listener';
+
+import { network } from '~/config/network';
+import { WorkerStatusChange, WorkerStatus, Worker, Settings } from '~/model';
 
 export function listenStatusCheck(ctx: MappingContext, id: string) {
   const statusDeferred = ctx.store.defer(WorkerStatusChange, {
     id,
     relations: { worker: true },
   });
+  const settingsDefer = ctx.store.defer(Settings, { id: network.name });
 
   const listenerId = `worker-status-check-${id}`;
   ctx.events.off(Events.BlockStart, listenerId);
@@ -32,17 +37,15 @@ export function listenStatusCheck(ctx: MappingContext, id: string) {
       worker.status = statusChange.status;
 
       if (worker.status === WorkerStatus.DEREGISTERED) {
-        worker.storedData = null;
-        worker.queries24Hours = null;
-        worker.queries90Days = null;
-        worker.scannedData24Hours = null;
-        worker.scannedData90Days = null;
-        worker.servedData24Hours = null;
-        worker.servedData90Days = null;
-        worker.uptime24Hours = null;
-        worker.uptime90Days = null;
-        worker.apr = null;
-        worker.stakerApr = null;
+        resetWorkerStats(worker);
+
+        const settings = await settingsDefer.getOrFail();
+
+        if (settings.epochLength) {
+          worker.lockEnd = block.l1BlockNumber + settings.epochLength;
+
+          listenUnlockCheck(ctx, worker.id);
+        }
       }
 
       ctx.log.info(`status of worker(${worker.id}) changed to ${worker.status}`);

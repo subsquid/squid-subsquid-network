@@ -40,6 +40,15 @@ export class Worker {
     @Column_("timestamp with time zone", {nullable: false})
     createdAt!: Date
 
+    @Column_("bool", {nullable: true})
+    locked!: boolean | undefined | null
+
+    @Column_("int4", {nullable: true})
+    lockStart!: number | undefined | null
+
+    @Column_("int4", {nullable: true})
+    lockEnd!: number | undefined | null
+
     @Column_("text", {nullable: true})
     name!: string | undefined | null
 

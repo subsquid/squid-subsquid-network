@@ -10,7 +10,9 @@ import {
   Delegation,
   Settings,
   Worker,
+  WorkerStatus,
 } from '~/model';
+import { WorkerMetadata } from '~/utils/misc';
 
 export function createAccount(id: string, opts?: { owner?: Account; type?: AccountType }) {
   return new Account({
@@ -88,4 +90,62 @@ export function unwrapAccount(account: Account) {
     case AccountType.VESTING:
       return assertNotNull(account.owner);
   }
+}
+export function createWorker(
+  id: string,
+  {
+    owner,
+    realOwner,
+    metadata,
+    peerId,
+    createdAt,
+  }: {
+    owner: Account;
+    realOwner: Account;
+    metadata: WorkerMetadata;
+    peerId: string;
+    createdAt: Date;
+  },
+) {
+  const worker = new Worker({
+    id,
+    bond: 0n,
+    owner,
+    realOwner,
+    peerId,
+    createdAt,
+    claimableReward: 0n,
+    claimedReward: 0n,
+    totalDelegation: 0n,
+    delegationCount: 0,
+    status: WorkerStatus.UNKNOW,
+    locked: null,
+    lockStart: null,
+    lockEnd: null,
+    ...metadata,
+  });
+
+  resetWorkerStats(worker);
+
+  return worker;
+}
+
+export function resetWorkerStats(worker: Worker) {
+  Object.assign(worker, {
+    online: null,
+    dialOk: null,
+    jailed: null,
+    storedData: null,
+    queries24Hours: null,
+    queries90Days: null,
+    scannedData24Hours: null,
+    scannedData90Days: null,
+    servedData24Hours: null,
+    servedData90Days: null,
+    uptime24Hours: null,
+    uptime90Days: null,
+    version: null,
+    apr: null,
+    stakerApr: null,
+  } satisfies Partial<Worker>);
 }

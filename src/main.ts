@@ -10,6 +10,7 @@ import { createEpochId } from './core/helpers/ids';
 import { listenOnlineUpdate, listenMetricsUpdate, listenRewardsDistributed } from './core/metrics';
 import { listenDelegationUnlock } from './core/staking/CheckDelegationUnlock.listener';
 import { listenStatusCheck } from './core/worker/CheckStatus.listener';
+import { listenUnlockCheck } from './core/worker/CheckUnlock.listener';
 import { sortItems } from './item';
 import { Events, MappingContext } from './types';
 import { EventEmitter } from './utils/events';
@@ -120,6 +121,11 @@ function scheduleInit(ctx: MappingContext) {
       order: { blockNumber: 'ASC' },
     });
     pendingStatuses.forEach((s) => listenStatusCheck(ctx, s.id));
+
+    const pendingUnlocks = await ctx.store.find(Worker, {
+      where: { locked: true, lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber) },
+    });
+    pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
 
     const operatorsWithPendingOrLockedStakes = await ctx.store.find(GatewayOperator, {
       where: [

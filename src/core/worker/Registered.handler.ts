@@ -2,6 +2,7 @@ import { assertNotNull } from '@subsquid/evm-processor';
 
 import { isContract, isLog, LogItem } from '../../item';
 import { createHandler } from '../base';
+import { createWorker } from '../helpers/entities';
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids';
 
 import { listenStatusCheck } from './CheckStatus.listener';
@@ -31,10 +32,6 @@ export const handleWorkerRegistered = createHandler({
     });
 
     const workerId = createWorkerId(event.workerId);
-    const workerDeferred = ctx.store.defer(Worker, {
-      id: workerId,
-      relations: { realOwner: true },
-    });
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
@@ -46,24 +43,21 @@ export const handleWorkerRegistered = createHandler({
 
       const owner = await ownerDeferred.getOrFail();
 
-      const worker = await workerDeferred.getOrInsert((id) => {
-        ctx.log.info(`created worker(${id})`);
-
-        return new Worker({
-          id,
-          bond,
-          owner,
-          realOwner: owner.owner ? owner.owner : owner,
-          peerId: parsePeerId(event.peerId),
-          createdAt: new Date(log.block.timestamp),
-          claimableReward: 0n,
-          claimedReward: 0n,
-          totalDelegation: 0n,
-          status: WorkerStatus.UNKNOW,
-          delegationCount: 0,
-          ...metadata,
-        });
+      const worker = createWorker(workerId, {
+        owner,
+        realOwner: owner.owner ? owner.owner : owner,
+        peerId: parsePeerId(event.peerId),
+        createdAt: new Date(log.block.timestamp),
+        metadata,
       });
+
+      ctx.log.info(`registered worker(${worker.id})`);
+
+      worker.bond = bond;
+      worker.locked = true;
+      worker.lockStart = log.block.l1BlockNumber;
+
+      await ctx.store.upsert(worker);
 
       const statusChange = new WorkerStatusChange({
         id: createWorkerStatusId(workerId, log.block.height),
@@ -75,7 +69,6 @@ export const handleWorkerRegistered = createHandler({
       });
       await ctx.store.insert(statusChange);
 
-      worker.bond = bond;
       worker.status = statusChange.status;
       await ctx.store.upsert(worker);
 

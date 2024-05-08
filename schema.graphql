@@ -126,6 +126,10 @@ type Worker
   bond: BigInt!
   createdAt: DateTime!
 
+  locked: Boolean
+  lockStart: Int
+  lockEnd: Int
+
   name: String
   website: String
   email: String
