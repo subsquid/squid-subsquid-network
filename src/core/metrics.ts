@@ -156,7 +156,7 @@ export async function calculateAprs(ctx: MappingContext) {
     where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
   });
 
-  const commitments = await ctx.store.find(Commitment, { take: 30, order: { id: 'DESC' } });
+  const commitments = await ctx.store.find(Commitment, { take: 7, order: { id: 'DESC' } });
 
   for (const worker of activeWorkers) {
     const apr = commitments.reduce(
