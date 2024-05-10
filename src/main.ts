@@ -119,11 +119,13 @@ function scheduleInit(ctx: MappingContext) {
       where: { pending: true, blockNumber: LessThanOrEqual(lastBlock.l1BlockNumber) },
       relations: { worker: true },
       order: { blockNumber: 'ASC' },
+      cache: false,
     });
     pendingStatuses.forEach((s) => listenStatusCheck(ctx, s.id));
 
     const pendingUnlocks = await ctx.store.find(Worker, {
       where: { locked: true, lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      cache: false,
     });
     pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
 
@@ -145,6 +147,7 @@ function scheduleInit(ctx: MappingContext) {
         stake: true,
         pendingStake: true,
       },
+      cache: false,
     });
     operatorsWithPendingOrLockedStakes.forEach((o) => {
       if (o.pendingStake) {
@@ -161,6 +164,7 @@ function scheduleInit(ctx: MappingContext) {
         lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
       },
       order: { lockStart: 'ASC' },
+      cache: false,
     });
     lockedDelegations.forEach((s) => listenDelegationUnlock(ctx, s.id));
   });
@@ -187,6 +191,7 @@ function scheduleComplete(ctx: MappingContext) {
           timestamp: MoreThanOrEqual(new Date(lastBlock.timestamp - 10 * MINUTE_MS)),
         },
         order: { height: 'ASC' },
+        cache: false,
       });
 
       statistics.blockTime = Math.round((10 * MINUTE_MS) / blocks.length);
@@ -212,6 +217,7 @@ function scheduleComplete(ctx: MappingContext) {
           order: { l1BlockNumber: 'ASC' },
           skip: offset,
           take: limit,
+          cache: false,
         });
 
         await ctx.store.remove(batch);

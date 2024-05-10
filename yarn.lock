@@ -129,10 +129,10 @@
   dependencies:
     xss "^1.0.8"
 
-"@belopash/typeorm-store@^1.4.2":
-  version "1.4.2"
-  resolved "https://registry.yarnpkg.com/@belopash/typeorm-store/-/typeorm-store-1.4.2.tgz#34bb32969cda05a25bf1919725f4dbf9d6fbed9a"
-  integrity sha512-skN6FBJ9SDe2ayU4t1o3TwfSsOIziIUJcBvdSnYc5NAuuBpart29yVrJ6wTj1+8dSl7/HHWzQnn+sklq1lJD2w==
+"@belopash/typeorm-store@^1.5.0":
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/@belopash/typeorm-store/-/typeorm-store-1.5.0.tgz#62d8688f9405344ea55253ec4319af074fd8a177"
+  integrity sha512-qK47tuSnxwNhKz5kJNI6oJm002PT0TVYX1FGfIhOTDCuELheGR1grz15tdSF3Tw+8/OP2D9KtT3K9wTWVkHrFg==
   dependencies:
     "@subsquid/logger" "^1.3.3"
     "@subsquid/util-internal" "^3.2.0"
