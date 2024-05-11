@@ -1,350 +1,384 @@
-import * as ethers from 'ethers'
-import {LogEvent, Func, ContractBase} from './abi.support'
-import {ABI_JSON} from './GatewayRegistry.abi'
-
-export const abi = new ethers.Interface(ABI_JSON);
+import * as p from '@subsquid/evm-codec'
+import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
-    AllocatedCUs: new LogEvent<([gateway: string, peerId: string, workerIds: Array<bigint>, shares: Array<bigint>] & {gateway: string, peerId: string, workerIds: Array<bigint>, shares: Array<bigint>})>(
-        abi, '0xa27699da150f8443c51cda13c28a1cbfb78ee3b4055de58197e770999fc23fbd'
-    ),
-    AutoextensionDisabled: new LogEvent<([gatewayOperator: string, lockEnd: bigint] & {gatewayOperator: string, lockEnd: bigint})>(
-        abi, '0x17679fc77cdf7f6b7d2af4cb30497f3e81088fde6fdb20ca48d31372bc2af006'
-    ),
-    AutoextensionEnabled: new LogEvent<([gatewayOperator: string] & {gatewayOperator: string})>(
-        abi, '0xeff5f78e20f1cd92a537c3cdbaeaea11ad293aace5d7262ed93f2f33b42a828f'
-    ),
-    AverageBlockTimeChanged: new LogEvent<([newBlockTime: bigint] & {newBlockTime: bigint})>(
-        abi, '0x46a9c997a4d81c1f992b7ec20e34dfc97c0c67a86dc24f9ff1525718690bead3'
-    ),
-    DefaultStrategyChanged: new LogEvent<([strategy: string] & {strategy: string})>(
-        abi, '0x84e184ce3e506721b995db9e77ad7527e97c83dd04bf98f5830508602bf837ad'
-    ),
-    GatewayAddressChanged: new LogEvent<([gatewayOperator: string, peerId: string, newAddress: string] & {gatewayOperator: string, peerId: string, newAddress: string})>(
-        abi, '0x39cabfa8731da74e931aee9746250190051269d4d0c37ec9fb8276a32b1f6601'
-    ),
-    Initialized: new LogEvent<([version: bigint] & {version: bigint})>(
-        abi, '0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2'
-    ),
-    ManaChanged: new LogEvent<([newCuPerSQD: bigint] & {newCuPerSQD: bigint})>(
-        abi, '0xd48c454cdec818a86733db9fd6353a7b80d423e6a189ecac47703f9b5fa0801b'
-    ),
-    MaxGatewaysPerClusterChanged: new LogEvent<([newAmount: bigint] & {newAmount: bigint})>(
-        abi, '0xf092d674fd06aab53c483be96eb202422ad493b452660e05adfe7f02aca08c1f'
-    ),
-    MetadataChanged: new LogEvent<([gatewayOperator: string, peerId: string, metadata: string] & {gatewayOperator: string, peerId: string, metadata: string})>(
-        abi, '0x512a85d60acb1212e9e49cec8fc20daed3ed43977be6a8db77faf2c859e79e7f'
-    ),
-    MinStakeChanged: new LogEvent<([newAmount: bigint] & {newAmount: bigint})>(
-        abi, '0x4d36185d86b6e1aefe7e3c72bbcf2329ea433a9dc2655a34739abe83a7ce74a0'
-    ),
-    Paused: new LogEvent<([account: string] & {account: string})>(
-        abi, '0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258'
-    ),
-    Registered: new LogEvent<([gatewayOperator: string, id: string, peerId: string] & {gatewayOperator: string, id: string, peerId: string})>(
-        abi, '0xb9c7babb56df9f2da4a30811a6c778e4e68af88b72712d56cf62c5516e20e199'
-    ),
-    RoleAdminChanged: new LogEvent<([role: string, previousAdminRole: string, newAdminRole: string] & {role: string, previousAdminRole: string, newAdminRole: string})>(
-        abi, '0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff'
-    ),
-    RoleGranted: new LogEvent<([role: string, account: string, sender: string] & {role: string, account: string, sender: string})>(
-        abi, '0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d'
-    ),
-    RoleRevoked: new LogEvent<([role: string, account: string, sender: string] & {role: string, account: string, sender: string})>(
-        abi, '0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b'
-    ),
-    Staked: new LogEvent<([gatewayOperator: string, amount: bigint, lockStart: bigint, lockEnd: bigint, computationUnits: bigint] & {gatewayOperator: string, amount: bigint, lockStart: bigint, lockEnd: bigint, computationUnits: bigint})>(
-        abi, '0x85362f63fb0e3050a216decb3a7297e2aaff6cbf5b22583c073118d7efc8a47b'
-    ),
-    StrategyAllowed: new LogEvent<([strategy: string, isAllowed: boolean] & {strategy: string, isAllowed: boolean})>(
-        abi, '0x4e8e4980b101f6a8ebe870c7cf3767fb92422ef0c95a65b5cd750f9fce3c26e0'
-    ),
-    Unpaused: new LogEvent<([account: string] & {account: string})>(
-        abi, '0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa'
-    ),
-    Unregistered: new LogEvent<([gatewayOperator: string, peerId: string] & {gatewayOperator: string, peerId: string})>(
-        abi, '0xa133cd95a0c9cb4f8272f86cd3bb48ba2bf54f982e60bba1618e1286925eddec'
-    ),
-    Unstaked: new LogEvent<([gatewayOperator: string, amount: bigint] & {gatewayOperator: string, amount: bigint})>(
-        abi, '0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75'
-    ),
-    UsedStrategyChanged: new LogEvent<([gatewayOperator: string, strategy: string] & {gatewayOperator: string, strategy: string})>(
-        abi, '0xe31c0bedb29ec4df4a7c3d8d8c0e4ad6bf3648906837d5400d61a94410c5e5bb'
-    ),
+    AllocatedCUs: event("0xa27699da150f8443c51cda13c28a1cbfb78ee3b4055de58197e770999fc23fbd", {"gateway": indexed(p.address), "peerId": p.bytes, "workerIds": p.array(p.uint256), "shares": p.array(p.uint256)}),
+    AutoextensionDisabled: event("0x17679fc77cdf7f6b7d2af4cb30497f3e81088fde6fdb20ca48d31372bc2af006", {"gatewayOperator": indexed(p.address), "lockEnd": p.uint128}),
+    AutoextensionEnabled: event("0xeff5f78e20f1cd92a537c3cdbaeaea11ad293aace5d7262ed93f2f33b42a828f", {"gatewayOperator": indexed(p.address)}),
+    AverageBlockTimeChanged: event("0x46a9c997a4d81c1f992b7ec20e34dfc97c0c67a86dc24f9ff1525718690bead3", {"newBlockTime": p.uint256}),
+    DefaultStrategyChanged: event("0x84e184ce3e506721b995db9e77ad7527e97c83dd04bf98f5830508602bf837ad", {"strategy": indexed(p.address)}),
+    GatewayAddressChanged: event("0x39cabfa8731da74e931aee9746250190051269d4d0c37ec9fb8276a32b1f6601", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "newAddress": p.address}),
+    Initialized: event("0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2", {"version": p.uint64}),
+    ManaChanged: event("0xd48c454cdec818a86733db9fd6353a7b80d423e6a189ecac47703f9b5fa0801b", {"newCuPerSQD": p.uint256}),
+    MaxGatewaysPerClusterChanged: event("0xf092d674fd06aab53c483be96eb202422ad493b452660e05adfe7f02aca08c1f", {"newAmount": p.uint256}),
+    MetadataChanged: event("0x512a85d60acb1212e9e49cec8fc20daed3ed43977be6a8db77faf2c859e79e7f", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "metadata": p.string}),
+    MinStakeChanged: event("0x4d36185d86b6e1aefe7e3c72bbcf2329ea433a9dc2655a34739abe83a7ce74a0", {"newAmount": p.uint256}),
+    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", {"account": p.address}),
+    Registered: event("0xb9c7babb56df9f2da4a30811a6c778e4e68af88b72712d56cf62c5516e20e199", {"gatewayOperator": indexed(p.address), "id": indexed(p.bytes32), "peerId": p.bytes}),
+    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
+    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    Staked: event("0x85362f63fb0e3050a216decb3a7297e2aaff6cbf5b22583c073118d7efc8a47b", {"gatewayOperator": indexed(p.address), "amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "computationUnits": p.uint256}),
+    StrategyAllowed: event("0x4e8e4980b101f6a8ebe870c7cf3767fb92422ef0c95a65b5cd750f9fce3c26e0", {"strategy": indexed(p.address), "isAllowed": p.bool}),
+    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", {"account": p.address}),
+    Unregistered: event("0xa133cd95a0c9cb4f8272f86cd3bb48ba2bf54f982e60bba1618e1286925eddec", {"gatewayOperator": indexed(p.address), "peerId": p.bytes}),
+    Unstaked: event("0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75", {"gatewayOperator": indexed(p.address), "amount": p.uint256}),
+    UsedStrategyChanged: event("0xe31c0bedb29ec4df4a7c3d8d8c0e4ad6bf3648906837d5400d61a94410c5e5bb", {"gatewayOperator": indexed(p.address), "strategy": p.address}),
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: new Func<[], {}, string>(
-        abi, '0xa217fddf'
-    ),
-    PAUSER_ROLE: new Func<[], {}, string>(
-        abi, '0xe63ab1e9'
-    ),
-    addStake: new Func<[amount: bigint], {amount: bigint}, []>(
-        abi, '0xeb4f16b5'
-    ),
-    allocateComputationUnits: new Func<[workerIds: Array<bigint>, cus: Array<bigint>], {workerIds: Array<bigint>, cus: Array<bigint>}, []>(
-        abi, '0xb785a2e6'
-    ),
-    averageBlockTime: new Func<[], {}, bigint>(
-        abi, '0x233dedf1'
-    ),
-    canUnstake: new Func<[operator: string], {operator: string}, boolean>(
-        abi, '0x85f4498b'
-    ),
-    computationUnitsAmount: new Func<[amount: bigint, durationBlocks: bigint], {amount: bigint, durationBlocks: bigint}, bigint>(
-        abi, '0x1c0fa1c8'
-    ),
-    computationUnitsAvailable: new Func<[peerId: string], {peerId: string}, bigint>(
-        abi, '0x44d4bea8'
-    ),
-    defaultStrategy: new Func<[], {}, string>(
-        abi, '0xfac5bb9b'
-    ),
-    disableAutoExtension: new Func<[], {}, []>(
-        abi, '0xe6c7f21b'
-    ),
-    enableAutoExtension: new Func<[], {}, []>(
-        abi, '0x13f117f2'
-    ),
-    gatewayByAddress: new Func<[_: string], {}, string>(
-        abi, '0x429773fb'
-    ),
-    getActiveGateways: new Func<[pageNumber: bigint, perPage: bigint], {pageNumber: bigint, perPage: bigint}, Array<string>>(
-        abi, '0x01a99356'
-    ),
-    getActiveGatewaysCount: new Func<[], {}, bigint>(
-        abi, '0xd87113e5'
-    ),
-    getCluster: new Func<[peerId: string], {peerId: string}, Array<string>>(
-        abi, '0x585a6a6d'
-    ),
-    getGateway: new Func<[peerId: string], {peerId: string}, ([operator: string, ownAddress: string, peerId: string, metadata: string] & {operator: string, ownAddress: string, peerId: string, metadata: string})>(
-        abi, '0xdcefedaf'
-    ),
-    getMetadata: new Func<[peerId: string], {peerId: string}, string>(
-        abi, '0x75734be8'
-    ),
-    getMyGateways: new Func<[operator: string], {operator: string}, Array<string>>(
-        abi, '0x2c17a07f'
-    ),
-    getRoleAdmin: new Func<[role: string], {role: string}, string>(
-        abi, '0x248a9ca3'
-    ),
-    getStake: new Func<[operator: string], {operator: string}, ([amount: bigint, lockStart: bigint, lockEnd: bigint, duration: bigint, autoExtension: boolean, oldCUs: bigint] & {amount: bigint, lockStart: bigint, lockEnd: bigint, duration: bigint, autoExtension: boolean, oldCUs: bigint})>(
-        abi, '0x7a766460'
-    ),
-    getUsedStrategy: new Func<[peerId: string], {peerId: string}, string>(
-        abi, '0x94f3c725'
-    ),
-    grantRole: new Func<[role: string, account: string], {role: string, account: string}, []>(
-        abi, '0x2f2ff15d'
-    ),
-    hasRole: new Func<[role: string, account: string], {role: string, account: string}, boolean>(
-        abi, '0x91d14854'
-    ),
-    initialize: new Func<[_token: string, _router: string], {_token: string, _router: string}, []>(
-        abi, '0x485cc955'
-    ),
-    isStrategyAllowed: new Func<[strategy: string], {strategy: string}, boolean>(
-        abi, '0x67c1def9'
-    ),
-    mana: new Func<[], {}, bigint>(
-        abi, '0xbdb001a7'
-    ),
-    maxGatewaysPerCluster: new Func<[], {}, bigint>(
-        abi, '0xbc9c0e62'
-    ),
-    minStake: new Func<[], {}, bigint>(
-        abi, '0x375b3c0a'
-    ),
-    pause: new Func<[], {}, []>(
-        abi, '0x8456cb59'
-    ),
-    paused: new Func<[], {}, boolean>(
-        abi, '0x5c975abb'
-    ),
-    'register(bytes)': new Func<[peerId: string], {peerId: string}, []>(
-        abi, '0x82fbdc9c'
-    ),
-    'register(bytes,string,address)': new Func<[peerId: string, metadata: string, gatewayAddress: string], {peerId: string, metadata: string, gatewayAddress: string}, []>(
-        abi, '0x876ab349'
-    ),
-    'register(bytes,string)': new Func<[peerId: string, metadata: string], {peerId: string, metadata: string}, []>(
-        abi, '0x92255fbf'
-    ),
-    'register(bytes[],string[],address[])': new Func<[peerId: Array<string>, metadata: Array<string>, gatewayAddress: Array<string>], {peerId: Array<string>, metadata: Array<string>, gatewayAddress: Array<string>}, []>(
-        abi, '0xb1a7e279'
-    ),
-    renounceRole: new Func<[role: string, callerConfirmation: string], {role: string, callerConfirmation: string}, []>(
-        abi, '0x36568abe'
-    ),
-    revokeRole: new Func<[role: string, account: string], {role: string, account: string}, []>(
-        abi, '0xd547741f'
-    ),
-    router: new Func<[], {}, string>(
-        abi, '0xf887ea40'
-    ),
-    setAverageBlockTime: new Func<[_newAverageBlockTime: bigint], {_newAverageBlockTime: bigint}, []>(
-        abi, '0x3736d853'
-    ),
-    setGatewayAddress: new Func<[peerId: string, newAddress: string], {peerId: string, newAddress: string}, []>(
-        abi, '0xdacfab0d'
-    ),
-    setIsStrategyAllowed: new Func<[strategy: string, isAllowed: boolean, isDefault: boolean], {strategy: string, isAllowed: boolean, isDefault: boolean}, []>(
-        abi, '0x017a02c3'
-    ),
-    setMana: new Func<[_newMana: bigint], {_newMana: bigint}, []>(
-        abi, '0x0def8b8a'
-    ),
-    setMaxGatewaysPerCluster: new Func<[_maxGatewaysPerCluster: bigint], {_maxGatewaysPerCluster: bigint}, []>(
-        abi, '0x3abcf38c'
-    ),
-    setMetadata: new Func<[peerId: string, metadata: string], {peerId: string, metadata: string}, []>(
-        abi, '0x0fe9fb66'
-    ),
-    setMinStake: new Func<[_minStake: bigint], {_minStake: bigint}, []>(
-        abi, '0x8c80fd90'
-    ),
-    'stake(uint256,uint128)': new Func<[amount: bigint, durationBlocks: bigint], {amount: bigint, durationBlocks: bigint}, []>(
-        abi, '0x7acfc9e2'
-    ),
-    'stake(uint256,uint128,bool)': new Func<[amount: bigint, durationBlocks: bigint, withAutoExtension: boolean], {amount: bigint, durationBlocks: bigint, withAutoExtension: boolean}, []>(
-        abi, '0xe3fa31ed'
-    ),
-    staked: new Func<[operator: string], {operator: string}, bigint>(
-        abi, '0x98807d84'
-    ),
-    supportsInterface: new Func<[interfaceId: string], {interfaceId: string}, boolean>(
-        abi, '0x01ffc9a7'
-    ),
-    token: new Func<[], {}, string>(
-        abi, '0xfc0c546a'
-    ),
-    unpause: new Func<[], {}, []>(
-        abi, '0x3f4ba83a'
-    ),
-    'unregister(bytes)': new Func<[peerId: string], {peerId: string}, []>(
-        abi, '0x27d6c032'
-    ),
-    'unregister(bytes[])': new Func<[peerId: Array<string>], {peerId: Array<string>}, []>(
-        abi, '0xf586857a'
-    ),
-    unstake: new Func<[], {}, []>(
-        abi, '0x2def6620'
-    ),
-    useStrategy: new Func<[strategy: string], {strategy: string}, []>(
-        abi, '0xb8050a5d'
-    ),
+    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
+    PAUSER_ROLE: fun("0xe63ab1e9", {}, p.bytes32),
+    addStake: fun("0xeb4f16b5", {"amount": p.uint256}, ),
+    allocateComputationUnits: fun("0xb785a2e6", {"workerIds": p.array(p.uint256), "cus": p.array(p.uint256)}, ),
+    averageBlockTime: fun("0x233dedf1", {}, p.uint256),
+    canUnstake: fun("0x85f4498b", {"operator": p.address}, p.bool),
+    computationUnitsAmount: fun("0x1c0fa1c8", {"amount": p.uint256, "durationBlocks": p.uint256}, p.uint256),
+    computationUnitsAvailable: fun("0x44d4bea8", {"peerId": p.bytes}, p.uint256),
+    defaultStrategy: fun("0xfac5bb9b", {}, p.address),
+    disableAutoExtension: fun("0xe6c7f21b", {}, ),
+    enableAutoExtension: fun("0x13f117f2", {}, ),
+    gatewayByAddress: fun("0x429773fb", {"_0": p.address}, p.bytes32),
+    getActiveGateways: fun("0x01a99356", {"pageNumber": p.uint256, "perPage": p.uint256}, p.array(p.bytes)),
+    getActiveGatewaysCount: fun("0xd87113e5", {}, p.uint256),
+    getCluster: fun("0x585a6a6d", {"peerId": p.bytes}, p.array(p.bytes)),
+    getGateway: fun("0xdcefedaf", {"peerId": p.bytes}, p.struct({"operator": p.address, "ownAddress": p.address, "peerId": p.bytes, "metadata": p.string})),
+    getMetadata: fun("0x75734be8", {"peerId": p.bytes}, p.string),
+    getMyGateways: fun("0x2c17a07f", {"operator": p.address}, p.array(p.bytes)),
+    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    getStake: fun("0x7a766460", {"operator": p.address}, p.struct({"amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "duration": p.uint128, "autoExtension": p.bool, "oldCUs": p.uint256})),
+    getUsedStrategy: fun("0x94f3c725", {"peerId": p.bytes}, p.address),
+    grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
+    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    initialize: fun("0x485cc955", {"_token": p.address, "_router": p.address}, ),
+    isStrategyAllowed: fun("0x67c1def9", {"strategy": p.address}, p.bool),
+    mana: fun("0xbdb001a7", {}, p.uint256),
+    maxGatewaysPerCluster: fun("0xbc9c0e62", {}, p.uint256),
+    minStake: fun("0x375b3c0a", {}, p.uint256),
+    pause: fun("0x8456cb59", {}, ),
+    paused: fun("0x5c975abb", {}, p.bool),
+    "register(bytes)": fun("0x82fbdc9c", {"peerId": p.bytes}, ),
+    "register(bytes,string,address)": fun("0x876ab349", {"peerId": p.bytes, "metadata": p.string, "gatewayAddress": p.address}, ),
+    "register(bytes,string)": fun("0x92255fbf", {"peerId": p.bytes, "metadata": p.string}, ),
+    "register(bytes[],string[],address[])": fun("0xb1a7e279", {"peerId": p.array(p.bytes), "metadata": p.array(p.string), "gatewayAddress": p.array(p.address)}, ),
+    renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
+    revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
+    router: fun("0xf887ea40", {}, p.address),
+    setAverageBlockTime: fun("0x3736d853", {"_newAverageBlockTime": p.uint256}, ),
+    setGatewayAddress: fun("0xdacfab0d", {"peerId": p.bytes, "newAddress": p.address}, ),
+    setIsStrategyAllowed: fun("0x017a02c3", {"strategy": p.address, "isAllowed": p.bool, "isDefault": p.bool}, ),
+    setMana: fun("0x0def8b8a", {"_newMana": p.uint256}, ),
+    setMaxGatewaysPerCluster: fun("0x3abcf38c", {"_maxGatewaysPerCluster": p.uint256}, ),
+    setMetadata: fun("0x0fe9fb66", {"peerId": p.bytes, "metadata": p.string}, ),
+    setMinStake: fun("0x8c80fd90", {"_minStake": p.uint256}, ),
+    "stake(uint256,uint128)": fun("0x7acfc9e2", {"amount": p.uint256, "durationBlocks": p.uint128}, ),
+    "stake(uint256,uint128,bool)": fun("0xe3fa31ed", {"amount": p.uint256, "durationBlocks": p.uint128, "withAutoExtension": p.bool}, ),
+    staked: fun("0x98807d84", {"operator": p.address}, p.uint256),
+    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    token: fun("0xfc0c546a", {}, p.address),
+    unpause: fun("0x3f4ba83a", {}, ),
+    "unregister(bytes)": fun("0x27d6c032", {"peerId": p.bytes}, ),
+    "unregister(bytes[])": fun("0xf586857a", {"peerId": p.array(p.bytes)}, ),
+    unstake: fun("0x2def6620", {}, ),
+    useStrategy: fun("0xb8050a5d", {"strategy": p.address}, ),
 }
 
 export class Contract extends ContractBase {
 
-    DEFAULT_ADMIN_ROLE(): Promise<string> {
-        return this.eth_call(functions.DEFAULT_ADMIN_ROLE, [])
+    DEFAULT_ADMIN_ROLE() {
+        return this.eth_call(functions.DEFAULT_ADMIN_ROLE, {})
     }
 
-    PAUSER_ROLE(): Promise<string> {
-        return this.eth_call(functions.PAUSER_ROLE, [])
+    PAUSER_ROLE() {
+        return this.eth_call(functions.PAUSER_ROLE, {})
     }
 
-    averageBlockTime(): Promise<bigint> {
-        return this.eth_call(functions.averageBlockTime, [])
+    averageBlockTime() {
+        return this.eth_call(functions.averageBlockTime, {})
     }
 
-    canUnstake(operator: string): Promise<boolean> {
-        return this.eth_call(functions.canUnstake, [operator])
+    canUnstake(operator: CanUnstakeParams["operator"]) {
+        return this.eth_call(functions.canUnstake, {operator})
     }
 
-    computationUnitsAmount(amount: bigint, durationBlocks: bigint): Promise<bigint> {
-        return this.eth_call(functions.computationUnitsAmount, [amount, durationBlocks])
+    computationUnitsAmount(amount: ComputationUnitsAmountParams["amount"], durationBlocks: ComputationUnitsAmountParams["durationBlocks"]) {
+        return this.eth_call(functions.computationUnitsAmount, {amount, durationBlocks})
     }
 
-    computationUnitsAvailable(peerId: string): Promise<bigint> {
-        return this.eth_call(functions.computationUnitsAvailable, [peerId])
+    computationUnitsAvailable(peerId: ComputationUnitsAvailableParams["peerId"]) {
+        return this.eth_call(functions.computationUnitsAvailable, {peerId})
     }
 
-    defaultStrategy(): Promise<string> {
-        return this.eth_call(functions.defaultStrategy, [])
+    defaultStrategy() {
+        return this.eth_call(functions.defaultStrategy, {})
     }
 
-    gatewayByAddress(arg0: string): Promise<string> {
-        return this.eth_call(functions.gatewayByAddress, [arg0])
+    gatewayByAddress(_0: GatewayByAddressParams["_0"]) {
+        return this.eth_call(functions.gatewayByAddress, {_0})
     }
 
-    getActiveGateways(pageNumber: bigint, perPage: bigint): Promise<Array<string>> {
-        return this.eth_call(functions.getActiveGateways, [pageNumber, perPage])
+    getActiveGateways(pageNumber: GetActiveGatewaysParams["pageNumber"], perPage: GetActiveGatewaysParams["perPage"]) {
+        return this.eth_call(functions.getActiveGateways, {pageNumber, perPage})
     }
 
-    getActiveGatewaysCount(): Promise<bigint> {
-        return this.eth_call(functions.getActiveGatewaysCount, [])
+    getActiveGatewaysCount() {
+        return this.eth_call(functions.getActiveGatewaysCount, {})
     }
 
-    getCluster(peerId: string): Promise<Array<string>> {
-        return this.eth_call(functions.getCluster, [peerId])
+    getCluster(peerId: GetClusterParams["peerId"]) {
+        return this.eth_call(functions.getCluster, {peerId})
     }
 
-    getGateway(peerId: string): Promise<([operator: string, ownAddress: string, peerId: string, metadata: string] & {operator: string, ownAddress: string, peerId: string, metadata: string})> {
-        return this.eth_call(functions.getGateway, [peerId])
+    getGateway(peerId: GetGatewayParams["peerId"]) {
+        return this.eth_call(functions.getGateway, {peerId})
     }
 
-    getMetadata(peerId: string): Promise<string> {
-        return this.eth_call(functions.getMetadata, [peerId])
+    getMetadata(peerId: GetMetadataParams["peerId"]) {
+        return this.eth_call(functions.getMetadata, {peerId})
     }
 
-    getMyGateways(operator: string): Promise<Array<string>> {
-        return this.eth_call(functions.getMyGateways, [operator])
+    getMyGateways(operator: GetMyGatewaysParams["operator"]) {
+        return this.eth_call(functions.getMyGateways, {operator})
     }
 
-    getRoleAdmin(role: string): Promise<string> {
-        return this.eth_call(functions.getRoleAdmin, [role])
+    getRoleAdmin(role: GetRoleAdminParams["role"]) {
+        return this.eth_call(functions.getRoleAdmin, {role})
     }
 
-    getStake(operator: string): Promise<([amount: bigint, lockStart: bigint, lockEnd: bigint, duration: bigint, autoExtension: boolean, oldCUs: bigint] & {amount: bigint, lockStart: bigint, lockEnd: bigint, duration: bigint, autoExtension: boolean, oldCUs: bigint})> {
-        return this.eth_call(functions.getStake, [operator])
+    getStake(operator: GetStakeParams["operator"]) {
+        return this.eth_call(functions.getStake, {operator})
     }
 
-    getUsedStrategy(peerId: string): Promise<string> {
-        return this.eth_call(functions.getUsedStrategy, [peerId])
+    getUsedStrategy(peerId: GetUsedStrategyParams["peerId"]) {
+        return this.eth_call(functions.getUsedStrategy, {peerId})
     }
 
-    hasRole(role: string, account: string): Promise<boolean> {
-        return this.eth_call(functions.hasRole, [role, account])
+    hasRole(role: HasRoleParams["role"], account: HasRoleParams["account"]) {
+        return this.eth_call(functions.hasRole, {role, account})
     }
 
-    isStrategyAllowed(strategy: string): Promise<boolean> {
-        return this.eth_call(functions.isStrategyAllowed, [strategy])
+    isStrategyAllowed(strategy: IsStrategyAllowedParams["strategy"]) {
+        return this.eth_call(functions.isStrategyAllowed, {strategy})
     }
 
-    mana(): Promise<bigint> {
-        return this.eth_call(functions.mana, [])
+    mana() {
+        return this.eth_call(functions.mana, {})
     }
 
-    maxGatewaysPerCluster(): Promise<bigint> {
-        return this.eth_call(functions.maxGatewaysPerCluster, [])
+    maxGatewaysPerCluster() {
+        return this.eth_call(functions.maxGatewaysPerCluster, {})
     }
 
-    minStake(): Promise<bigint> {
-        return this.eth_call(functions.minStake, [])
+    minStake() {
+        return this.eth_call(functions.minStake, {})
     }
 
-    paused(): Promise<boolean> {
-        return this.eth_call(functions.paused, [])
+    paused() {
+        return this.eth_call(functions.paused, {})
     }
 
-    router(): Promise<string> {
-        return this.eth_call(functions.router, [])
+    router() {
+        return this.eth_call(functions.router, {})
     }
 
-    staked(operator: string): Promise<bigint> {
-        return this.eth_call(functions.staked, [operator])
+    staked(operator: StakedParams["operator"]) {
+        return this.eth_call(functions.staked, {operator})
     }
 
-    supportsInterface(interfaceId: string): Promise<boolean> {
-        return this.eth_call(functions.supportsInterface, [interfaceId])
+    supportsInterface(interfaceId: SupportsInterfaceParams["interfaceId"]) {
+        return this.eth_call(functions.supportsInterface, {interfaceId})
     }
 
-    token(): Promise<string> {
-        return this.eth_call(functions.token, [])
+    token() {
+        return this.eth_call(functions.token, {})
     }
 }
+
+/// Event types
+export type AllocatedCUsEventArgs = EParams<typeof events.AllocatedCUs>
+export type AutoextensionDisabledEventArgs = EParams<typeof events.AutoextensionDisabled>
+export type AutoextensionEnabledEventArgs = EParams<typeof events.AutoextensionEnabled>
+export type AverageBlockTimeChangedEventArgs = EParams<typeof events.AverageBlockTimeChanged>
+export type DefaultStrategyChangedEventArgs = EParams<typeof events.DefaultStrategyChanged>
+export type GatewayAddressChangedEventArgs = EParams<typeof events.GatewayAddressChanged>
+export type InitializedEventArgs = EParams<typeof events.Initialized>
+export type ManaChangedEventArgs = EParams<typeof events.ManaChanged>
+export type MaxGatewaysPerClusterChangedEventArgs = EParams<typeof events.MaxGatewaysPerClusterChanged>
+export type MetadataChangedEventArgs = EParams<typeof events.MetadataChanged>
+export type MinStakeChangedEventArgs = EParams<typeof events.MinStakeChanged>
+export type PausedEventArgs = EParams<typeof events.Paused>
+export type RegisteredEventArgs = EParams<typeof events.Registered>
+export type RoleAdminChangedEventArgs = EParams<typeof events.RoleAdminChanged>
+export type RoleGrantedEventArgs = EParams<typeof events.RoleGranted>
+export type RoleRevokedEventArgs = EParams<typeof events.RoleRevoked>
+export type StakedEventArgs = EParams<typeof events.Staked>
+export type StrategyAllowedEventArgs = EParams<typeof events.StrategyAllowed>
+export type UnpausedEventArgs = EParams<typeof events.Unpaused>
+export type UnregisteredEventArgs = EParams<typeof events.Unregistered>
+export type UnstakedEventArgs = EParams<typeof events.Unstaked>
+export type UsedStrategyChangedEventArgs = EParams<typeof events.UsedStrategyChanged>
+
+/// Function types
+export type DEFAULT_ADMIN_ROLEParams = FunctionArguments<typeof functions.DEFAULT_ADMIN_ROLE>
+export type DEFAULT_ADMIN_ROLEReturn = FunctionReturn<typeof functions.DEFAULT_ADMIN_ROLE>
+
+export type PAUSER_ROLEParams = FunctionArguments<typeof functions.PAUSER_ROLE>
+export type PAUSER_ROLEReturn = FunctionReturn<typeof functions.PAUSER_ROLE>
+
+export type AddStakeParams = FunctionArguments<typeof functions.addStake>
+export type AddStakeReturn = FunctionReturn<typeof functions.addStake>
+
+export type AllocateComputationUnitsParams = FunctionArguments<typeof functions.allocateComputationUnits>
+export type AllocateComputationUnitsReturn = FunctionReturn<typeof functions.allocateComputationUnits>
+
+export type AverageBlockTimeParams = FunctionArguments<typeof functions.averageBlockTime>
+export type AverageBlockTimeReturn = FunctionReturn<typeof functions.averageBlockTime>
+
+export type CanUnstakeParams = FunctionArguments<typeof functions.canUnstake>
+export type CanUnstakeReturn = FunctionReturn<typeof functions.canUnstake>
+
+export type ComputationUnitsAmountParams = FunctionArguments<typeof functions.computationUnitsAmount>
+export type ComputationUnitsAmountReturn = FunctionReturn<typeof functions.computationUnitsAmount>
+
+export type ComputationUnitsAvailableParams = FunctionArguments<typeof functions.computationUnitsAvailable>
+export type ComputationUnitsAvailableReturn = FunctionReturn<typeof functions.computationUnitsAvailable>
+
+export type DefaultStrategyParams = FunctionArguments<typeof functions.defaultStrategy>
+export type DefaultStrategyReturn = FunctionReturn<typeof functions.defaultStrategy>
+
+export type DisableAutoExtensionParams = FunctionArguments<typeof functions.disableAutoExtension>
+export type DisableAutoExtensionReturn = FunctionReturn<typeof functions.disableAutoExtension>
+
+export type EnableAutoExtensionParams = FunctionArguments<typeof functions.enableAutoExtension>
+export type EnableAutoExtensionReturn = FunctionReturn<typeof functions.enableAutoExtension>
+
+export type GatewayByAddressParams = FunctionArguments<typeof functions.gatewayByAddress>
+export type GatewayByAddressReturn = FunctionReturn<typeof functions.gatewayByAddress>
+
+export type GetActiveGatewaysParams = FunctionArguments<typeof functions.getActiveGateways>
+export type GetActiveGatewaysReturn = FunctionReturn<typeof functions.getActiveGateways>
+
+export type GetActiveGatewaysCountParams = FunctionArguments<typeof functions.getActiveGatewaysCount>
+export type GetActiveGatewaysCountReturn = FunctionReturn<typeof functions.getActiveGatewaysCount>
+
+export type GetClusterParams = FunctionArguments<typeof functions.getCluster>
+export type GetClusterReturn = FunctionReturn<typeof functions.getCluster>
+
+export type GetGatewayParams = FunctionArguments<typeof functions.getGateway>
+export type GetGatewayReturn = FunctionReturn<typeof functions.getGateway>
+
+export type GetMetadataParams = FunctionArguments<typeof functions.getMetadata>
+export type GetMetadataReturn = FunctionReturn<typeof functions.getMetadata>
+
+export type GetMyGatewaysParams = FunctionArguments<typeof functions.getMyGateways>
+export type GetMyGatewaysReturn = FunctionReturn<typeof functions.getMyGateways>
+
+export type GetRoleAdminParams = FunctionArguments<typeof functions.getRoleAdmin>
+export type GetRoleAdminReturn = FunctionReturn<typeof functions.getRoleAdmin>
+
+export type GetStakeParams = FunctionArguments<typeof functions.getStake>
+export type GetStakeReturn = FunctionReturn<typeof functions.getStake>
+
+export type GetUsedStrategyParams = FunctionArguments<typeof functions.getUsedStrategy>
+export type GetUsedStrategyReturn = FunctionReturn<typeof functions.getUsedStrategy>
+
+export type GrantRoleParams = FunctionArguments<typeof functions.grantRole>
+export type GrantRoleReturn = FunctionReturn<typeof functions.grantRole>
+
+export type HasRoleParams = FunctionArguments<typeof functions.hasRole>
+export type HasRoleReturn = FunctionReturn<typeof functions.hasRole>
+
+export type InitializeParams = FunctionArguments<typeof functions.initialize>
+export type InitializeReturn = FunctionReturn<typeof functions.initialize>
+
+export type IsStrategyAllowedParams = FunctionArguments<typeof functions.isStrategyAllowed>
+export type IsStrategyAllowedReturn = FunctionReturn<typeof functions.isStrategyAllowed>
+
+export type ManaParams = FunctionArguments<typeof functions.mana>
+export type ManaReturn = FunctionReturn<typeof functions.mana>
+
+export type MaxGatewaysPerClusterParams = FunctionArguments<typeof functions.maxGatewaysPerCluster>
+export type MaxGatewaysPerClusterReturn = FunctionReturn<typeof functions.maxGatewaysPerCluster>
+
+export type MinStakeParams = FunctionArguments<typeof functions.minStake>
+export type MinStakeReturn = FunctionReturn<typeof functions.minStake>
+
+export type PauseParams = FunctionArguments<typeof functions.pause>
+export type PauseReturn = FunctionReturn<typeof functions.pause>
+
+export type PausedParams = FunctionArguments<typeof functions.paused>
+export type PausedReturn = FunctionReturn<typeof functions.paused>
+
+export type RegisterParams_0 = FunctionArguments<typeof functions["register(bytes)"]>
+export type RegisterReturn_0 = FunctionReturn<typeof functions["register(bytes)"]>
+
+export type RegisterParams_1 = FunctionArguments<typeof functions["register(bytes,string,address)"]>
+export type RegisterReturn_1 = FunctionReturn<typeof functions["register(bytes,string,address)"]>
+
+export type RegisterParams_2 = FunctionArguments<typeof functions["register(bytes,string)"]>
+export type RegisterReturn_2 = FunctionReturn<typeof functions["register(bytes,string)"]>
+
+export type RegisterParams_3 = FunctionArguments<typeof functions["register(bytes[],string[],address[])"]>
+export type RegisterReturn_3 = FunctionReturn<typeof functions["register(bytes[],string[],address[])"]>
+
+export type RenounceRoleParams = FunctionArguments<typeof functions.renounceRole>
+export type RenounceRoleReturn = FunctionReturn<typeof functions.renounceRole>
+
+export type RevokeRoleParams = FunctionArguments<typeof functions.revokeRole>
+export type RevokeRoleReturn = FunctionReturn<typeof functions.revokeRole>
+
+export type RouterParams = FunctionArguments<typeof functions.router>
+export type RouterReturn = FunctionReturn<typeof functions.router>
+
+export type SetAverageBlockTimeParams = FunctionArguments<typeof functions.setAverageBlockTime>
+export type SetAverageBlockTimeReturn = FunctionReturn<typeof functions.setAverageBlockTime>
+
+export type SetGatewayAddressParams = FunctionArguments<typeof functions.setGatewayAddress>
+export type SetGatewayAddressReturn = FunctionReturn<typeof functions.setGatewayAddress>
+
+export type SetIsStrategyAllowedParams = FunctionArguments<typeof functions.setIsStrategyAllowed>
+export type SetIsStrategyAllowedReturn = FunctionReturn<typeof functions.setIsStrategyAllowed>
+
+export type SetManaParams = FunctionArguments<typeof functions.setMana>
+export type SetManaReturn = FunctionReturn<typeof functions.setMana>
+
+export type SetMaxGatewaysPerClusterParams = FunctionArguments<typeof functions.setMaxGatewaysPerCluster>
+export type SetMaxGatewaysPerClusterReturn = FunctionReturn<typeof functions.setMaxGatewaysPerCluster>
+
+export type SetMetadataParams = FunctionArguments<typeof functions.setMetadata>
+export type SetMetadataReturn = FunctionReturn<typeof functions.setMetadata>
+
+export type SetMinStakeParams = FunctionArguments<typeof functions.setMinStake>
+export type SetMinStakeReturn = FunctionReturn<typeof functions.setMinStake>
+
+export type StakeParams_0 = FunctionArguments<typeof functions["stake(uint256,uint128)"]>
+export type StakeReturn_0 = FunctionReturn<typeof functions["stake(uint256,uint128)"]>
+
+export type StakeParams_1 = FunctionArguments<typeof functions["stake(uint256,uint128,bool)"]>
+export type StakeReturn_1 = FunctionReturn<typeof functions["stake(uint256,uint128,bool)"]>
+
+export type StakedParams = FunctionArguments<typeof functions.staked>
+export type StakedReturn = FunctionReturn<typeof functions.staked>
+
+export type SupportsInterfaceParams = FunctionArguments<typeof functions.supportsInterface>
+export type SupportsInterfaceReturn = FunctionReturn<typeof functions.supportsInterface>
+
+export type TokenParams = FunctionArguments<typeof functions.token>
+export type TokenReturn = FunctionReturn<typeof functions.token>
+
+export type UnpauseParams = FunctionArguments<typeof functions.unpause>
+export type UnpauseReturn = FunctionReturn<typeof functions.unpause>
+
+export type UnregisterParams_0 = FunctionArguments<typeof functions["unregister(bytes)"]>
+export type UnregisterReturn_0 = FunctionReturn<typeof functions["unregister(bytes)"]>
+
+export type UnregisterParams_1 = FunctionArguments<typeof functions["unregister(bytes[])"]>
+export type UnregisterReturn_1 = FunctionReturn<typeof functions["unregister(bytes[])"]>
+
+export type UnstakeParams = FunctionArguments<typeof functions.unstake>
+export type UnstakeReturn = FunctionReturn<typeof functions.unstake>
+
+export type UseStrategyParams = FunctionArguments<typeof functions.useStrategy>
+export type UseStrategyReturn = FunctionReturn<typeof functions.useStrategy>
+

@@ -10,9 +10,9 @@ mkdir "./abi";
 pnpm -C ${contracts_dir} install
 pnpm -C ${contracts_dir} build
 
-aliases=( [DistributedRewardsDistribution]=DistributedRewardDistribution )
+aliases=( [DistributedRewardsDistribution]=DistributedRewardDistribution [SubsquidVesting]=Vesting )
 
-for contract in "WorkerRegistration" "SQD" "Staking" "NetworkController" "RewardTreasury" "VestingFactory" "DistributedRewardsDistribution" "GatewayRegistry"; do
+for contract in "WorkerRegistration" "SQD" "Staking" "NetworkController" "RewardTreasury" "VestingFactory" "DistributedRewardsDistribution" "GatewayRegistry" "SubsquidVesting"; do
     folder=${aliases[$contract]:-$contract}
     cat "${contracts_dir}/packages/contracts/artifacts/$folder.sol/$contract.json" | jq -r .abi > "./abi/$contract.json";
 done;

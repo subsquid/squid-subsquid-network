@@ -16,8 +16,12 @@ import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import * as NetworkController from '~/abi/NetworkController';
 import * as SQD from '~/abi/SQD';
 import * as Staking from '~/abi/Staking';
+import * as Vesting from '~/abi/SubsquidVesting';
 import * as VestingFactory from '~/abi/VestingFactory';
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
+import { loadVestings } from '~/utils/loaders';
+
+const vestings = loadVestings();
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
@@ -82,6 +86,20 @@ export const processor = new EvmBatchProcessor()
       GatewayRegistry.events.Unstaked.topic,
       GatewayRegistry.events.MetadataChanged.topic,
     ],
+  })
+  .addLog({
+    address: vestings?.addresses,
+    topic0: [Vesting.events.OwnershipTransferred.topic],
+    range: {
+      from: 0,
+      to: vestings?.height,
+    },
+  })
+  .addLog({
+    topic0: [Vesting.events.OwnershipTransferred.topic],
+    range: {
+      from: vestings?.height ?? 0,
+    },
   });
 
 if (process.env.GATEWAY_URL) {

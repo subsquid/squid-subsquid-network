@@ -4,6 +4,8 @@
 /node_modules
 /subsquid-network-contracts
 /abi
+/tools
+/scripts
 
 .env
 .env.*

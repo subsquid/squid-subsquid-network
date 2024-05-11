@@ -173,9 +173,12 @@ export async function calculateAprs(ctx: MappingContext) {
       { worker: 0, staker: 0, count: 0 },
     );
 
-    if (apr.count) {
+    if (apr.count > 0) {
       worker.apr = apr.worker / apr.count;
       worker.stakerApr = worker.delegationCount > 0 ? apr.staker / apr.count : null;
+    } else {
+      worker.apr = null;
+      worker.stakerApr = null;
     }
   }
 
