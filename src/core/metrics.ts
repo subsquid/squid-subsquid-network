@@ -8,9 +8,11 @@ import { WorkerStatus, Worker, WorkerReward, Commitment, WorkerDayUptime } from 
 import { toPercent } from '~/utils/misc';
 import { DAY_MS, MINUTE_MS, toEndOfDay, toStartOfDay } from '~/utils/time';
 
-const client = new HttpClient({
-  baseUrl: process.env.NETWORK_STATS_URL,
-});
+const client = process.env.NETWORK_STATS_URL
+  ? new HttpClient({
+      baseUrl: process.env.NETWORK_STATS_URL,
+    })
+  : undefined;
 
 const onlineUpdateInterval = 5 * MINUTE_MS;
 let lastOnlineUpdateTimestamp = -1;
@@ -26,6 +28,8 @@ type WorkerOnline = {
 };
 
 export function listenOnlineUpdate(ctx: MappingContext) {
+  if (!client) return;
+
   ctx.log.debug(`listening for worker online updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
@@ -91,6 +95,8 @@ type WorkerStat = {
 };
 
 export function listenMetricsUpdate(ctx: MappingContext) {
+  if (!client) return;
+
   ctx.log.debug(`listening for worker stats updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
@@ -141,7 +147,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
             }
 
             if (t === to) {
-              uptime = uptime / ((snapshotTimestamp - to - 20 * MINUTE_MS) / DAY_MS);
+              uptime = uptime / ((snapshotTimestamp - to - 1) / DAY_MS);
             }
 
             worker.dayUptimes.push(

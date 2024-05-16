@@ -8,7 +8,11 @@ import { Account, AccountType, Delegation, Worker } from '~/model';
 
 export const handleVestingTransfered = createHandler({
   filter(_, item): item is LogItem {
-    return isLog(item) && Vesting.events.OwnershipTransferred.is(item.value);
+    return (
+      isLog(item) &&
+      Vesting.events.OwnershipTransferred.is(item.value) &&
+      item.value.topics.length === 3
+    );
   },
   handle(ctx, { value: log }) {
     const { newOwner } = Vesting.events.OwnershipTransferred.decode(log);
