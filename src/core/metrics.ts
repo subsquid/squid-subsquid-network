@@ -147,7 +147,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
             }
 
             if (t === to) {
-              uptime = uptime / ((snapshotTimestamp - to - 1) / DAY_MS);
+              uptime = uptime / ((snapshotTimestamp - to - MINUTE_MS) / DAY_MS);
             }
 
             worker.dayUptimes.push(
