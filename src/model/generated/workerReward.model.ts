@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 
 @Entity_()
@@ -11,20 +10,20 @@ export class WorkerReward {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     blockNumber!: number
 
     @Index_()
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     timestamp!: Date
 
     @Index_()
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     amount!: bigint
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     stakersReward!: bigint
 }

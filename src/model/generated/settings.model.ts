@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Settings {
@@ -10,12 +9,12 @@ export class Settings {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: true})
+    @BigIntColumn_({nullable: true})
     bondAmount!: bigint | undefined | null
 
-    @Column_("numeric", {transformer: marshal.floatTransformer, nullable: false})
+    @FloatColumn_({nullable: false})
     delegationLimitCoefficient!: number
 
-    @Column_("int4", {nullable: true})
+    @IntColumn_({nullable: true})
     epochLength!: number | undefined | null
 }

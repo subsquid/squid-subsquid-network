@@ -1,12 +1,12 @@
 import { HttpClient } from '@subsquid/http-client';
-import { keyBy } from 'lodash';
+import { keyBy, last } from 'lodash';
 import { In } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
 
-import { WorkerStatus, Worker, WorkerReward, Commitment } from '~/model';
+import { WorkerStatus, Worker, WorkerReward, Commitment, WorkerDayUptime } from '~/model';
 import { toPercent } from '~/utils/misc';
-import { MINUTE_MS } from '~/utils/time';
+import { DAY_MS, MINUTE_MS, toEndOfDay, toStartOfDay } from '~/utils/time';
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,
@@ -22,7 +22,7 @@ type WorkerOnline = {
   lastDialOk: boolean;
   storedBytes: string;
   version: string;
-  jailedReason: string;
+  jailReason: string;
 };
 
 export function listenOnlineUpdate(ctx: MappingContext) {
@@ -58,6 +58,7 @@ export function listenOnlineUpdate(ctx: MappingContext) {
         worker.dialOk = data ? data.lastDialOk : null;
         worker.storedData = data ? BigInt(data.storedBytes) : null;
         worker.version = data ? data.version : null;
+        worker.jailReason = data ? data.jailReason : null;
       }
 
       await ctx.store.upsert(activeWorkers);
@@ -86,6 +87,7 @@ type WorkerStat = {
   responseBytes90Days: string;
   readChunks90Days: string;
   queryCount90Days: string;
+  dayUptimes: [date: string, uptime: number][];
 };
 
 export function listenMetricsUpdate(ctx: MappingContext) {
@@ -114,15 +116,48 @@ export function listenMetricsUpdate(ctx: MappingContext) {
       for (const worker of activeWorkers) {
         const data = workersStats[worker.peerId];
 
-        worker.uptime90Days = data ? toPercent(data.uptime90Days) : 0;
         worker.servedData90Days = data ? BigInt(data.responseBytes90Days) : 0n;
         worker.scannedData90Days = data ? BigInt(data.readChunks90Days) : 0n;
         worker.queries90Days = data ? BigInt(data.queryCount90Days) : 0n;
 
-        worker.uptime24Hours = data ? toPercent(data.uptime24Hours) : 0;
         worker.servedData24Hours = data ? BigInt(data.responseBytes24Hours) : 0n;
         worker.scannedData24Hours = data ? BigInt(data.readChunks24Hours) : 0n;
         worker.queries24Hours = data ? BigInt(data.queryCount24Hours) : 0n;
+
+        if (data?.dayUptimes) {
+          const dayUptimes = keyBy(data.dayUptimes, ([date]) => new Date(date).getTime());
+
+          worker.dayUptimes = [];
+
+          const createdTimestamp = worker.createdAt.getTime();
+          const from = toStartOfDay(createdTimestamp);
+          const to = toStartOfDay(snapshotTimestamp);
+
+          for (let t = from; t <= to; t += DAY_MS) {
+            let uptime = dayUptimes[t]?.[1] ?? 0;
+
+            if (t === from) {
+              uptime = uptime / ((t + DAY_MS - createdTimestamp) / DAY_MS);
+            }
+
+            if (t === to) {
+              uptime = uptime / ((snapshotTimestamp - to - 20 * MINUTE_MS) / DAY_MS);
+            }
+
+            worker.dayUptimes.push(
+              new WorkerDayUptime({ timestamp: new Date(t), uptime: toPercent(uptime) }),
+            );
+          }
+
+          worker.uptime24Hours = last(worker.dayUptimes)?.uptime ?? null;
+          worker.uptime90Days = worker.dayUptimes
+            .slice(-90)
+            .reduce((s, i, _, arr) => s + i.uptime / arr.length, 0);
+        } else {
+          worker.dayUptimes = null;
+          worker.uptime24Hours = null;
+          worker.uptime90Days = null;
+        }
       }
 
       await ctx.store.upsert(activeWorkers);

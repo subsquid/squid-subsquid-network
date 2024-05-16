@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {Gateway} from "./gateway.model"
 import {GatewayStatus} from "./_gatewayStatus"
 
@@ -18,9 +18,9 @@ export class GatewayStatusChange {
     @Column_("varchar", {length: 12, nullable: false})
     status!: GatewayStatus
 
-    @Column_("timestamp with time zone", {nullable: true})
+    @DateTimeColumn_({nullable: true})
     timestamp!: Date | undefined | null
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     blockNumber!: number
 }

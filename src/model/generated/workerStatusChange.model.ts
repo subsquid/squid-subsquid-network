@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {WorkerStatus} from "./_workerStatus"
 
@@ -18,12 +18,12 @@ export class WorkerStatusChange {
     @Column_("varchar", {length: 13, nullable: false})
     status!: WorkerStatus
 
-    @Column_("timestamp with time zone", {nullable: true})
+    @DateTimeColumn_({nullable: true})
     timestamp!: Date | undefined | null
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     blockNumber!: number
 
-    @Column_("bool", {nullable: false})
+    @BooleanColumn_({nullable: false})
     pending!: boolean
 }

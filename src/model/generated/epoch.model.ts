@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 import {EpochStatus} from "./_epochStatus"
 
 @Entity_()
@@ -10,24 +10,24 @@ export class Epoch {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     number!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     start!: number
 
-    @Column_("timestamp with time zone", {nullable: true})
+    @DateTimeColumn_({nullable: true})
     startedAt!: Date | undefined | null
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     end!: number
 
-    @Column_("timestamp with time zone", {nullable: true})
+    @DateTimeColumn_({nullable: true})
     endedAt!: Date | undefined | null
 
     @Column_("varchar", {length: 7, nullable: false})
     status!: EpochStatus
 
-    @Column_("text", {array: true, nullable: true})
+    @StringColumn_({array: true, nullable: true})
     activeWorkerIds!: (string)[] | undefined | null
 }

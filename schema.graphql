@@ -113,6 +113,11 @@ enum WorkerStatus {
   UNKNOW
 }
 
+type WorkerDayUptime {
+  timestamp: DateTime!
+  uptime: Float!
+}
+
 type Worker
   @entity
   @index(fields: ["id", "createdAt", "status"])
@@ -154,6 +159,7 @@ type Worker
   online: Boolean @index
   dialOk: Boolean
   jailed: Boolean
+  jailReason: String
 
   version: String
 
@@ -171,6 +177,7 @@ type Worker
   uptime24Hours: Float
   uptime90Days: Float
 
+  dayUptimes: [WorkerDayUptime!]
   snapshots: [WorkerSnapshot!] @derivedFrom(field: "worker")
 }
 

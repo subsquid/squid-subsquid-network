@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_, OneToOne as OneToOne_} from "@subsquid/typeorm-store"
 import {AccountType} from "./_accountType"
 import {AccountTransfer} from "./accountTransfer.model"
 import {Transfer} from "./transfer.model"
@@ -22,7 +21,7 @@ export class Account {
     @Column_("varchar", {length: 7, nullable: false})
     type!: AccountType
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     balance!: bigint
 
     @Index_()
@@ -47,12 +46,14 @@ export class Account {
     @OneToMany_(() => Delegation, e => e.realOwner)
     delegations!: Delegation[]
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     claimableDelegationCount!: number
 
     @OneToMany_(() => Claim, e => e.account)
     claims!: Claim[]
 
+    @OneToOne_(() => GatewayOperator, e => e.account)
+    gatewayOperator!: GatewayOperator | undefined | null
 
     @OneToMany_(() => Gateway, e => e.owner)
     gateways!: Gateway[]

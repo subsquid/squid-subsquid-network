@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, OneToMany as OneToMany_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_, BooleanColumn as BooleanColumn_, IntColumn as IntColumn_, OneToMany as OneToMany_} from "@subsquid/typeorm-store"
 import {Account} from "./account.model"
 import {Worker} from "./worker.model"
 import {DelegationReward} from "./delegationReward.model"
@@ -30,25 +29,25 @@ export class Delegation {
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     deposit!: bigint
 
-    @Column_("bool", {nullable: true})
+    @BooleanColumn_({nullable: true})
     locked!: boolean | undefined | null
 
-    @Column_("int4", {nullable: true})
+    @IntColumn_({nullable: true})
     lockStart!: number | undefined | null
 
-    @Column_("int4", {nullable: true})
+    @IntColumn_({nullable: true})
     lockEnd!: number | undefined | null
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     claimableReward!: bigint
 
     @OneToMany_(() => DelegationReward, e => e.delegation)
     rewards!: DelegationReward[]
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     claimedReward!: bigint
 
     @OneToMany_(() => Claim, e => e.delegation)

@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Statistics {
@@ -9,27 +9,27 @@ export class Statistics {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("int4", {nullable: true})
+    @IntColumn_({nullable: true})
     currentEpoch!: number | undefined | null
 
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     lastSnapshotTimestamp!: Date
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     blockTime!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     lastBlock!: number
 
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     lastBlockTimestamp!: Date
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     blockTimeL1!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     lastBlockL1!: number
 
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     lastBlockTimestampL1!: Date
 }

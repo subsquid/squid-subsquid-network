@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
 import {GatewayOperator} from "./gatewayOperator.model"
 import {Account} from "./account.model"
 import {GatewayStatus} from "./_gatewayStatus"
@@ -13,7 +13,7 @@ export class Gateway {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     createdAt!: Date
 
     @Index_()
@@ -30,18 +30,18 @@ export class Gateway {
     @OneToMany_(() => GatewayStatusChange, e => e.gateway)
     statusHistory!: GatewayStatusChange[]
 
-    @Column_("text", {nullable: true})
+    @StringColumn_({nullable: true})
     name!: string | undefined | null
 
-    @Column_("text", {nullable: true})
+    @StringColumn_({nullable: true})
     website!: string | undefined | null
 
-    @Column_("text", {nullable: true})
+    @StringColumn_({nullable: true})
     email!: string | undefined | null
 
-    @Column_("text", {nullable: true})
+    @StringColumn_({nullable: true})
     description!: string | undefined | null
 
-    @Column_("text", {nullable: true})
+    @StringColumn_({nullable: true})
     endpointUrl!: string | undefined | null
 }

@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {Epoch} from "./epoch.model"
 
@@ -16,10 +15,10 @@ export class WorkerSnapshot {
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
-    @Column_("timestamp with time zone", {nullable: false})
+    @DateTimeColumn_({nullable: false})
     timestamp!: Date
 
-    @Column_("numeric", {transformer: marshal.floatTransformer, nullable: false})
+    @FloatColumn_({nullable: false})
     uptime!: number
 
     @Index_()

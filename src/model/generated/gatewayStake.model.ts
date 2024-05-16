@@ -1,5 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "typeorm"
-import * as marshal from "./marshal"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 import {GatewayOperator} from "./gatewayOperator.model"
 import {Account} from "./account.model"
 
@@ -12,7 +11,7 @@ export class GatewayStake {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     index!: number
 
     @Index_()
@@ -23,18 +22,18 @@ export class GatewayStake {
     @ManyToOne_(() => Account, {nullable: true})
     owner!: Account
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     amount!: bigint
 
-    @Column_("numeric", {transformer: marshal.bigintTransformer, nullable: false})
+    @BigIntColumn_({nullable: false})
     computationUnits!: bigint
 
-    @Column_("bool", {nullable: false})
+    @BooleanColumn_({nullable: false})
     locked!: boolean
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     lockStart!: number
 
-    @Column_("int4", {nullable: false})
+    @IntColumn_({nullable: false})
     lockEnd!: number
 }

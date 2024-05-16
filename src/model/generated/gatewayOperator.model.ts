@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, OneToOne as OneToOne_, Index as Index_, JoinColumn as JoinColumn_, OneToMany as OneToMany_, ManyToOne as ManyToOne_} from "typeorm"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, OneToOne as OneToOne_, Index as Index_, JoinColumn as JoinColumn_, BooleanColumn as BooleanColumn_, OneToMany as OneToMany_, ManyToOne as ManyToOne_} from "@subsquid/typeorm-store"
 import {Account} from "./account.model"
 import {Gateway} from "./gateway.model"
 import {GatewayStake} from "./gatewayStake.model"
@@ -17,7 +17,7 @@ export class GatewayOperator {
     @JoinColumn_()
     account!: Account
 
-    @Column_("bool", {nullable: false})
+    @BooleanColumn_({nullable: false})
     autoExtension!: boolean
 
     @OneToMany_(() => Gateway, e => e.operator)

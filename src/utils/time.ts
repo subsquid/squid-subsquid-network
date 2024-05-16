@@ -16,6 +16,14 @@ export function toStartOfDay(timestamp: number) {
   return toStartOfInterval(timestamp, DAY_MS);
 }
 
+export function toEndOfDay(timestamp: number) {
+  return toEndOfInterval(timestamp, DAY_MS);
+}
+
 export function toStartOfInterval(timestamp: number, interval: number) {
   return Math.floor(timestamp / interval) * interval;
+}
+
+export function toEndOfInterval(timestamp: number, interval: number) {
+  return toStartOfInterval(timestamp + interval, interval) - 1;
 }
