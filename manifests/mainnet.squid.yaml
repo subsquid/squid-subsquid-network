@@ -20,7 +20,7 @@ deploy:
     VESTING_FACTORY_CONTRACT_ADDRESS: "0x1f8f83cd76baeca1cb5c064ad59203c82b4e4ece"
     GATEWAY_REGISTRY_CONTRACT_ADDRESS: "0x8a90a1ce5fa8cf71de9e6f76b7d3c0b72feb8c4b"
     RANGE_FROM: 194_120_655
-    # NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
+    NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
   processor:
     cmd:
       - sqd
