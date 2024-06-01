@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -20,38 +20,38 @@ export const events = {
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: fun("0xe63ab1e9", {}, p.bytes32),
-    REWARDS_DISTRIBUTOR_ROLE: fun("0xc34c2289", {}, p.bytes32),
-    REWARDS_TREASURY_ROLE: fun("0xb5b06781", {}, p.bytes32),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
+    REWARDS_DISTRIBUTOR_ROLE: viewFun("0xc34c2289", {}, p.bytes32),
+    REWARDS_TREASURY_ROLE: viewFun("0xb5b06781", {}, p.bytes32),
     addDistributor: fun("0x7250e224", {"distributor": p.address}, ),
-    alreadyApproved: fun("0x406e3090", {"commitment": p.bytes32, "distributor": p.address}, p.bool),
+    alreadyApproved: viewFun("0x406e3090", {"commitment": p.bytes32, "distributor": p.address}, p.bool),
     approve: fun("0x565b756a", {"fromBlock": p.uint256, "toBlock": p.uint256, "recipients": p.array(p.uint256), "workerRewards": p.array(p.uint256), "_stakerRewards": p.array(p.uint256)}, ),
-    approves: fun("0x773b68c9", {"fromBlock": p.uint256, "toBlock": p.uint256}, p.uint8),
-    canApprove: fun("0x42bef350", {"who": p.address, "fromBlock": p.uint256, "toBlock": p.uint256, "recipients": p.array(p.uint256), "workerRewards": p.array(p.uint256), "_stakerRewards": p.array(p.uint256)}, p.bool),
-    canCommit: fun("0xb278e358", {"who": p.address}, p.bool),
+    approves: viewFun("0x773b68c9", {"fromBlock": p.uint256, "toBlock": p.uint256}, p.uint8),
+    canApprove: viewFun("0x42bef350", {"who": p.address, "fromBlock": p.uint256, "toBlock": p.uint256, "recipients": p.array(p.uint256), "workerRewards": p.array(p.uint256), "_stakerRewards": p.array(p.uint256)}, p.bool),
+    canCommit: viewFun("0xb278e358", {"who": p.address}, p.bool),
     claim: fun("0x1e83409a", {"who": p.address}, p.uint256),
-    claimable: fun("0x402914f5", {"who": p.address}, p.uint256),
+    claimable: viewFun("0x402914f5", {"who": p.address}, p.uint256),
     commit: fun("0x6957bc60", {"fromBlock": p.uint256, "toBlock": p.uint256, "recipients": p.array(p.uint256), "workerRewards": p.array(p.uint256), "_stakerRewards": p.array(p.uint256)}, ),
-    commitments: fun("0xd13e2e60", {"fromBlock": p.uint256, "toBlock": p.uint256}, p.bytes32),
-    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    commitments: viewFun("0xd13e2e60", {"fromBlock": p.uint256, "toBlock": p.uint256}, p.bytes32),
+    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    lastBlockRewarded: fun("0xeadf1f39", {}, p.uint256),
+    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    lastBlockRewarded: viewFun("0xeadf1f39", {}, p.uint256),
     pause: fun("0x8456cb59", {}, ),
-    paused: fun("0x5c975abb", {}, p.bool),
+    paused: viewFun("0x5c975abb", {}, p.bool),
     removeDistributor: fun("0x57c1f9e2", {"distributor": p.address}, ),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
-    requiredApproves: fun("0x75ddfa41", {}, p.uint256),
+    requiredApproves: viewFun("0x75ddfa41", {}, p.uint256),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    roundRobinBlocks: fun("0x75a32da6", {}, p.uint256),
-    router: fun("0xf887ea40", {}, p.address),
+    roundRobinBlocks: viewFun("0x75a32da6", {}, p.uint256),
+    router: viewFun("0xf887ea40", {}, p.address),
     setApprovesRequired: fun("0x6a0bb81c", {"_approvesRequired": p.uint256}, ),
     setRoundRobinBlocks: fun("0x0d6cf7b0", {"_roundRobinBlocks": p.uint256}, ),
     setWindowSize: fun("0xaaabc315", {"_windowSize": p.uint256}, ),
-    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
     unpause: fun("0x3f4ba83a", {}, ),
-    windowSize: fun("0x8a14117a", {}, p.uint256),
+    windowSize: viewFun("0x8a14117a", {}, p.uint256),
 }
 
 export class Contract extends ContractBase {

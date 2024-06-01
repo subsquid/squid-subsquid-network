@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -8,15 +8,15 @@ export const events = {
 }
 
 export const functions = {
-    allowance: fun("0xdd62ed3e", {"owner": p.address, "spender": p.address}, p.uint256),
+    allowance: viewFun("0xdd62ed3e", {"owner": p.address, "spender": p.address}, p.uint256),
     approve: fun("0x095ea7b3", {"spender": p.address, "value": p.uint256}, p.bool),
-    balanceOf: fun("0x70a08231", {"account": p.address}, p.uint256),
-    decimals: fun("0x313ce567", {}, p.uint8),
-    isArbitrumEnabled: fun("0x8e5f5ad1", {}, p.uint8),
-    name: fun("0x06fdde03", {}, p.string),
+    balanceOf: viewFun("0x70a08231", {"account": p.address}, p.uint256),
+    decimals: viewFun("0x313ce567", {}, p.uint8),
+    isArbitrumEnabled: viewFun("0x8e5f5ad1", {}, p.uint8),
+    name: viewFun("0x06fdde03", {}, p.string),
     registerTokenOnL2: fun("0xfc792d8e", {"l2CustomTokenAddress": p.address, "maxSubmissionCostForCustomGateway": p.uint256, "maxSubmissionCostForRouter": p.uint256, "maxGasForCustomGateway": p.uint256, "maxGasForRouter": p.uint256, "gasPriceBid": p.uint256, "valueForGateway": p.uint256, "valueForRouter": p.uint256, "creditBackAddress": p.address}, ),
-    symbol: fun("0x95d89b41", {}, p.string),
-    totalSupply: fun("0x18160ddd", {}, p.uint256),
+    symbol: viewFun("0x95d89b41", {}, p.string),
+    totalSupply: viewFun("0x18160ddd", {}, p.uint256),
     transfer: fun("0xa9059cbb", {"to": p.address, "value": p.uint256}, p.bool),
     transferFrom: fun("0x23b872dd", {"from": p.address, "to": p.address, "value": p.uint256}, p.bool),
 }

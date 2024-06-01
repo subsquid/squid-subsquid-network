@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -13,23 +13,23 @@ export const events = {
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: fun("0xe63ab1e9", {}, p.bytes32),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
     claim: fun("0x1e83409a", {"rewardDistribution": p.address}, ),
     claimFor: fun("0xb4ba9e11", {"rewardDistribution": p.address, "receiver": p.address}, ),
-    claimable: fun("0xd4570c1c", {"rewardDistribution": p.address, "sender": p.address}, p.uint256),
-    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    claimable: viewFun("0xd4570c1c", {"rewardDistribution": p.address, "sender": p.address}, p.uint256),
+    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    isWhitelistedDistributor: fun("0xcbccc3e0", {"_0": p.address}, p.bool),
+    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    isWhitelistedDistributor: viewFun("0xcbccc3e0", {"_0": p.address}, p.bool),
     pause: fun("0x8456cb59", {}, ),
-    paused: fun("0x5c975abb", {}, p.bool),
+    paused: viewFun("0x5c975abb", {}, p.bool),
     reclaimFunds: fun("0xcce4bd52", {}, ),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    rewardToken: fun("0xf7c618c1", {}, p.address),
+    rewardToken: viewFun("0xf7c618c1", {}, p.address),
     setWhitelistedDistributor: fun("0xb53c69b6", {"distributor": p.address, "isWhitelisted": p.bool}, ),
-    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
     unpause: fun("0x3f4ba83a", {}, ),
 }
 

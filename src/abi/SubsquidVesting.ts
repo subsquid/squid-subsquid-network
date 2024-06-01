@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -9,28 +9,28 @@ export const events = {
 }
 
 export const functions = {
-    SQD: fun("0x6aa54679", {}, p.address),
-    balanceOf: fun("0x70a08231", {"token": p.address}, p.uint256),
-    depositedIntoProtocol: fun("0x23144c82", {}, p.uint256),
-    duration: fun("0x0fb5a6b4", {}, p.uint256),
-    end: fun("0xefbe1c1c", {}, p.uint256),
+    SQD: viewFun("0x6aa54679", {}, p.address),
+    balanceOf: viewFun("0x70a08231", {"token": p.address}, p.uint256),
+    depositedIntoProtocol: viewFun("0x23144c82", {}, p.uint256),
+    duration: viewFun("0x0fb5a6b4", {}, p.uint256),
+    end: viewFun("0xefbe1c1c", {}, p.uint256),
     "execute(address,bytes)": fun("0x1cff79cd", {"to": p.address, "data": p.bytes}, ),
     "execute(address,bytes,uint256)": fun("0xa04a0908", {"to": p.address, "data": p.bytes, "requiredApprove": p.uint256}, p.bytes),
-    expectedTotalAmount: fun("0xa7190da5", {}, p.uint256),
-    immediateReleaseBIP: fun("0xd13d0f2c", {}, p.uint256),
-    owner: fun("0x8da5cb5b", {}, p.address),
-    "releasable(address)": fun("0xa3f8eace", {"token": p.address}, p.uint256),
-    "releasable()": fun("0xfbccedae", {}, p.uint256),
+    expectedTotalAmount: viewFun("0xa7190da5", {}, p.uint256),
+    immediateReleaseBIP: viewFun("0xd13d0f2c", {}, p.uint256),
+    owner: viewFun("0x8da5cb5b", {}, p.address),
+    "releasable(address)": viewFun("0xa3f8eace", {"token": p.address}, p.uint256),
+    "releasable()": viewFun("0xfbccedae", {}, p.uint256),
     "release(address)": fun("0x19165587", {"token": p.address}, ),
     "release()": fun("0x86d1a69f", {}, ),
-    "released()": fun("0x96132521", {}, p.uint256),
-    "released(address)": fun("0x9852595c", {"token": p.address}, p.uint256),
+    "released()": viewFun("0x96132521", {}, p.uint256),
+    "released(address)": viewFun("0x9852595c", {"token": p.address}, p.uint256),
     renounceOwnership: fun("0x715018a6", {}, ),
-    router: fun("0xf887ea40", {}, p.address),
-    start: fun("0xbe9a6555", {}, p.uint256),
+    router: viewFun("0xf887ea40", {}, p.address),
+    start: viewFun("0xbe9a6555", {}, p.uint256),
     transferOwnership: fun("0xf2fde38b", {"newOwner": p.address}, ),
-    "vestedAmount(uint64)": fun("0x0a17b06b", {"timestamp": p.uint64}, p.uint256),
-    "vestedAmount(address,uint64)": fun("0x810ec23b", {"token": p.address, "timestamp": p.uint64}, p.uint256),
+    "vestedAmount(uint64)": viewFun("0x0a17b06b", {"timestamp": p.uint64}, p.uint256),
+    "vestedAmount(address,uint64)": viewFun("0x810ec23b", {"token": p.address, "timestamp": p.uint64}, p.uint256),
 }
 
 export class Contract extends ContractBase {

@@ -3,23 +3,29 @@ import { createHandler } from '../base';
 import { createAccount } from '../helpers/entities';
 import { createAccountId } from '../helpers/ids';
 
+import { LogRecord } from '~/abi/abi.support';
+import * as TemporaryHoldingFactory from '~/abi/TemporaryHoldingFactory';
 import * as VestingFactory from '~/abi/VestingFactory';
 import { network } from '~/config/network';
 import { Account, AccountType } from '~/model';
 
 export const handleVestingCreated = createHandler({
   filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.VestingFactory) &&
-      isLog(item) &&
-      VestingFactory.events.VestingCreated.is(item.value)
-    );
+    if (!isLog(item)) return false;
+
+    switch (item.address) {
+      case network.contracts.VestingFactory:
+        return VestingFactory.events.VestingCreated.is(item.value);
+      case network.contracts.TemporaryHoldingFactory:
+        return TemporaryHoldingFactory.events.TemporaryHoldingCreated.is(item.value);
+      default:
+        return false;
+    }
   },
   handle(ctx, { value: log }) {
-    const { vesting: vestingAddress, beneficiary } =
-      VestingFactory.events.VestingCreated.decode(log);
+    const { vestingAddress, beneficiaryAddress } = decode(log);
 
-    const ownerDeferred = ctx.store.defer(Account, createAccountId(beneficiary));
+    const ownerDeferred = ctx.store.defer(Account, createAccountId(beneficiaryAddress));
     const vestingDeferred = ctx.store.defer(Account, {
       id: createAccountId(vestingAddress),
       relations: { owner: true },
@@ -46,3 +52,25 @@ export const handleVestingCreated = createHandler({
     });
   },
 });
+
+function decode(log: LogRecord & { address: string }) {
+  switch (log.address) {
+    case network.contracts.VestingFactory: {
+      const { beneficiary, vesting } = VestingFactory.events.VestingCreated.decode(log);
+      return {
+        vestingAddress: vesting,
+        beneficiaryAddress: beneficiary,
+      };
+    }
+    case network.contracts.TemporaryHoldingFactory: {
+      const { beneficiaryAddress, vesting } =
+        TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(log);
+      return {
+        vestingAddress: vesting,
+        beneficiaryAddress,
+      };
+    }
+    default:
+      throw new Error(`Unexpected contract ${log.address}`);
+  }
+}

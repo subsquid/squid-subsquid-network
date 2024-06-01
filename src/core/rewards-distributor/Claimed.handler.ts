@@ -11,7 +11,7 @@ import { Claim, ClaimType, Worker } from '~/model';
 export const handleClaimed = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.RewardsDistibution) &&
+      isContract(item, network.contracts.RewardsDistribution) &&
       isLog(item) &&
       RewardsDistribution.events.Claimed.is(item.value)
     );

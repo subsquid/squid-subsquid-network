@@ -27,7 +27,7 @@ import { DAY_MS, YEAR_MS } from '~/utils/time';
 export const handleDistributed = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.RewardsDistibution) &&
+      isContract(item, network.contracts.RewardsDistribution) &&
       isLog(item) &&
       RewardsDistribution.events.Distributed.is(item.value)
     );

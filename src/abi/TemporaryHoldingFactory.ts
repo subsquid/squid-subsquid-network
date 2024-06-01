@@ -7,15 +7,15 @@ export const events = {
     RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
     RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
     RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    TemporaryHoldingCreated: event("0x0af217c229254446678a1941f87be7df0426ce9e6d5fa96622f67149ae4072f5", {"vesting": indexed(p.address), "beneficiaryAddress": indexed(p.address), "admin": indexed(p.address), "unlockTimestamp": p.uint64, "expectedTotalAmount": p.uint256}),
     Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", {"account": p.address}),
-    VestingCreated: event("0xba477ae50ac3a59d5a6eadd2b0775d90074a7d6bc7a737f2ae874e66dab607f1", {"vesting": indexed(p.address), "beneficiary": indexed(p.address), "startTimestamp": p.uint64, "durationSeconds": p.uint64, "expectedTotalAmount": p.uint256}),
 }
 
 export const functions = {
     DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    HOLDING_CREATOR_ROLE: viewFun("0x93703201", {}, p.bytes32),
     PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
-    VESTING_CREATOR_ROLE: viewFun("0xe9a7fb54", {}, p.bytes32),
-    createVesting: fun("0xc623c479", {"beneficiaryAddress": p.address, "startTimestamp": p.uint64, "durationSeconds": p.uint64, "immediateReleaseBIP": p.uint256, "expectedTotalAmount": p.uint256}, p.address),
+    createTemporaryHolding: fun("0x870541ce", {"beneficiaryAddress": p.address, "admin": p.address, "unlockTimestamp": p.uint64, "expectedTotalAmount": p.uint256}, p.address),
     getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
     hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
@@ -35,12 +35,12 @@ export class Contract extends ContractBase {
         return this.eth_call(functions.DEFAULT_ADMIN_ROLE, {})
     }
 
-    PAUSER_ROLE() {
-        return this.eth_call(functions.PAUSER_ROLE, {})
+    HOLDING_CREATOR_ROLE() {
+        return this.eth_call(functions.HOLDING_CREATOR_ROLE, {})
     }
 
-    VESTING_CREATOR_ROLE() {
-        return this.eth_call(functions.VESTING_CREATOR_ROLE, {})
+    PAUSER_ROLE() {
+        return this.eth_call(functions.PAUSER_ROLE, {})
     }
 
     getRoleAdmin(role: GetRoleAdminParams["role"]) {
@@ -73,21 +73,21 @@ export type PausedEventArgs = EParams<typeof events.Paused>
 export type RoleAdminChangedEventArgs = EParams<typeof events.RoleAdminChanged>
 export type RoleGrantedEventArgs = EParams<typeof events.RoleGranted>
 export type RoleRevokedEventArgs = EParams<typeof events.RoleRevoked>
+export type TemporaryHoldingCreatedEventArgs = EParams<typeof events.TemporaryHoldingCreated>
 export type UnpausedEventArgs = EParams<typeof events.Unpaused>
-export type VestingCreatedEventArgs = EParams<typeof events.VestingCreated>
 
 /// Function types
 export type DEFAULT_ADMIN_ROLEParams = FunctionArguments<typeof functions.DEFAULT_ADMIN_ROLE>
 export type DEFAULT_ADMIN_ROLEReturn = FunctionReturn<typeof functions.DEFAULT_ADMIN_ROLE>
 
+export type HOLDING_CREATOR_ROLEParams = FunctionArguments<typeof functions.HOLDING_CREATOR_ROLE>
+export type HOLDING_CREATOR_ROLEReturn = FunctionReturn<typeof functions.HOLDING_CREATOR_ROLE>
+
 export type PAUSER_ROLEParams = FunctionArguments<typeof functions.PAUSER_ROLE>
 export type PAUSER_ROLEReturn = FunctionReturn<typeof functions.PAUSER_ROLE>
 
-export type VESTING_CREATOR_ROLEParams = FunctionArguments<typeof functions.VESTING_CREATOR_ROLE>
-export type VESTING_CREATOR_ROLEReturn = FunctionReturn<typeof functions.VESTING_CREATOR_ROLE>
-
-export type CreateVestingParams = FunctionArguments<typeof functions.createVesting>
-export type CreateVestingReturn = FunctionReturn<typeof functions.createVesting>
+export type CreateTemporaryHoldingParams = FunctionArguments<typeof functions.createTemporaryHolding>
+export type CreateTemporaryHoldingReturn = FunctionReturn<typeof functions.createTemporaryHolding>
 
 export type GetRoleAdminParams = FunctionArguments<typeof functions.getRoleAdmin>
 export type GetRoleAdminReturn = FunctionReturn<typeof functions.getRoleAdmin>

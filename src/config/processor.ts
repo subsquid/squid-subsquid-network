@@ -17,6 +17,7 @@ import * as NetworkController from '~/abi/NetworkController';
 import * as SQD from '~/abi/SQD';
 import * as Staking from '~/abi/Staking';
 import * as Vesting from '~/abi/SubsquidVesting';
+import * as TemporaryHoldingFactory from '~/abi/TemporaryHoldingFactory';
 import * as VestingFactory from '~/abi/VestingFactory';
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { loadVestings } from '~/utils/loaders';
@@ -74,7 +75,11 @@ export const processor = new EvmBatchProcessor()
     topic0: [VestingFactory.events.VestingCreated.topic],
   })
   .addLog({
-    address: [network.contracts.RewardsDistibution],
+    address: [network.contracts.TemporaryHoldingFactory],
+    topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
+  })
+  .addLog({
+    address: [network.contracts.RewardsDistribution],
     topic0: [RewardsDistibution.events.Claimed.topic, RewardsDistibution.events.Distributed.topic],
   })
   .addLog({

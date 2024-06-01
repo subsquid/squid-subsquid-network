@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -16,16 +16,16 @@ export const events = {
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
-    bondAmount: fun("0x80f323a7", {}, p.uint256),
-    epochLength: fun("0x57d775f8", {}, p.uint128),
-    epochNumber: fun("0xf4145a83", {}, p.uint128),
-    firstEpochBlock: fun("0x578e2a85", {}, p.uint128),
-    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    bondAmount: viewFun("0x80f323a7", {}, p.uint256),
+    epochLength: viewFun("0x57d775f8", {}, p.uint128),
+    epochNumber: viewFun("0xf4145a83", {}, p.uint128),
+    firstEpochBlock: viewFun("0x578e2a85", {}, p.uint128),
+    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    isAllowedVestedTarget: fun("0x9425d1f4", {"_0": p.address}, p.bool),
-    nextEpoch: fun("0xaea0e78b", {}, p.uint128),
+    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    isAllowedVestedTarget: viewFun("0x9425d1f4", {"_0": p.address}, p.bool),
+    nextEpoch: viewFun("0xaea0e78b", {}, p.uint128),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
     setAllowedVestedTarget: fun("0x02ac6b6c", {"target": p.address, "isAllowed": p.bool}, ),
@@ -35,11 +35,11 @@ export const functions = {
     setStoragePerWorkerInGb: fun("0x7e9d6b0a", {"_storagePerWorkerInGb": p.uint128}, ),
     setTargetCapacity: fun("0xe10e9d60", {"target": p.uint256}, ),
     setYearlyRewardCapCoefficient: fun("0xbdf97dc9", {"coefficient": p.uint256}, ),
-    stakingDeadlock: fun("0x5b446c44", {}, p.uint256),
-    storagePerWorkerInGb: fun("0x2b5d1529", {}, p.uint128),
-    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
-    targetCapacityGb: fun("0x17395c74", {}, p.uint256),
-    yearlyRewardCapCoefficient: fun("0x1cb34cb6", {}, p.uint256),
+    stakingDeadlock: viewFun("0x5b446c44", {}, p.uint256),
+    storagePerWorkerInGb: viewFun("0x2b5d1529", {}, p.uint128),
+    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    targetCapacityGb: viewFun("0x17395c74", {}, p.uint256),
+    yearlyRewardCapCoefficient: viewFun("0x1cb34cb6", {}, p.uint256),
 }
 
 export class Contract extends ContractBase {

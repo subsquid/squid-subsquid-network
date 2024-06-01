@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -18,33 +18,33 @@ export const events = {
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: fun("0xe63ab1e9", {}, p.bytes32),
-    REWARDS_DISTRIBUTOR_ROLE: fun("0xc34c2289", {}, p.bytes32),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
+    REWARDS_DISTRIBUTOR_ROLE: viewFun("0xc34c2289", {}, p.bytes32),
     claim: fun("0x1e83409a", {"staker": p.address}, p.uint256),
-    claimable: fun("0x402914f5", {"staker": p.address}, p.uint256),
-    delegated: fun("0x18e44a49", {"worker": p.uint256}, p.uint256),
-    delegates: fun("0x587cde1e", {"staker": p.address}, p.array(p.uint256)),
+    claimable: viewFun("0x402914f5", {"staker": p.address}, p.uint256),
+    delegated: viewFun("0x18e44a49", {"worker": p.uint256}, p.uint256),
+    delegates: viewFun("0x587cde1e", {"staker": p.address}, p.array(p.uint256)),
     deposit: fun("0xe2bbb158", {"worker": p.uint256, "amount": p.uint256}, ),
     distribute: fun("0x8e1b57c5", {"workers": p.array(p.uint256), "amounts": p.array(p.uint256)}, ),
-    epochsLockedAfterStake: fun("0x31603b62", {}, p.uint128),
-    getDeposit: fun("0x2726b506", {"staker": p.address, "worker": p.uint256}, {"depositAmount": p.uint256, "withdrawAllowed": p.uint256}),
-    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    epochsLockedAfterStake: viewFun("0x31603b62", {}, p.uint128),
+    getDeposit: viewFun("0x2726b506", {"staker": p.address, "worker": p.uint256}, {"depositAmount": p.uint256, "withdrawAllowed": p.uint256}),
+    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    lastEpochRewarded: fun("0xd760cdd8", {}, p.uint256),
-    lockLengthBlocks: fun("0xc7ad6dd9", {}, p.uint128),
-    maxDelegations: fun("0x5612a838", {}, p.uint256),
+    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    lastEpochRewarded: viewFun("0xd760cdd8", {}, p.uint256),
+    lockLengthBlocks: viewFun("0xc7ad6dd9", {}, p.uint128),
+    maxDelegations: viewFun("0x5612a838", {}, p.uint256),
     pause: fun("0x8456cb59", {}, ),
-    paused: fun("0x5c975abb", {}, p.bool),
+    paused: viewFun("0x5c975abb", {}, p.bool),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    router: fun("0xf887ea40", {}, p.address),
+    router: viewFun("0xf887ea40", {}, p.address),
     setEpochsLock: fun("0xe03f56e4", {"_epochsLock": p.uint128}, ),
     setMaxDelegations: fun("0xe2ef0024", {"_maxDelegations": p.uint256}, ),
-    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
-    token: fun("0xfc0c546a", {}, p.address),
-    totalStakedPerWorker: fun("0x5f2c3ffe", {"workers": p.array(p.uint256)}, p.array(p.uint256)),
+    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    token: viewFun("0xfc0c546a", {}, p.address),
+    totalStakedPerWorker: viewFun("0x5f2c3ffe", {"workers": p.array(p.uint256)}, p.array(p.uint256)),
     unpause: fun("0x3f4ba83a", {}, ),
     withdraw: fun("0x441a3e70", {"worker": p.uint256, "amount": p.uint256}, ),
 }

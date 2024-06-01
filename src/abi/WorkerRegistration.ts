@@ -1,5 +1,5 @@
 import * as p from '@subsquid/evm-codec'
-import { event, fun, indexed, ContractBase } from '@subsquid/evm-abi'
+import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
@@ -16,40 +16,40 @@ export const events = {
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: fun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: fun("0xe63ab1e9", {}, p.bytes32),
-    SQD: fun("0x6aa54679", {}, p.address),
-    bondAmount: fun("0x80f323a7", {}, p.uint256),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
+    SQD: viewFun("0x6aa54679", {}, p.address),
+    bondAmount: viewFun("0x80f323a7", {}, p.uint256),
     deregister: fun("0xb4d0a564", {"peerId": p.bytes}, ),
-    epochLength: fun("0x57d775f8", {}, p.uint128),
-    getActiveWorkerCount: fun("0x3e556827", {}, p.uint256),
-    getActiveWorkerIds: fun("0xc0a0d6cf", {}, p.array(p.uint256)),
-    getActiveWorkers: fun("0x393bc3d9", {}, p.array(p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}))),
-    getAllWorkersCount: fun("0xf905aaf6", {}, p.uint256),
-    getMetadata: fun("0x75734be8", {"peerId": p.bytes}, p.string),
-    getOwnedWorkers: fun("0x75b80f11", {"owner": p.address}, p.array(p.uint256)),
-    getRoleAdmin: fun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
-    getWorker: fun("0xa39dbdb9", {"workerId": p.uint256}, p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string})),
+    epochLength: viewFun("0x57d775f8", {}, p.uint128),
+    getActiveWorkerCount: viewFun("0x3e556827", {}, p.uint256),
+    getActiveWorkerIds: viewFun("0xc0a0d6cf", {}, p.array(p.uint256)),
+    getActiveWorkers: viewFun("0x393bc3d9", {}, p.array(p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}))),
+    getAllWorkersCount: viewFun("0xf905aaf6", {}, p.uint256),
+    getMetadata: viewFun("0x75734be8", {"peerId": p.bytes}, p.string),
+    getOwnedWorkers: viewFun("0x75b80f11", {"owner": p.address}, p.array(p.uint256)),
+    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
+    getWorker: viewFun("0xa39dbdb9", {"workerId": p.uint256}, p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string})),
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: fun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    isWorkerActive: fun("0xb036482f", {"workerId": p.uint256}, p.bool),
-    lockPeriod: fun("0x3fd8b02f", {}, p.uint128),
-    nextEpoch: fun("0xaea0e78b", {}, p.uint128),
-    nextWorkerId: fun("0xc84a4922", {}, p.uint256),
+    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
+    isWorkerActive: viewFun("0xb036482f", {"workerId": p.uint256}, p.bool),
+    lockPeriod: viewFun("0x3fd8b02f", {}, p.uint128),
+    nextEpoch: viewFun("0xaea0e78b", {}, p.uint128),
+    nextWorkerId: viewFun("0xc84a4922", {}, p.uint256),
     pause: fun("0x8456cb59", {}, ),
-    paused: fun("0x5c975abb", {}, p.bool),
+    paused: viewFun("0x5c975abb", {}, p.bool),
     "register(bytes)": fun("0x82fbdc9c", {"peerId": p.bytes}, ),
     "register(bytes,string)": fun("0x92255fbf", {"peerId": p.bytes, "metadata": p.string}, ),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
     returnExcessiveBond: fun("0xe4e33692", {"peerId": p.bytes}, ),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    router: fun("0xf887ea40", {}, p.address),
-    supportsInterface: fun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
+    router: viewFun("0xf887ea40", {}, p.address),
+    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
     unpause: fun("0x3f4ba83a", {}, ),
     updateMetadata: fun("0xddc651c3", {"peerId": p.bytes, "metadata": p.string}, ),
     withdraw: fun("0x0968f264", {"peerId": p.bytes}, ),
-    workerIds: fun("0x7a39cb2b", {"peerId": p.bytes}, p.uint256),
-    workers: fun("0xf1a22dc2", {"_0": p.uint256}, {"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}),
+    workerIds: viewFun("0x7a39cb2b", {"peerId": p.bytes}, p.uint256),
+    workers: viewFun("0xf1a22dc2", {"_0": p.uint256}, {"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}),
 }
 
 export class Contract extends ContractBase {
