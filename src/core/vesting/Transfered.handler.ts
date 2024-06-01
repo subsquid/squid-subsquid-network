@@ -23,12 +23,13 @@ export const handleVestingTransfered = createHandler({
     });
 
     ctx.queue.add(async () => {
+      const vesting = await vestingDeferred.get();
+      if (!vesting) return; // not our vesting
+
       const owner = await ownerDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`);
         return createAccount(id, { type: AccountType.USER });
       });
-      const vesting = await vestingDeferred.get();
-      if (!vesting) return; // not our vesting
 
       vesting.owner = owner;
 
@@ -46,7 +47,7 @@ export const handleVestingTransfered = createHandler({
       }
       await ctx.store.upsert(delegations);
 
-      ctx.log.info(`transfered vesting(${vesting.id}) to account(${owner.id})`);
+      ctx.log.info(`transferred vesting(${vesting.id}) to account(${owner.id})`);
     });
   },
 });

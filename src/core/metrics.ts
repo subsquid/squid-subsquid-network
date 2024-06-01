@@ -1,12 +1,16 @@
+import assert from 'assert';
+
+import { BigDecimal } from '@subsquid/big-decimal';
 import { HttpClient } from '@subsquid/http-client';
 import { keyBy, last } from 'lodash';
-import { In } from 'typeorm';
+import { And, In, LessThan, MoreThanOrEqual } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
 
+import { Block } from '~/config/processor';
 import { WorkerStatus, Worker, WorkerReward, Commitment, WorkerDayUptime } from '~/model';
 import { toPercent } from '~/utils/misc';
-import { DAY_MS, MINUTE_MS, toEndOfDay, toStartOfDay } from '~/utils/time';
+import { DAY_MS, MINUTE_MS, toEndOfDay, toStartOfDay, YEAR_MS } from '~/utils/time';
 
 const client = process.env.NETWORK_STATS_URL
   ? new HttpClient({
@@ -187,43 +191,79 @@ export function listenRewardsDistributed(ctx: MappingContext) {
     INIT_APRS = true;
   }
 
-  ctx.events.on(Events.RewardsDistibuted, async () => {
+  ctx.events.on(Events.RewardsDistributed, async () => {
     await calculateAprs(ctx);
   });
 }
 
 export async function calculateAprs(ctx: MappingContext) {
-  const activeWorkers = await ctx.store.find(Worker, {
-    where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+  const lastCommitments = await ctx.store.find(Commitment, { order: { id: 'DESC' }, take: 2 });
+  if (lastCommitments.length === 0) return;
+
+  const commitments = await ctx.store.find(Commitment, {
+    where: { to: MoreThanOrEqual(new Date(lastCommitments[0].to!.getTime() - 7 * DAY_MS)) },
+    order: { id: 'asc' },
   });
 
-  const commitments = await ctx.store.find(Commitment, { take: 7, order: { id: 'DESC' } });
+  const commitmentsOld = lastCommitments[1]
+    ? await ctx.store.find(Commitment, {
+        where: {
+          to: And(
+            MoreThanOrEqual(new Date(lastCommitments[1].to!.getTime() - 7 * DAY_MS)),
+            LessThan(lastCommitments[0].to),
+          ),
+        },
+        order: { id: 'asc' },
+      })
+    : [];
+
+  const activeWorkers = await ctx.store.find(Worker, {
+    where: { status: In([WorkerStatus.ACTIVE]) },
+  });
 
   for (const worker of activeWorkers) {
-    const apr = commitments.reduce(
-      (r, c) => {
-        const payment = c.recipients.find((r) => r.workerId === worker.id);
-
-        if (payment) {
-          r.worker += payment.workerApr;
-          r.staker += payment.stakerApr;
-          r.count += 1;
-        }
-        return r;
-      },
-      { worker: 0, staker: 0, count: 0 },
+    const { workerApr, stakerApr } = calculateApr(worker, commitments);
+    const { workerApr: workerAprOld, stakerApr: stakerAprOld } = calculateApr(
+      worker,
+      commitmentsOld,
     );
 
-    if (apr.count > 0) {
-      worker.apr = apr.worker / apr.count;
-      worker.stakerApr = worker.delegationCount > 0 ? apr.staker / apr.count : null;
-    } else {
-      worker.apr = null;
-      worker.stakerApr = null;
-    }
+    worker.apr = workerApr;
+    worker.aprDiff = workerApr !== null ? workerApr - (workerAprOld ?? 0) : null;
+    worker.stakerApr = stakerApr;
+    worker.stakerAprDiff = stakerApr !== null ? stakerApr - (stakerAprOld ?? 0) : null;
   }
 
   await ctx.store.upsert(activeWorkers);
 
   ctx.log.info(`workers aprs of ${activeWorkers.length} updated`);
+}
+
+function calculateApr(worker: Worker, commitments: Commitment[]) {
+  const intervalFrom = commitments[0].from!.getTime();
+  const intervalTo = last(commitments)!.to!.getTime();
+
+  let workerApr: number | null = null;
+  let stakerApr: number | null = null;
+
+  const createdAt = worker.createdAt.getTime();
+  const interval = intervalTo - Math.max(createdAt, intervalFrom);
+
+  if (interval > 0) {
+    for (const commitment of commitments) {
+      const payment = commitment.recipients.find((r) => r.workerId === worker.id);
+      if (!payment) continue;
+
+      const commitmentIntervalFrom = commitment.from!.getTime();
+      const commitmentIntervalTo = commitment.to!.getTime();
+      const commitmentInterval = commitmentIntervalTo - Math.max(createdAt, commitmentIntervalFrom);
+      if (commitmentInterval <= 0) continue;
+
+      const mul = commitmentInterval / interval;
+
+      workerApr = (workerApr ?? 0) + payment.workerApr * mul;
+      stakerApr = (stakerApr ?? 0) + payment.stakerApr * mul;
+    }
+  }
+  return { workerApr, stakerApr };
 }

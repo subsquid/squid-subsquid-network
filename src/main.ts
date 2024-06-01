@@ -53,13 +53,13 @@ async function mapBlocks(ctx: MappingContext) {
     listenMetricsUpdate(ctx);
   }
 
-  ctx.queue.add(() => ctx.events.emit(Events.Initialization));
+  ctx.queue.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
 
   for (const block of ctx.blocks) {
     mapBlock(ctx, block);
   }
 
-  ctx.queue.add(() => ctx.events.emit(Events.Finalization));
+  ctx.queue.add(() => ctx.events.emit(Events.Finalization, last(ctx.blocks)!.header));
 
   await ctx.queue.run();
 }

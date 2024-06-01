@@ -17,7 +17,7 @@ type Account @entity {
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
 
   workers: [Worker!] @derivedFrom(field: "realOwner")
-  
+
   delegations: [Delegation!] @derivedFrom(field: "realOwner")
   claimableDelegationCount: Int!
 
@@ -83,8 +83,10 @@ type Claim @entity {
 
 type Commitment @entity {
   id: ID!
-  from: Int!
-  to: Int!
+  from: DateTime!
+  fromBlock: Int!
+  to: DateTime!
+  toBlock: Int!
   recipients: [CommitmentRecipient!]!
 }
 
@@ -149,7 +151,9 @@ type Worker
   claims: [Claim!] @derivedFrom(field: "worker")
 
   apr: Float
+  aprDiff: Float
   stakerApr: Float
+  stakerAprDiff: Float
 
   totalDelegation: BigInt!
   delegationCount: Int!
@@ -249,7 +253,7 @@ type Gateway @entity {
   id: ID!
 
   createdAt: DateTime!
-  
+
   operator: GatewayOperator
   owner: Account
 

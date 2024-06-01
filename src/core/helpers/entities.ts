@@ -44,36 +44,36 @@ export function createDelegation(
   });
 }
 
-export function createCommitment(
-  id: string,
-  {
-    from,
-    to,
-    recipientIds,
-    workerRewards,
-    stakerRewards,
-  }: {
-    from: number | bigint;
-    to: number | bigint;
-    recipientIds: string[];
-    workerRewards: bigint[];
-    stakerRewards: bigint[];
-  },
-) {
-  return new Commitment({
-    id,
-    from: Number(from),
-    to: Number(to),
-    recipients: recipientIds.map(
-      (workerId, i) =>
-        new CommitmentRecipient({
-          workerId,
-          workerReward: workerRewards[i],
-          stakerReward: stakerRewards[i],
-        }),
-    ),
-  });
-}
+// export function createCommitment(
+//   id: string,
+//   {
+//     from,
+//     to,
+//     recipientIds,
+//     workerRewards,
+//     stakerRewards,
+//   }: {
+//     from: number | bigint;
+//     to: number | bigint;
+//     recipientIds: string[];
+//     workerRewards: bigint[];
+//     stakerRewards: bigint[];
+//   },
+// ) {
+//   return new Commitment({
+//     id,
+//     from: Number(from),
+//     to: Number(to),
+//     recipients: recipientIds.map(
+//       (workerId, i) =>
+//         new CommitmentRecipient({
+//           workerId,
+//           workerReward: workerRewards[i],
+//           stakerReward: stakerRewards[i],
+//         }),
+//     ),
+//   });
+// }
 
 export function createBlock(block: _Block) {
   const { timestamp, ...props } = block;

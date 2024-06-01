@@ -1,3 +1,5 @@
+import assert from 'assert';
+
 import { BigDecimal } from '@subsquid/big-decimal';
 import { keyBy } from 'lodash';
 import { In, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
@@ -5,7 +7,6 @@ import { In, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
 import { isContract, isLog, LogItem } from '../../item';
 import { Events, MappingContext } from '../../types';
 import { createHandler } from '../base';
-import { createCommitment } from '../helpers/entities';
 import { createCommitmentId, createWorkerId } from '../helpers/ids';
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
@@ -47,14 +48,19 @@ export const handleDistributed = createHandler({
         where: { l1BlockNumber: LessThanOrEqual(Number(event.fromBlock)) },
         order: { height: 'DESC' },
       });
+      assert(fromBlock);
 
       const toBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: MoreThanOrEqual(Number(event.toBlock)) },
-        order: { height: 'ASC' },
+        where: { l1BlockNumber: LessThanOrEqual(Number(event.toBlock)) },
+        order: { height: 'DESC' },
       });
+      assert(toBlock);
 
       const activeWorkers = await ctx.store.find(Worker, {
-        where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+        where: [
+          { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+          { id: In(recipientIds) },
+        ],
       });
 
       const payments = keyBy(
@@ -70,6 +76,8 @@ export const handleDistributed = createHandler({
 
       let delegationRewardsCount = 0;
       for (const worker of activeWorkers) {
+        if (worker.createdAt.getTime() >= toBlock.timestamp.getTime()) continue;
+
         let payment = payments[worker.id];
         if (!payment) {
           payment = {
@@ -82,29 +90,29 @@ export const handleDistributed = createHandler({
           payments[worker.id] = payment;
         }
 
-        if (fromBlock && toBlock) {
-          const interval = toBlock.timestamp.getTime() - fromBlock.timestamp.getTime();
-          payment.workerApr = worker.bond
-            ? toPercent(
-                BigDecimal(payment.workerReward)
-                  .div(interval)
-                  .mul(YEAR_MS)
-                  .div(worker.bond)
-                  .toNumber(),
-                true,
-              )
-            : 0;
-          payment.stakerApr = worker.totalDelegation
-            ? toPercent(
-                BigDecimal(payment.stakerReward)
-                  .div(interval)
-                  .mul(YEAR_MS)
-                  .div(worker.totalDelegation)
-                  .toNumber(),
-                true,
-              )
-            : 0;
-        }
+        const interval =
+          toBlock.timestamp.getTime() -
+          Math.max(fromBlock.timestamp.getTime(), worker.createdAt.getTime());
+        payment.workerApr = worker.bond
+          ? toPercent(
+              BigDecimal(payment.workerReward)
+                .div(interval)
+                .mul(YEAR_MS)
+                .div(worker.bond)
+                .toNumber(),
+              true,
+            )
+          : 0;
+        payment.stakerApr = worker.totalDelegation
+          ? toPercent(
+              BigDecimal(payment.stakerReward)
+                .div(interval)
+                .mul(YEAR_MS)
+                .div(worker.totalDelegation)
+                .toNumber(),
+              true,
+            )
+          : 0;
 
         worker.claimableReward += payment.workerReward;
         await ctx.store.upsert(worker);
@@ -137,13 +145,15 @@ export const handleDistributed = createHandler({
       await ctx.store.insert(
         new Commitment({
           id: createCommitmentId(event.fromBlock, event.toBlock),
-          from: Number(event.fromBlock),
-          to: Number(event.toBlock),
+          from: fromBlock?.timestamp,
+          fromBlock: Number(event.fromBlock),
+          to: toBlock?.timestamp,
+          toBlock: Number(event.toBlock),
           recipients: Object.values(payments).map((p) => new CommitmentRecipient(p)),
         }),
       );
 
-      await ctx.events.emit(Events.RewardsDistibuted, log.block);
+      await ctx.events.emit(Events.RewardsDistributed, log.block);
 
       ctx.log.info(
         `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,

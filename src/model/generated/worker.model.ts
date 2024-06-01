@@ -84,7 +84,13 @@ export class Worker {
     apr!: number | undefined | null
 
     @FloatColumn_({nullable: true})
+    aprDiff!: number | undefined | null
+
+    @FloatColumn_({nullable: true})
     stakerApr!: number | undefined | null
+
+    @FloatColumn_({nullable: true})
+    stakerAprDiff!: number | undefined | null
 
     @BigIntColumn_({nullable: false})
     totalDelegation!: bigint
