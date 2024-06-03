@@ -44,17 +44,22 @@ export const handleDistributed = createHandler({
         return;
       }
 
-      const fromBlock = await ctx.store.findOne(Block, {
+      let fromBlock = await ctx.store.findOne(Block, {
         where: { l1BlockNumber: LessThanOrEqual(Number(event.fromBlock)) },
         order: { height: 'DESC' },
       });
-      assert(fromBlock);
+      if (!fromBlock) {
+        fromBlock = await ctx.store.findOne(Block, { where: {}, order: { height: 'ASC' } });
+        assert(fromBlock);
+      }
 
-      const toBlock = await ctx.store.findOne(Block, {
+      let toBlock = await ctx.store.findOne(Block, {
         where: { l1BlockNumber: LessThanOrEqual(Number(event.toBlock)) },
         order: { height: 'DESC' },
       });
-      assert(toBlock);
+      if (!toBlock) {
+        toBlock = fromBlock;
+      }
 
       const activeWorkers = await ctx.store.find(Worker, {
         where: [
@@ -93,26 +98,29 @@ export const handleDistributed = createHandler({
         const interval =
           toBlock.timestamp.getTime() -
           Math.max(fromBlock.timestamp.getTime(), worker.createdAt.getTime());
-        payment.workerApr = worker.bond
-          ? toPercent(
-              BigDecimal(payment.workerReward)
-                .div(interval)
-                .mul(YEAR_MS)
-                .div(worker.bond)
-                .toNumber(),
-              true,
-            )
-          : 0;
-        payment.stakerApr = worker.totalDelegation
-          ? toPercent(
-              BigDecimal(payment.stakerReward)
-                .div(interval)
-                .mul(YEAR_MS)
-                .div(worker.totalDelegation)
-                .toNumber(),
-              true,
-            )
-          : 0;
+
+        if (interval > 0) {
+          payment.workerApr = worker.bond
+            ? toPercent(
+                BigDecimal(payment.workerReward)
+                  .div(interval)
+                  .mul(YEAR_MS)
+                  .div(worker.bond)
+                  .toNumber(),
+                true,
+              )
+            : 0;
+          payment.stakerApr = worker.totalDelegation
+            ? toPercent(
+                BigDecimal(payment.stakerReward)
+                  .div(interval)
+                  .mul(YEAR_MS)
+                  .div(worker.totalDelegation)
+                  .toNumber(),
+                true,
+              )
+            : 0;
+        }
 
         worker.claimableReward += payment.workerReward;
         await ctx.store.upsert(worker);

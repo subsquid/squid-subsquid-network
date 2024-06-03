@@ -22,6 +22,7 @@ deploy:
     TEMPORARY_HOLDING_FACTORY_CONTRACT_ADDRESS: "0x14926ebf05a904b8e2e2bf05c10ecca9a54d8d0d"
     RANGE_FROM: 194_120_655
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
+    SCHEDULER_API_URL: https://scheduler.mainnet.subsquid.io
   processor:
     cmd:
       - sqd

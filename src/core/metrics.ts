@@ -1,26 +1,22 @@
-import assert from 'assert';
-
 import { BigDecimal } from '@subsquid/big-decimal';
 import { HttpClient } from '@subsquid/http-client';
 import { keyBy, last } from 'lodash';
-import { And, In, LessThan, MoreThanOrEqual } from 'typeorm';
+import { In, MoreThanOrEqual } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
 
-import { Block } from '~/config/processor';
-import { WorkerStatus, Worker, WorkerReward, Commitment, WorkerDayUptime } from '~/model';
-import { toPercent } from '~/utils/misc';
-import { DAY_MS, MINUTE_MS, toEndOfDay, toStartOfDay, YEAR_MS } from '~/utils/time';
+import { network } from '~/config/network';
+import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings } from '~/model';
+import { joinUrl, toPercent } from '~/utils/misc';
+import { DAY_MS, MINUTE_MS, toStartOfDay } from '~/utils/time';
 
-const client = process.env.NETWORK_STATS_URL
-  ? new HttpClient({
-      baseUrl: process.env.NETWORK_STATS_URL,
-    })
-  : undefined;
+const client = new HttpClient({
+  baseUrl: process.env.NETWORK_STATS_URL,
+});
 
 const onlineUpdateInterval = 5 * MINUTE_MS;
 let lastOnlineUpdateTimestamp = -1;
-let lastOnlineUpdateOffest = 0;
+let lastOnlineUpdateOffset = 0;
 
 type WorkerOnline = {
   peerId: string;
@@ -32,22 +28,26 @@ type WorkerOnline = {
 };
 
 export function listenOnlineUpdate(ctx: MappingContext) {
-  if (!client) return;
+  const statsUrl = process.env.NETWORK_STATS_URL;
+  if (!statsUrl) return;
+
+  const schedulerUrl = process.env.SCHEDULER_API_URL;
+  const settingsDefer = ctx.store.defer(Settings, network.name);
 
   ctx.log.debug(`listening for worker online updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
     if (
       block.timestamp - onlineUpdateInterval >=
-      lastOnlineUpdateTimestamp + lastOnlineUpdateOffest
+      lastOnlineUpdateTimestamp + lastOnlineUpdateOffset
     ) {
       const { timestamp, data }: { timestamp: string; data: WorkerOnline[] } = await client
-        .get('/workers/online.json')
+        .get(joinUrl(statsUrl, '/workers/online.json'))
         .then((r) => JSON.parse(r));
 
       const snapshotTimestamp = new Date(timestamp).getTime();
       if (snapshotTimestamp === lastOnlineUpdateTimestamp) {
-        lastOnlineUpdateOffest += MINUTE_MS;
+        lastOnlineUpdateOffset += MINUTE_MS;
         return;
       }
 
@@ -65,25 +65,39 @@ export function listenOnlineUpdate(ctx: MappingContext) {
         worker.jailed = data ? data.jailed : null;
         worker.dialOk = data ? data.lastDialOk : null;
         worker.storedData = data ? BigInt(data.storedBytes) : null;
-        worker.version = data ? data.version : null;
+        worker.version = data ? data.version : worker.version;
         worker.jailReason = data ? data.jailReason : null;
       }
 
       await ctx.store.upsert(activeWorkers);
 
       lastOnlineUpdateTimestamp = snapshotTimestamp;
-      lastOnlineUpdateOffest = 0;
+      lastOnlineUpdateOffset = 0;
 
       ctx.log.info(
         `workers online of ${activeWorkers.length} updated. ${data?.length} workers online`,
       );
+
+      if (!schedulerUrl) return;
+      const {
+        recommended_worker_versions: recommendedWorkerVersion,
+        supported_worker_versions: minimalWorkerVersion,
+      }: { recommended_worker_versions?: string; supported_worker_versions?: string } =
+        await client.get(joinUrl(schedulerUrl, '/config'));
+
+      const settings = await settingsDefer.getOrFail();
+
+      settings.minimalWorkerVersion = minimalWorkerVersion || null;
+      settings.recommendedWorkerVersion = recommendedWorkerVersion || null;
+
+      await ctx.store.upsert(settings);
     }
   });
 }
 
 const metricsUpdateInterval = 30 * MINUTE_MS;
 let lastMetricsUpdateTimestamp = -1;
-let lastMetricsUpdateOffest = 0;
+let lastMetricsUpdateOffset = 0;
 
 type WorkerStat = {
   peerId: string;
@@ -99,22 +113,23 @@ type WorkerStat = {
 };
 
 export function listenMetricsUpdate(ctx: MappingContext) {
-  if (!client) return;
+  const statsUrl = process.env.NETWORK_STATS_URL;
+  if (!statsUrl) return;
 
   ctx.log.debug(`listening for worker stats updates`);
 
   ctx.events.on(Events.BlockEnd, async (block) => {
     if (
       block.timestamp - metricsUpdateInterval >
-      lastMetricsUpdateTimestamp + lastMetricsUpdateOffest
+      lastMetricsUpdateTimestamp + lastMetricsUpdateOffset
     ) {
       const { timestamp, data }: { timestamp: string; data: WorkerStat[] } = await client
-        .get('/workers/stats.json')
+        .get(joinUrl(statsUrl, '/workers/stats.json'))
         .then((r) => JSON.parse(r));
 
       const snapshotTimestamp = new Date(timestamp).getTime();
       if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
-        lastMetricsUpdateOffest += MINUTE_MS;
+        lastMetricsUpdateOffset += MINUTE_MS;
         return;
       }
 
@@ -173,7 +188,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
       await ctx.store.upsert(activeWorkers);
 
       lastMetricsUpdateTimestamp = snapshotTimestamp;
-      lastMetricsUpdateOffest = 0;
+      lastMetricsUpdateOffset = 0;
 
       ctx.log.info(`workers stats of ${activeWorkers.length} updated`);
     }
@@ -197,25 +212,16 @@ export function listenRewardsDistributed(ctx: MappingContext) {
 }
 
 export async function calculateAprs(ctx: MappingContext) {
-  const lastCommitments = await ctx.store.find(Commitment, { order: { id: 'DESC' }, take: 2 });
-  if (lastCommitments.length === 0) return;
+  // const lastCommitments = await ctx.store.find(Commitment, { order: { id: 'DESC' }, take: 1 });
+  // if (lastCommitments.length === 0) return;
 
-  const commitments = await ctx.store.find(Commitment, {
-    where: { to: MoreThanOrEqual(new Date(lastCommitments[0].to!.getTime() - 7 * DAY_MS)) },
-    order: { id: 'asc' },
-  });
-
-  const commitmentsOld = lastCommitments[1]
-    ? await ctx.store.find(Commitment, {
-        where: {
-          to: And(
-            MoreThanOrEqual(new Date(lastCommitments[1].to!.getTime() - 7 * DAY_MS)),
-            LessThan(lastCommitments[0].to),
-          ),
-        },
-        order: { id: 'asc' },
-      })
-    : [];
+  const commitments = await ctx.store
+    .find(Commitment, {
+      where: {},
+      order: { id: 'DESC' },
+      take: 5,
+    })
+    .then((res) => res.reverse());
 
   const activeWorkers = await ctx.store.find(Worker, {
     where: { status: In([WorkerStatus.ACTIVE]) },
@@ -223,15 +229,9 @@ export async function calculateAprs(ctx: MappingContext) {
 
   for (const worker of activeWorkers) {
     const { workerApr, stakerApr } = calculateApr(worker, commitments);
-    const { workerApr: workerAprOld, stakerApr: stakerAprOld } = calculateApr(
-      worker,
-      commitmentsOld,
-    );
 
     worker.apr = workerApr;
-    worker.aprDiff = workerApr !== null ? workerApr - (workerAprOld ?? 0) : null;
     worker.stakerApr = stakerApr;
-    worker.stakerAprDiff = stakerApr !== null ? stakerApr - (stakerAprOld ?? 0) : null;
   }
 
   await ctx.store.upsert(activeWorkers);
@@ -240,30 +240,44 @@ export async function calculateAprs(ctx: MappingContext) {
 }
 
 function calculateApr(worker: Worker, commitments: Commitment[]) {
-  const intervalFrom = commitments[0].from!.getTime();
-  const intervalTo = last(commitments)!.to!.getTime();
+  let intervalFrom: number | null = null;
+  let intervalTo: number | null = null;
 
-  let workerApr: number | null = null;
-  let stakerApr: number | null = null;
+  let workerApr: BigDecimal = BigDecimal(0);
+  let stakerApr: BigDecimal = BigDecimal(0);
 
   const createdAt = worker.createdAt.getTime();
-  const interval = intervalTo - Math.max(createdAt, intervalFrom);
 
-  if (interval > 0) {
-    for (const commitment of commitments) {
-      const payment = commitment.recipients.find((r) => r.workerId === worker.id);
-      if (!payment) continue;
+  for (const commitment of commitments) {
+    intervalTo = commitment.to.getTime();
 
-      const commitmentIntervalFrom = commitment.from!.getTime();
-      const commitmentIntervalTo = commitment.to!.getTime();
-      const commitmentInterval = commitmentIntervalTo - Math.max(createdAt, commitmentIntervalFrom);
-      if (commitmentInterval <= 0) continue;
+    const payment = commitment.recipients.find((r) => r.workerId === worker.id);
+    if (!payment) continue;
 
-      const mul = commitmentInterval / interval;
+    const commitmentIntervalTo = commitment.to.getTime();
+    if (createdAt > commitmentIntervalTo) continue;
 
-      workerApr = (workerApr ?? 0) + payment.workerApr * mul;
-      stakerApr = (stakerApr ?? 0) + payment.stakerApr * mul;
-    }
+    const commitmentIntervalFrom = commitment.from.getTime();
+    if (createdAt > commitmentIntervalFrom && payment.workerApr === 0 && payment.stakerApr === 0)
+      // filter cases when new worker was not included into payment
+      continue;
+
+    const commitmentInterval = commitmentIntervalTo - commitmentIntervalFrom;
+    if (commitmentInterval === 0) continue;
+
+    intervalFrom = intervalFrom ?? Math.max(createdAt, commitmentIntervalFrom);
+
+    workerApr = BigDecimal(payment.workerApr).mul(commitmentInterval).add(workerApr);
+    stakerApr = BigDecimal(payment.stakerApr).mul(commitmentInterval).add(stakerApr);
   }
-  return { workerApr, stakerApr };
+
+  if (intervalFrom === null || intervalTo === null) {
+    return { workerApr: null, stakerApr: null };
+  } else {
+    const interval = intervalTo - intervalFrom;
+    return {
+      workerApr: workerApr.div(interval).toNumber(),
+      stakerApr: worker.totalDelegation > 0 ? stakerApr.div(interval).toNumber() : null,
+    };
+  }
 }

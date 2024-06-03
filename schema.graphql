@@ -58,6 +58,8 @@ type Settings @entity {
   bondAmount: BigInt
   delegationLimitCoefficient: Float!
   epochLength: Int
+  minimalWorkerVersion: String
+  recommendedWorkerVersion: String
 }
 
 enum ClaimType {
@@ -151,9 +153,7 @@ type Worker
   claims: [Claim!] @derivedFrom(field: "worker")
 
   apr: Float
-  aprDiff: Float
   stakerApr: Float
-  stakerAprDiff: Float
 
   totalDelegation: BigInt!
   delegationCount: Int!
