@@ -7,6 +7,7 @@ import { createAccountId, createDelegationId, createWorkerId } from '../helpers/
 import * as Staking from '~/abi/Staking';
 import { network } from '~/config/network';
 import { Account, Claim, ClaimType, Delegation } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleClaimed = createHandler({
   filter(_, item): item is LogItem {
@@ -74,7 +75,7 @@ export const handleClaimed = createHandler({
         });
 
         ctx.log.info(
-          `account(${claimer.id}) claimed ${claim.amount}$SQD from delegation(${delegation.id})`,
+          `account(${claimer.id}) claimed ${toHumanSQD(claim.amount)} from delegation(${delegation.id})`,
         );
 
         await ctx.store.insert(claim);

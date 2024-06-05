@@ -10,7 +10,7 @@ import { listenStatusCheck } from './CheckStatus.listener';
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';
 import { Account, Settings, WorkerStatus, WorkerStatusChange, Worker } from '~/model';
-import { parseWorkerMetadata, parsePeerId } from '~/utils/misc';
+import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc';
 
 export const handleWorkerRegistered = createHandler({
   filter(_, item): item is LogItem {
@@ -85,7 +85,7 @@ export const handleWorkerRegistered = createHandler({
 
       ctx.log.info(`account(${worker.realOwner.id}) registered worker(${worker.id})`);
       ctx.log.info(
-        `account(${worker.realOwner.id}) bonded ${worker.bond}$SQD to worker(${worker.id})`,
+        `account(${worker.realOwner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
       );
     });
   },

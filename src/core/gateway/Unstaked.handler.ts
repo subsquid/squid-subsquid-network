@@ -5,6 +5,7 @@ import { createGatewayOperatorId } from '../helpers/ids';
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
 import { GatewayOperator } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleUnstaked = createHandler({
   filter(_, item): item is LogItem {
@@ -34,7 +35,7 @@ export const handleUnstaked = createHandler({
         await ctx.store.upsert(operator);
         await ctx.store.remove(stake);
 
-        ctx.log.info(`account(${account.id}) unstaked ${stake.amount}$SQD`);
+        ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(stake.amount)}`);
       }
     });
   },

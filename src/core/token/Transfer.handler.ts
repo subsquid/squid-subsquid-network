@@ -6,6 +6,7 @@ import { createAccountId } from '../helpers/ids';
 import * as SQD from '~/abi/SQD';
 import { network } from '~/config/network';
 import { Account, Transfer, AccountTransfer, TransferDirection, AccountType } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleTransfer = createHandler({
   filter(_, item): item is LogItem {
@@ -32,10 +33,12 @@ export const handleTransfer = createHandler({
         return createAccount(id, { type: AccountType.USER });
       });
 
-      from.balance -= event.value;
-      to.balance += event.value;
+      if (from !== to) {
+        from.balance -= event.value;
+        to.balance += event.value;
 
-      await ctx.store.upsert([from, to]);
+        await ctx.store.upsert([from, to]);
+      }
 
       const transfer = new Transfer({
         id: log.id,
@@ -62,7 +65,9 @@ export const handleTransfer = createHandler({
         }),
       ]);
 
-      ctx.log.info(`account(${from.id}) transfered ${transfer.amount}$SQD to account(${to.id})`);
+      ctx.log.info(
+        `account(${from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${to.id})`,
+      );
     });
   },
 });

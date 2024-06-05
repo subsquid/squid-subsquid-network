@@ -1,3 +1,4 @@
+import {toHumanSQD} from '~/utils/misc';
 import { isContract, isLog, LogItem } from '../../item';
 import { createHandler } from '../base';
 import { unwrapAccount } from '../helpers/entities';
@@ -71,7 +72,7 @@ export const handleStaked = createHandler({
         await ctx.store.upsert(operator);
 
         ctx.log.info(
-          `account(${account.id}) staked ${stake.amount}$SQD for [${stake.lockStart}, ${stake.lockEnd}]`,
+          `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}]`,
         );
 
         listenStakeApply(ctx, stake.id);

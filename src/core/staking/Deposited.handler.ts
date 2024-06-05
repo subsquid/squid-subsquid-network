@@ -10,7 +10,7 @@ import { listenDelegationUnlock } from './CheckDelegationUnlock.listener';
 import * as Staking from '~/abi/Staking';
 import { network } from '~/config/network';
 import { Worker, Account, Delegation, Settings } from '~/model';
-import { toNextEpochStart } from '~/utils/misc';
+import { toHumanSQD, toNextEpochStart } from '~/utils/misc';
 
 export const handleDeposited = createHandler({
   filter(_, item): item is LogItem {
@@ -77,7 +77,7 @@ export const handleDeposited = createHandler({
       await ctx.store.upsert(worker);
 
       ctx.log.info(
-        `account(${delegation.realOwner.id}) delegated ${amount}$SQD to worker(${worker.id})`,
+        `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
       );
     });
   },

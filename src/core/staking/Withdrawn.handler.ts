@@ -7,6 +7,7 @@ import { createAccountId, createDelegationId, createWorkerId } from '../helpers/
 import * as Staking from '~/abi/Staking';
 import { network } from '~/config/network';
 import { Delegation } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleWithdrawn = createHandler({
   filter(_, item): item is LogItem {
@@ -45,7 +46,7 @@ export const handleWithdrawn = createHandler({
       worker.totalDelegation -= amount;
 
       ctx.log.info(
-        `account(${delegation.realOwner.id}) undelegated ${amount}$SQD from worker(${worker.id})`,
+        `account(${delegation.realOwner.id}) undelegated ${toHumanSQD(amount)} from worker(${worker.id})`,
       );
 
       await ctx.store.upsert(worker);

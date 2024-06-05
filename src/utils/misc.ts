@@ -1,3 +1,4 @@
+import { BigDecimal } from '@subsquid/big-decimal';
 import { Logger } from '@subsquid/logger';
 import bs58 from 'bs58';
 import { defaults } from 'lodash';
@@ -141,4 +142,8 @@ export function joinUrl(...args: string[]) {
   str = parts.shift() + (parts.length > 0 ? '?' : '') + parts.join('&');
 
   return str;
+}
+
+export function toHumanSQD(value: bigint) {
+  return BigDecimal(value, 18).toFixed(18) + ' SQD';
 }

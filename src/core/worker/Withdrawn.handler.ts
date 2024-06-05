@@ -5,6 +5,7 @@ import { createWorkerId, createWorkerStatusId } from '../helpers/ids';
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';
 import { WorkerStatusChange, WorkerStatus, Worker } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleWorkerWithdrawn = createHandler({
   filter(_, item): item is LogItem {
@@ -42,7 +43,7 @@ export const handleWorkerWithdrawn = createHandler({
       await ctx.store.upsert(worker);
 
       ctx.log.info(
-        `account(${worker.realOwner.id}) unbonded ${worker.bond}$SQD from worker(${worker.id})`,
+        `account(${worker.realOwner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
       );
     });
   },

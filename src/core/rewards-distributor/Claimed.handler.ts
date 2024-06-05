@@ -7,6 +7,7 @@ import { createAccountId, createWorkerId } from '../helpers/ids';
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
 import { network } from '~/config/network';
 import { Claim, ClaimType, Worker } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleClaimed = createHandler({
   filter(_, item): item is LogItem {
@@ -50,7 +51,9 @@ export const handleClaimed = createHandler({
         amount,
       });
 
-      ctx.log.info(`account(${account.id}) claimed ${claim.amount}$SQD from worker(${worker.id})`);
+      ctx.log.info(
+        `account(${account.id}) claimed ${toHumanSQD(claim.amount)} from worker(${worker.id})`,
+      );
 
       await ctx.store.insert(claim);
     });
