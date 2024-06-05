@@ -60,7 +60,7 @@ export const handleWorkerRegistered = createHandler({
       await ctx.store.upsert(worker);
 
       const statusChange = new WorkerStatusChange({
-        id: createWorkerStatusId(workerId, log.block.height),
+        id: createWorkerStatusId(workerId, log.block.l1BlockNumber),
         worker,
         blockNumber: log.block.l1BlockNumber,
         timestamp: new Date(log.block.timestamp),

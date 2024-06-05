@@ -62,7 +62,7 @@ export const handleRegistered = createHandler({
       });
 
       const statusChange = new GatewayStatusChange({
-        id: createWorkerStatusId(gatewayId, log.block.height),
+        id: createWorkerStatusId(gatewayId, log.block.l1BlockNumber),
         blockNumber: log.block.height,
         gateway,
         status: GatewayStatus.REGISTERED,

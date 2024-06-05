@@ -28,9 +28,10 @@ export const handleWorkerDeregistered = createHandler({
 
     ctx.queue.add(async () => {
       const worker = await workerDeferred.getOrFail();
+      if (worker.status === WorkerStatus.DEREGISTERING) return; // handle contract bug with duplicated deregistering calls
 
       const statusChange = new WorkerStatusChange({
-        id: createWorkerStatusId(workerId, log.block.height),
+        id: createWorkerStatusId(workerId, log.block.l1BlockNumber),
         worker,
         blockNumber: log.block.l1BlockNumber,
         timestamp: new Date(log.block.timestamp),

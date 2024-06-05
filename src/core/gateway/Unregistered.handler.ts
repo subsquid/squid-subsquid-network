@@ -31,7 +31,7 @@ export const handleUnregistered = createHandler({
       const owner = assertNotNull(gateway.owner);
 
       const statusChange = new GatewayStatusChange({
-        id: createWorkerStatusId(gatewayId, log.block.height),
+        id: createWorkerStatusId(gatewayId, log.block.l1BlockNumber),
         blockNumber: log.block.height,
         gateway,
         status: GatewayStatus.DEREGISTERED,

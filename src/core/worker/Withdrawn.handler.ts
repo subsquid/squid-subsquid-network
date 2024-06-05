@@ -27,7 +27,7 @@ export const handleWorkerWithdrawn = createHandler({
       const worker = await workerDeferred.getOrFail();
 
       const statusChange = new WorkerStatusChange({
-        id: createWorkerStatusId(workerId, log.block.height),
+        id: createWorkerStatusId(workerId, log.block.l1BlockNumber),
         worker,
         blockNumber: log.block.l1BlockNumber,
         timestamp: new Date(log.block.timestamp),
