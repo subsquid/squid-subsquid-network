@@ -12,6 +12,7 @@ export const network = {
     RewardsDistribution: assertNotNull(process.env.REWARDS_DISTRIBUTION_ADDRESS).toLowerCase(),
     GatewayRegistry: assertNotNull(process.env.GATEWAY_REGISTRY_CONTRACT_ADDRESS).toLowerCase(),
     Multicall3: assertNotNull(process.env.MULTICALL_3_CONTRACT_ADDRESS).toLowerCase(),
+    SoftCap: assertNotNull(process.env.SOFT_CAP_CONTRACT_ADDRESS).toLowerCase(),
     TemporaryHoldingFactory: assertNotNull(
       process.env.TEMPORARY_HOLDING_FACTORY_CONTRACT_ADDRESS,
     ).toLowerCase(),

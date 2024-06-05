@@ -89,11 +89,17 @@ export class Worker {
     @BigIntColumn_({nullable: false})
     totalDelegation!: bigint
 
+    @BigIntColumn_({nullable: false})
+    capedDelegation!: bigint
+
     @IntColumn_({nullable: false})
     delegationCount!: number
 
     @OneToMany_(() => Delegation, e => e.worker)
     delegations!: Delegation[]
+
+    @BigIntColumn_({nullable: false})
+    totalDelegationRewards!: bigint
 
     @Index_()
     @BooleanColumn_({nullable: true})

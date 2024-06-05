@@ -76,6 +76,8 @@ export const handleDeposited = createHandler({
       worker.totalDelegation += amount;
       await ctx.store.upsert(worker);
 
+      ctx.delegatedWorkers.add(worker.id);
+
       ctx.log.info(
         `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
       );

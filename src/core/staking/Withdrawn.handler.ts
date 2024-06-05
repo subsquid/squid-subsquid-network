@@ -45,11 +45,13 @@ export const handleWithdrawn = createHandler({
       }
       worker.totalDelegation -= amount;
 
+      await ctx.store.upsert(worker);
+
       ctx.log.info(
         `account(${delegation.realOwner.id}) undelegated ${toHumanSQD(amount)} from worker(${worker.id})`,
       );
 
-      await ctx.store.upsert(worker);
+      ctx.delegatedWorkers.add(worker.id);
     });
   },
 });

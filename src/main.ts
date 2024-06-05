@@ -3,6 +3,7 @@ import { last } from 'lodash';
 import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 import { handlers } from './core';
+import { listenUpdateWorkersCap } from './core/cap';
 import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
 import { listenStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
 import { createSettings, createBlock } from './core/helpers/entities';
@@ -38,6 +39,7 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
     ...ctx,
     queue: new TaskQueue(),
     events: new EventEmitter(),
+    delegatedWorkers: new Set(),
   });
 });
 
@@ -47,6 +49,7 @@ async function mapBlocks(ctx: MappingContext) {
 
   scheduleEpochs(ctx);
   listenRewardsDistributed(ctx);
+  listenUpdateWorkersCap(ctx);
 
   if (ctx.isHead) {
     listenOnlineUpdate(ctx);

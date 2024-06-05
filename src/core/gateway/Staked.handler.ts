@@ -1,4 +1,3 @@
-import {toHumanSQD} from '~/utils/misc';
 import { isContract, isLog, LogItem } from '../../item';
 import { createHandler } from '../base';
 import { unwrapAccount } from '../helpers/entities';
@@ -9,6 +8,7 @@ import { listenStakeApply } from './CheckStakeApply.listener';
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
 import { Account, GatewayOperator, GatewayStake } from '~/model';
+import { toHumanSQD } from '~/utils/misc';
 
 export const handleStaked = createHandler({
   filter(_, item): item is LogItem {

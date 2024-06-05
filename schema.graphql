@@ -156,8 +156,10 @@ type Worker
   stakerApr: Float
 
   totalDelegation: BigInt!
+  capedDelegation: BigInt!
   delegationCount: Int!
   delegations: [Delegation!] @derivedFrom(field: "worker")
+  totalDelegationRewards: BigInt!
 
   # network metrics
   online: Boolean @index

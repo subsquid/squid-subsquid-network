@@ -1,0 +1,243 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_router",
+        "type": "address",
+        "internalType": "contract IRouter"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cap",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "uint256",
+        "internalType": "UD60x18"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "UD60x18"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "capedStake",
+    "inputs": [
+      {
+        "name": "workerId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "capedStakeAfterDelegation",
+    "inputs": [
+      {
+        "name": "workerId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "delegationAmount",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "router",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRouter"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_MulDiv18_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "y",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_MulDiv_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "y",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "denominator",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Abs_MinSD59x18",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Div_InputTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Div_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      },
+      {
+        "name": "y",
+        "type": "int256",
+        "internalType": "SD59x18"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Exp2_InputTooBig",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_IntoUD60x18_Underflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Log_InputTooSmall",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Mul_InputTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Mul_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      },
+      {
+        "name": "y",
+        "type": "int256",
+        "internalType": "SD59x18"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_SD59x18_Powu_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "int256",
+        "internalType": "SD59x18"
+      },
+      {
+        "name": "y",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_UD60x18_Convert_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PRBMath_UD60x18_IntoSD59x18_Overflow",
+    "inputs": [
+      {
+        "name": "x",
+        "type": "uint256",
+        "internalType": "UD60x18"
+      }
+    ]
+  }
+]

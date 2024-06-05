@@ -118,6 +118,8 @@ export function createWorker(
     claimedReward: 0n,
     totalDelegation: 0n,
     delegationCount: 0,
+    capedDelegation: 0n,
+    totalDelegationRewards: 0n,
     status: WorkerStatus.UNKNOW,
     locked: null,
     lockStart: null,
