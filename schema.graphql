@@ -318,6 +318,8 @@ type Statistics @entity {
   blockTimeL1: Int!
   lastBlockL1: Int!
   lastBlockTimestampL1: DateTime!
+  utilizedStake: BigInt!
+  baseApr: Float!
 }
 
 enum EpochStatus {

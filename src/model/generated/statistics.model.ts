@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 
 @Entity_()
 export class Statistics {
@@ -32,4 +32,10 @@ export class Statistics {
 
     @DateTimeColumn_({nullable: false})
     lastBlockTimestampL1!: Date
+
+    @BigIntColumn_({nullable: false})
+    utilizedStake!: bigint
+
+    @FloatColumn_({nullable: false})
+    baseApr!: number
 }

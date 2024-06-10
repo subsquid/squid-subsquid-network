@@ -7,7 +7,7 @@ import { Multicall } from '~/abi/multicall';
 import * as SoftCap from '~/abi/SoftCap';
 import { network } from '~/config/network';
 import { Block } from '~/config/processor';
-import { Worker, WorkerStatus } from '~/model';
+import { Statistics, Worker, WorkerStatus } from '~/model';
 
 let INIT_CAPS = false;
 
@@ -33,6 +33,7 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
   const workers = await ctx.store.find(Worker, {
     where: all ? {} : { id: In([...ctx.delegatedWorkers]) },
   });
+  if (workers.length === 0) return;
 
   const capedDelegations = await multicall.aggregate(
     SoftCap.functions.capedStake,
@@ -44,10 +45,13 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
   );
 
   workers.forEach((w, i) => {
-    w.capedDelegation = capedDelegations[i];
+    const capedDelegation = capedDelegations[i];
+    w.capedDelegation = capedDelegation;
   });
 
   await ctx.store.upsert(workers);
+
+  ctx.recalculateAprs = true;
 }
 
 export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
@@ -58,18 +62,23 @@ export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
 }
 
 async function recalculateWorkerAprs(ctx: MappingContext) {
+  const statistics = await ctx.store.getOrFail(Statistics, network.name);
+
   const workers = await ctx.store.find(Worker, {
     where: { status: WorkerStatus.ACTIVE },
   });
 
   const baseApr = BigDecimal(0.2);
-  const totalSupply = workers.reduce(
+  const utilizedStake = workers.reduce(
     (r, w) => (w.liveness ? r + w.bond + w.capedDelegation : r),
     0n,
   );
 
+  statistics.baseApr = baseApr.toNumber();
+  statistics.utilizedStake = utilizedStake;
+
   for (const worker of workers) {
-    const supplyRatio = BigDecimal(worker.capedDelegation).add(worker.bond).div(totalSupply);
+    const supplyRatio = BigDecimal(worker.capedDelegation).add(worker.bond).div(utilizedStake);
 
     const dTraffic = Math.min(
       BigDecimal(worker.trafficWeight || 0)
@@ -93,4 +102,5 @@ async function recalculateWorkerAprs(ctx: MappingContext) {
   }
 
   await ctx.store.upsert(workers);
+  await ctx.store.upsert(statistics);
 }
