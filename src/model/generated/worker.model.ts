@@ -144,6 +144,15 @@ export class Worker {
     @FloatColumn_({nullable: true})
     uptime90Days!: number | undefined | null
 
+    @FloatColumn_({nullable: true})
+    trafficWeight!: number | undefined | null
+
+    @FloatColumn_({nullable: true})
+    liveness!: number | undefined | null
+
+    @FloatColumn_({nullable: true})
+    dTenure!: number | undefined | null
+
     @Column_("jsonb", {transformer: {to: obj => obj == null ? undefined : obj.map((val: any) => val.toJSON()), from: obj => obj == null ? undefined : marshal.fromList(obj, val => new WorkerDayUptime(undefined, marshal.nonNull(val)))}, nullable: true})
     dayUptimes!: (WorkerDayUptime)[] | undefined | null
 

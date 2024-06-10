@@ -10,7 +10,6 @@ export function listenUnlockCheck(ctx: MappingContext, id: string) {
   });
 
   const listenerId = `worker-unlock-check-${id}`;
-  ctx.events.off(Events.BlockStart, listenerId);
   ctx.events.on(
     Events.BlockStart,
     async (block: { l1BlockNumber: number; timestamp: number }) => {

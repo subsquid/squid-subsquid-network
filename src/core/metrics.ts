@@ -195,6 +195,72 @@ export function listenMetricsUpdate(ctx: MappingContext) {
   });
 }
 
+const rewardMetricsUpdateInterval = 30 * MINUTE_MS;
+let lastRewardMetricsUpdateTimestamp = -1;
+let lastRewardMetricsUpdateOffset = 0;
+
+type RewardStat = {
+  peerId: string;
+  trafficWeight: number;
+  livenessFactor: number;
+};
+
+export function listenRewardMetricsUpdate(ctx: MappingContext) {
+  const statsUrl = process.env.NETWORK_STATS_URL;
+  if (!statsUrl) return;
+
+  ctx.log.debug(`listening for worker reward stats updates`);
+
+  ctx.events.on(Events.BlockEnd, async (block) => {
+    if (
+      block.timestamp - rewardMetricsUpdateInterval >
+      lastRewardMetricsUpdateTimestamp + lastRewardMetricsUpdateOffset
+    ) {
+      const { timestamp, data }: { timestamp: string; data: RewardStat[] } = await client
+        .get(joinUrl(statsUrl, '/workers/reward_stats.json'))
+        .then((r) => JSON.parse(r));
+
+      const snapshotTimestamp = new Date(timestamp).getTime();
+      if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
+        lastMetricsUpdateOffset += MINUTE_MS;
+        return;
+      }
+
+      const workersStats = keyBy(data, (w) => w.peerId);
+      const activeWorkers = await ctx.store.find(Worker, {
+        where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+      });
+
+      for (const worker of activeWorkers) {
+        const data = workersStats[worker.peerId];
+
+        worker.trafficWeight = data?.trafficWeight ?? null;
+        worker.dTenure = data ? 1 : null;
+
+        const livenessFactor = data?.livenessFactor ?? null;
+        if (livenessFactor < 0.8) {
+          worker.liveness = 0;
+        } else if (livenessFactor < 0.9) {
+          worker.liveness = 9 * livenessFactor - 7.2;
+        } else if (livenessFactor < 0.95) {
+          worker.liveness = 2 * livenessFactor - 0.9;
+        } else {
+          worker.liveness = 1;
+        }
+      }
+
+      await ctx.store.upsert(activeWorkers);
+
+      lastRewardMetricsUpdateTimestamp = snapshotTimestamp;
+      lastRewardMetricsUpdateOffset = 0;
+
+      ctx.log.info(`workers reward stats of ${activeWorkers.length} updated`);
+
+      ctx.recalculateAprs = true;
+    }
+  });
+}
+
 let INIT_APRS = false;
 
 export function listenRewardsDistributed(ctx: MappingContext) {
@@ -214,70 +280,54 @@ export function listenRewardsDistributed(ctx: MappingContext) {
 export async function calculateAprs(ctx: MappingContext) {
   // const lastCommitments = await ctx.store.find(Commitment, { order: { id: 'DESC' }, take: 1 });
   // if (lastCommitments.length === 0) return;
-
-  const commitments = await ctx.store
-    .find(Commitment, {
-      where: {},
-      order: { id: 'DESC' },
-      take: 5,
-    })
-    .then((res) => res.reverse());
-
-  const activeWorkers = await ctx.store.find(Worker, {
-    where: { status: In([WorkerStatus.ACTIVE]) },
-  });
-
-  for (const worker of activeWorkers) {
-    const { workerApr, stakerApr } = calculateApr(worker, commitments);
-
-    worker.apr = workerApr;
-    worker.stakerApr = stakerApr;
-  }
-
-  await ctx.store.upsert(activeWorkers);
-
-  ctx.log.info(`workers aprs of ${activeWorkers.length} updated`);
+  // const commitments = await ctx.store
+  //   .find(Commitment, {
+  //     where: {},
+  //     order: { id: 'DESC' },
+  //     take: 5,
+  //   })
+  //   .then((res) => res.reverse());
+  // const activeWorkers = await ctx.store.find(Worker, {
+  //   where: { status: In([WorkerStatus.ACTIVE]) },
+  // });
+  // for (const worker of activeWorkers) {
+  //   const { workerApr, stakerApr } = calculateApr(worker, commitments);
+  //   worker.apr = workerApr;
+  //   worker.stakerApr = stakerApr;
+  // }
+  // await ctx.store.upsert(activeWorkers);
+  // ctx.log.info(`workers aprs of ${activeWorkers.length} updated`);
 }
 
 function calculateApr(worker: Worker, commitments: Commitment[]) {
-  let intervalFrom: number | null = null;
-  let intervalTo: number | null = null;
-
-  let workerApr: BigDecimal = BigDecimal(0);
-  let stakerApr: BigDecimal = BigDecimal(0);
-
-  const createdAt = worker.createdAt.getTime();
-
-  for (const commitment of commitments) {
-    intervalTo = commitment.to.getTime();
-
-    const payment = commitment.recipients.find((r) => r.workerId === worker.id);
-    if (!payment) continue;
-
-    const commitmentIntervalTo = commitment.to.getTime();
-    if (createdAt > commitmentIntervalTo) continue;
-
-    const commitmentIntervalFrom = commitment.from.getTime();
-    if (createdAt > commitmentIntervalFrom && payment.workerApr === 0 && payment.stakerApr === 0)
-      // filter cases when new worker was not included into payment
-      continue;
-
-    const commitmentInterval = commitmentIntervalTo - commitmentIntervalFrom;
-    if (commitmentInterval === 0) continue;
-
-    intervalFrom = intervalFrom ?? Math.max(createdAt, commitmentIntervalFrom);
-
-    workerApr = BigDecimal(payment.workerApr).mul(commitmentInterval).add(workerApr);
-    stakerApr = BigDecimal(payment.stakerApr).mul(commitmentInterval).add(stakerApr);
-  }
-
-  if (intervalFrom === null || intervalTo === null) {
-    return { workerApr: null, stakerApr: null };
-  } else {
-    const interval = intervalTo - intervalFrom;
-    return {
-      workerApr: workerApr.div(interval).toNumber(),
-      stakerApr: worker.totalDelegation > 0 ? stakerApr.div(interval).toNumber() : null,
-    };
-  }
+  // let intervalFrom: number | null = null;
+  // let intervalTo: number | null = null;
+  // let workerApr: BigDecimal = BigDecimal(0);
+  // let stakerApr: BigDecimal = BigDecimal(0);
+  // const createdAt = worker.createdAt.getTime();
+  // for (const commitment of commitments) {
+  //   intervalTo = commitment.to.getTime();
+  //   const payment = commitment.recipients.find((r) => r.workerId === worker.id);
+  //   if (!payment) continue;
+  //   const commitmentIntervalTo = commitment.to.getTime();
+  //   if (createdAt > commitmentIntervalTo) continue;
+  //   const commitmentIntervalFrom = commitment.from.getTime();
+  //   if (createdAt > commitmentIntervalFrom && payment.workerApr === 0 && payment.stakerApr === 0)
+  //     // filter cases when new worker was not included into payment
+  //     continue;
+  //   const commitmentInterval = commitmentIntervalTo - commitmentIntervalFrom;
+  //   if (commitmentInterval === 0) continue;
+  //   intervalFrom = intervalFrom ?? Math.max(createdAt, commitmentIntervalFrom);
+  //   workerApr = BigDecimal(payment.workerApr).mul(commitmentInterval).add(workerApr);
+  //   stakerApr = BigDecimal(payment.stakerApr).mul(commitmentInterval).add(stakerApr);
+  // }
+  // if (intervalFrom === null || intervalTo === null) {
+  //   return { workerApr: null, stakerApr: null };
+  // } else {
+  //   const interval = intervalTo - intervalFrom;
+  //   return {
+  //     workerApr: workerApr.div(interval).toNumber(),
+  //     stakerApr: worker.totalDelegation > 0 ? stakerApr.div(interval).toNumber() : null,
+  //   };
+  // }
 }

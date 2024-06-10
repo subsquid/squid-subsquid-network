@@ -10,6 +10,9 @@ export class EventEmitter<E extends EventMap = EventMap> {
     if (!this.events[event]) {
       this.events[event] = [];
     }
+    if (opts?.id) {
+      this.off(event, opts.id);
+    }
 
     this.events[event]!.push({ fn, id: opts?.id });
   }
@@ -33,13 +36,13 @@ export class EventEmitter<E extends EventMap = EventMap> {
     }
   }
 
-  once<K extends keyof E>(event: K, fn: E[K]): void {
+  once<K extends keyof E>(event: K, fn: E[K], opts?: { id: string }): void {
     const onceWrap = ((...args) => {
       this.off(event, onceWrap);
       return fn(...args);
     }) as E[K];
 
-    return this.on(event, onceWrap);
+    return this.on(event, onceWrap, opts);
   }
 
   async emit<K extends keyof E>(event: K, ...args: Parameters<E[K]>): Promise<void> {

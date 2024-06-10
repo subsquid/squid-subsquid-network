@@ -16,7 +16,6 @@ export function listenStatusCheck(ctx: MappingContext, id: string) {
   const settingsDefer = ctx.store.defer(Settings, { id: network.name });
 
   const listenerId = `worker-status-check-${id}`;
-  ctx.events.off(Events.BlockStart, listenerId);
   ctx.events.on(
     Events.BlockStart,
     async (block: { l1BlockNumber: number; timestamp: number }) => {

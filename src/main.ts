@@ -3,12 +3,17 @@ import { last } from 'lodash';
 import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 import { handlers } from './core';
-import { listenUpdateWorkersCap } from './core/cap';
+import { listenUpdateWorkersCap, scheduleUpdateWorkerAprs } from './core/cap';
 import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
 import { listenStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
 import { createSettings, createBlock } from './core/helpers/entities';
 import { createEpochId } from './core/helpers/ids';
-import { listenOnlineUpdate, listenMetricsUpdate, listenRewardsDistributed } from './core/metrics';
+import {
+  listenOnlineUpdate,
+  listenMetricsUpdate,
+  listenRewardsDistributed,
+  listenRewardMetricsUpdate,
+} from './core/metrics';
 import { listenDelegationUnlock } from './core/staking/CheckDelegationUnlock.listener';
 import { listenStatusCheck } from './core/worker/CheckStatus.listener';
 import { listenUnlockCheck } from './core/worker/CheckUnlock.listener';
@@ -49,11 +54,13 @@ async function mapBlocks(ctx: MappingContext) {
 
   scheduleEpochs(ctx);
   listenRewardsDistributed(ctx);
-  listenUpdateWorkersCap(ctx);
 
   if (ctx.isHead) {
+    listenUpdateWorkersCap(ctx);
     listenOnlineUpdate(ctx);
     listenMetricsUpdate(ctx);
+    listenRewardMetricsUpdate(ctx);
+    scheduleUpdateWorkerAprs(ctx);
   }
 
   ctx.queue.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));

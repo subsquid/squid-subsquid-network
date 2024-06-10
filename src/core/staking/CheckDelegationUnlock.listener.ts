@@ -8,7 +8,6 @@ export function listenDelegationUnlock(ctx: MappingContext, id: string) {
   const delegationDeferred = ctx.store.defer(Delegation, id);
 
   const listenerId = `delegation-unlock-${id}`;
-  ctx.events.off(Events.BlockStart, listenerId);
   ctx.events.on(
     Events.BlockStart,
     async (block) => {

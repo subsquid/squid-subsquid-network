@@ -183,6 +183,10 @@ type Worker
   uptime24Hours: Float
   uptime90Days: Float
 
+  trafficWeight: Float
+  liveness: Float
+  dTenure: Float
+
   dayUptimes: [WorkerDayUptime!]
   snapshots: [WorkerSnapshot!] @derivedFrom(field: "worker")
 }
