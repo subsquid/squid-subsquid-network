@@ -35,7 +35,7 @@ export const handleClaimed = createHandler({
       const worker = await workerDeferred.getOrFail();
       assert(worker.owner.id === accountId); // should never happen, but just in case
 
-      worker.claimableReward -= amount;
+      worker.claimableReward = 0n;
       worker.claimedReward += amount;
 
       await ctx.store.upsert(worker);
