@@ -62,7 +62,7 @@ export function listenOnlineUpdate(ctx: MappingContext) {
       for (const worker of activeWorkers) {
         const data = onlineWorkers[worker.peerId];
 
-        worker.online = data ? !data.jailed && data.lastDialOk : false;
+        worker.online = !!data;
         worker.jailed = data ? data.jailed : null;
         worker.dialOk = data ? data.lastDialOk : null;
         worker.storedData = data ? BigInt(data.storedBytes) : null;
