@@ -6,12 +6,13 @@ import { In, MoreThanOrEqual } from 'typeorm';
 import { Events, MappingContext } from '../types';
 
 import { network } from '~/config/network';
-import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings } from '~/model';
+import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings, Block } from '~/model';
 import { joinUrl, toPercent } from '~/utils/misc';
-import { DAY_MS, MINUTE_MS, toStartOfDay } from '~/utils/time';
+import { DAY_MS, HOUR_MS, MINUTE_MS, toStartOfDay, toStartOfInterval } from '~/utils/time';
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,
+  httpTimeout: MINUTE_MS,
 });
 
 const onlineUpdateInterval = 5 * MINUTE_MS;
@@ -200,14 +201,19 @@ let lastRewardMetricsUpdateTimestamp = -1;
 let lastRewardMetricsUpdateOffset = 0;
 
 type RewardStat = {
-  peerId: string;
-  trafficWeight: number;
-  livenessFactor: number;
+  id: string;
+  traffic: {
+    trafficWeight: number;
+  };
+  liveness: {
+    livenessCoefficient: number;
+    tenure: number;
+  };
 };
 
 export function listenRewardMetricsUpdate(ctx: MappingContext) {
-  const statsUrl = process.env.NETWORK_STATS_URL;
-  if (!statsUrl) return;
+  const monitorUrl = process.env.REWARDS_MONITOR_API_URL;
+  if (!monitorUrl) return;
 
   ctx.log.debug(`listening for worker reward stats updates`);
 
@@ -216,17 +222,22 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       block.timestamp - rewardMetricsUpdateInterval >
       lastRewardMetricsUpdateTimestamp + lastRewardMetricsUpdateOffset
     ) {
-      const { timestamp, data }: { timestamp: string; data: RewardStat[] } = await client
-        .get(joinUrl(statsUrl, '/workers/reward_stats.json'))
-        .then((r) => JSON.parse(r));
+      const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
 
-      const snapshotTimestamp = new Date(timestamp).getTime();
-      if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
-        lastMetricsUpdateOffset += MINUTE_MS;
+      const startBlock = await ctx.store.findOne(Block, {
+        where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp - 24 * HOUR_MS)) },
+        order: { id: 'ASC' },
+      });
+      if (!startBlock) {
+        ctx.log.warn(`unable to fetch rewards starts: start block not found`);
         return;
       }
 
-      const workersStats = keyBy(data, (w) => w.peerId);
+      const { workers: data }: { workers: RewardStat[] } = await client.get(
+        joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${block.l1BlockNumber}`),
+      );
+
+      const workersStats = keyBy(data, (w) => w.id);
       const activeWorkers = await ctx.store.find(Worker, {
         where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
       });
@@ -234,19 +245,9 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       for (const worker of activeWorkers) {
         const data = workersStats[worker.peerId];
 
-        worker.trafficWeight = data?.trafficWeight ?? null;
-        worker.dTenure = data ? 1 : null;
-
-        const livenessFactor = data?.livenessFactor ?? null;
-        if (livenessFactor < 0.8) {
-          worker.liveness = 0;
-        } else if (livenessFactor < 0.9) {
-          worker.liveness = 9 * livenessFactor - 7.2;
-        } else if (livenessFactor < 0.95) {
-          worker.liveness = 2 * livenessFactor - 0.9;
-        } else {
-          worker.liveness = 1;
-        }
+        worker.trafficWeight = data?.traffic.trafficWeight ?? null;
+        worker.dTenure = data?.liveness.tenure ?? null;
+        worker.liveness = data?.liveness.livenessCoefficient ?? null;
       }
 
       await ctx.store.upsert(activeWorkers);
