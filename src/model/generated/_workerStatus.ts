@@ -4,5 +4,5 @@ export enum WorkerStatus {
     DEREGISTERING = "DEREGISTERING",
     DEREGISTERED = "DEREGISTERED",
     WITHDRAWN = "WITHDRAWN",
-    UNKNOW = "UNKNOW",
+    UNKNOWN = "UNKNOWN",
 }

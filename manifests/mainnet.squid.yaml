@@ -24,6 +24,7 @@ deploy:
     RANGE_FROM: 194_120_655
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
     SCHEDULER_API_URL: https://scheduler.mainnet.subsquid.io
+    REWARDS_MONITOR_API_URL: https://rewards-monitor.mainnet.subsquid.io
   processor:
     cmd:
       - sqd

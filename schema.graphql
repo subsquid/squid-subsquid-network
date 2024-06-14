@@ -114,7 +114,7 @@ enum WorkerStatus {
   DEREGISTERING
   DEREGISTERED
   WITHDRAWN
-  UNKNOW
+  UNKNOWN
 }
 
 type WorkerDayUptime {
