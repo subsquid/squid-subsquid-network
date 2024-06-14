@@ -1,5 +1,5 @@
 import { BigDecimal } from '@subsquid/big-decimal';
-import { HttpClient } from '@subsquid/http-client';
+import { HttpClient, HttpError } from '@subsquid/http-client';
 import { keyBy, last } from 'lodash';
 import { In, MoreThanOrEqual } from 'typeorm';
 
@@ -233,9 +233,21 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
         return;
       }
 
-      const { workers: data }: { workers: RewardStat[] } = await client.get(
-        joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${block.l1BlockNumber}`),
-      );
+      let res: { workers: RewardStat[] };
+      try {
+        res = await client.get(
+          joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${block.l1BlockNumber}`),
+        );
+      } catch (e) {
+        if (e instanceof HttpError) {
+          ctx.log.warn(e);
+          lastRewardMetricsUpdateOffset += MINUTE_MS;
+          return;
+        }
+
+        throw e;
+      }
+      const { workers: data } = res;
 
       const workersStats = keyBy(data, (w) => w.id);
       const activeWorkers = await ctx.store.find(Worker, {
