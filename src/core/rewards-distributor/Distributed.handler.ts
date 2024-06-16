@@ -139,7 +139,9 @@ export const handleDistributed = createHandler({
         }
 
         if (payment.stakerReward > 0) {
-          const rewardsPerShare = (payment.stakerReward * 10n ** 18n) / worker.totalDelegation;
+          const rewardsPerShare = worker.totalDelegation
+            ? (payment.stakerReward * 10n ** 18n) / worker.totalDelegation
+            : 0n;
 
           const count = await distributeReward(ctx, log, {
             workerId: worker.id,
