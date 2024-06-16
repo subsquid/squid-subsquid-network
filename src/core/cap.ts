@@ -98,7 +98,7 @@ async function recalculateWorkerAprs(ctx: MappingContext) {
     const stakerReward = actualYield.mul(worker.capedDelegation / 2n);
     worker.stakerApr = worker.totalDelegation
       ? stakerReward.div(worker.totalDelegation).mul(100).toNumber()
-      : null;
+      : worker.apr / 2;
   }
 
   await ctx.store.upsert(workers);

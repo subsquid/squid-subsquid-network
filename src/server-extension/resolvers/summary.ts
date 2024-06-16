@@ -5,7 +5,7 @@ import { Field, ObjectType, Query, Resolver } from 'type-graphql';
 import { EntityManager } from 'typeorm';
 
 @ObjectType()
-export class NetworkSummary {
+export class NetworkStats {
   @Field(() => Number, { nullable: false })
   workerApr!: number;
 
@@ -57,7 +57,7 @@ export class NetworkSummary {
   @Field(() => Number, { nullable: false })
   blockTimeL1!: number;
 
-  constructor(props: Partial<NetworkSummary>) {
+  constructor(props: Partial<NetworkStats>) {
     Object.assign(this, props);
   }
 }
@@ -66,8 +66,8 @@ export class NetworkSummary {
 export class NetworkSummaryResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => NetworkSummary)
-  async networkSummary(): Promise<NetworkSummary> {
+  @Query(() => NetworkStats)
+  async networkStats(): Promise<NetworkStats> {
     const manager = await this.tx();
 
     return await manager
@@ -102,7 +102,7 @@ export class NetworkSummaryResolver {
       )
       .then((r) => {
         assert(r.length === 1);
-        return new NetworkSummary(r[0]);
+        return new NetworkStats(r[0]);
       });
   }
 }
