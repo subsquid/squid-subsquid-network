@@ -185,39 +185,39 @@ function scheduleComplete(ctx: MappingContext) {
   ctx.events.on(Events.Finalization, async () => {
     const lastBlock = last(ctx.blocks)!.header;
 
-    const statistics = await ctx.store.getOrFail(Statistics, network.name);
+    // const lb = lastBlock;
+    // statistics.lastBlock = lb.height;
+    // statistics.lastBlockTimestamp = new Date(lb.timestamp);
 
-    const lb = lastBlock;
-    statistics.lastBlock = lb.height;
-    statistics.lastBlockTimestamp = new Date(lb.timestamp);
-
-    const lbL1 = lastBlock;
-    statistics.lastBlockL1 = lbL1.l1BlockNumber;
-    statistics.lastBlockTimestampL1 = new Date(lb.timestamp);
+    // const lbL1 = lastBlock;
+    // statistics.lastBlockL1 = lbL1.l1BlockNumber;
+    // statistics.lastBlockTimestampL1 = new Date(lb.timestamp);
 
     if (blocksPassed > 1000) {
-      const blocks = await ctx.store.find(Block, {
-        where: {
-          timestamp: MoreThanOrEqual(new Date(lastBlock.timestamp - 10 * MINUTE_MS)),
-        },
-        order: { height: 'ASC' },
-        cache: false,
-      });
+      // const statistics = await ctx.store.getOrFail(Statistics, network.name);
 
-      statistics.blockTime = Math.round((10 * MINUTE_MS) / blocks.length);
-      statistics.blockTimeL1 = Math.round(
-        (10 * MINUTE_MS) /
-          blocks.reduce(
-            (r, b) => {
-              if (b.l1BlockNumber > r.last) {
-                r.length += 1;
-                r.last = b.l1BlockNumber;
-              }
-              return r;
-            },
-            { length: 0, last: 0 },
-          ).length,
-      );
+      // const blocks = await ctx.store.find(Block, {
+      //   where: {
+      //     timestamp: MoreThanOrEqual(new Date(lastBlock.timestamp - 10 * MINUTE_MS)),
+      //   },
+      //   order: { height: 'ASC' },
+      //   cache: false,
+      // });
+
+      // statistics.blockTime = Math.round((10 * MINUTE_MS) / blocks.length);
+      // statistics.blockTimeL1 = Math.round(
+      //   (10 * MINUTE_MS) /
+      //     blocks.reduce(
+      //       (r, b) => {
+      //         if (b.l1BlockNumber > r.last) {
+      //           r.length += 1;
+      //           r.last = b.l1BlockNumber;
+      //         }
+      //         return r;
+      //       },
+      //       { length: 0, last: 0 },
+      //     ).length,
+      // );
 
       const limit = 50_000;
       const offset = 0;
@@ -238,7 +238,7 @@ function scheduleComplete(ctx: MappingContext) {
     }
     blocksPassed += ctx.blocks.length;
 
-    await ctx.store.upsert(statistics);
+    // await ctx.store.upsert(statistics);
   });
 }
 
