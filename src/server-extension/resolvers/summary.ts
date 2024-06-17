@@ -89,14 +89,14 @@ export class NetworkSummaryResolver {
           SUM(served_data24_hours) as "servedData24Hours",
           SUM(served_data90_days) as "servedData90Days",
           SUM(stored_data) as "storedData",
-          (SELECT count(*) FROM worker WHERE status NOT IN ('WITHDRAWN', 'UNKNOWN')) as "workersCount",
-          (SELECT count(*) FROM worker WHERE online = TRUE) as "onlineWorkersCount",
+          (SELECT count(*) FROM worker WHERE status IN ('ACTIVE')) as "workersCount",
+          (SELECT count(*) FROM worker WHERE online = TRUE AND status IN ('ACTIVE')) as "onlineWorkersCount",
           (SELECT max(height) FROM block) as "lastBlock",
           (SELECT max(timestamp) FROM block) as "lastBlockTimestamp",
           (SELECT EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100 * 1000 FROM block) as "blockTime",
           (SELECT max(height) FROM block_l1) as "lastBlockL1",
           (SELECT max(timestamp) FROM block_l1) as "lastBlockTimestampL1",
-          (SELECT ((EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100) - 3) * 1000 FROM block_l1) as "blockTimeL1"
+          (SELECT ((EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100) - 2) * 1000 FROM block_l1) as "blockTimeL1"
         FROM worker
         `,
       )

@@ -1,5 +1,5 @@
 import { BigDecimal } from '@subsquid/big-decimal';
-import { HttpClient, HttpError } from '@subsquid/http-client';
+import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client';
 import { keyBy, last } from 'lodash';
 import { In, MoreThanOrEqual } from 'typeorm';
 
@@ -149,6 +149,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
         worker.servedData24Hours = data ? BigInt(data.responseBytes24Hours) : 0n;
         worker.scannedData24Hours = data ? BigInt(data.readChunks24Hours) : 0n;
         worker.queries24Hours = data ? BigInt(data.queryCount24Hours) : 0n;
+        worker.uptime24Hours = data?.uptime24Hours ?? null;
 
         if (data?.dayUptimes) {
           const dayUptimes = keyBy(data.dayUptimes, ([date]) => new Date(date).getTime());
@@ -175,13 +176,11 @@ export function listenMetricsUpdate(ctx: MappingContext) {
             );
           }
 
-          worker.uptime24Hours = last(worker.dayUptimes)?.uptime ?? null;
           worker.uptime90Days = worker.dayUptimes
             .slice(-90)
             .reduce((s, i, _, arr) => s + i.uptime / arr.length, 0);
         } else {
           worker.dayUptimes = null;
-          worker.uptime24Hours = null;
           worker.uptime90Days = null;
         }
       }
@@ -239,7 +238,7 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
           joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${block.l1BlockNumber}`),
         );
       } catch (e) {
-        if (e instanceof HttpError) {
+        if (e instanceof HttpError || e instanceof HttpTimeoutError) {
           ctx.log.warn(e);
           lastRewardMetricsUpdateOffset += MINUTE_MS;
           return;
