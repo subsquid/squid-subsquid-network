@@ -12,6 +12,8 @@ import { Statistics, Worker, WorkerStatus } from '~/model';
 let INIT_CAPS = false;
 
 export function listenUpdateWorkersCap(ctx: MappingContext) {
+  if (!ctx.isHead) return;
+
   if (!INIT_CAPS) {
     ctx.events.on(Events.Initialization, async (block) => {
       await updateWorkersCap(ctx, block, true);
@@ -55,6 +57,8 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
 }
 
 export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
+  if (!ctx.isHead) return;
+
   ctx.events.on(Events.Finalization, async (block) => {
     if (!ctx.recalculateAprs) return;
     await recalculateWorkerAprs(ctx);

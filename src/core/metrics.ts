@@ -29,6 +29,8 @@ type WorkerOnline = {
 };
 
 export function listenOnlineUpdate(ctx: MappingContext) {
+  if (!ctx.isHead) return;
+
   const statsUrl = process.env.NETWORK_STATS_URL;
   if (!statsUrl) return;
 
@@ -114,6 +116,8 @@ type WorkerStat = {
 };
 
 export function listenMetricsUpdate(ctx: MappingContext) {
+  if (!ctx.isHead) return;
+
   const statsUrl = process.env.NETWORK_STATS_URL;
   if (!statsUrl) return;
 
@@ -149,14 +153,22 @@ export function listenMetricsUpdate(ctx: MappingContext) {
         worker.servedData24Hours = data ? BigInt(data.responseBytes24Hours) : 0n;
         worker.scannedData24Hours = data ? BigInt(data.readChunks24Hours) : 0n;
         worker.queries24Hours = data ? BigInt(data.queryCount24Hours) : 0n;
-        worker.uptime24Hours = data?.uptime24Hours ?? null;
+
+        const createdTimestamp = worker.createdAt.getTime();
+
+        worker.uptime24Hours = data
+          ? toPercent(
+              createdTimestamp > snapshotTimestamp - DAY_MS
+                ? data.uptime24Hours / ((snapshotTimestamp - createdTimestamp) / DAY_MS)
+                : data.uptime24Hours,
+            )
+          : null;
 
         if (data?.dayUptimes) {
           const dayUptimes = keyBy(data.dayUptimes, ([date]) => new Date(date).getTime());
 
           worker.dayUptimes = [];
 
-          const createdTimestamp = worker.createdAt.getTime();
           const from = toStartOfDay(createdTimestamp);
           const to = toStartOfDay(snapshotTimestamp);
 
@@ -211,6 +223,8 @@ type RewardStat = {
 };
 
 export function listenRewardMetricsUpdate(ctx: MappingContext) {
+  if (!ctx.isHead) return;
+
   const monitorUrl = process.env.REWARDS_MONITOR_API_URL;
   if (!monitorUrl) return;
 
@@ -273,20 +287,18 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
   });
 }
 
-let INIT_APRS = false;
+// let INIT_APRS = false;
 
 export function listenRewardsDistributed(ctx: MappingContext) {
-  if (!INIT_APRS) {
-    ctx.events.on(Events.Initialization, async () => {
-      await calculateAprs(ctx);
-    });
-
-    INIT_APRS = true;
-  }
-
-  ctx.events.on(Events.RewardsDistributed, async () => {
-    await calculateAprs(ctx);
-  });
+  // if (!INIT_APRS) {
+  //   ctx.events.on(Events.Initialization, async () => {
+  //     await calculateAprs(ctx);
+  //   });
+  //   INIT_APRS = true;
+  // }
+  // ctx.events.on(Events.RewardsDistributed, async () => {
+  //   await calculateAprs(ctx);
+  // });
 }
 
 export async function calculateAprs(ctx: MappingContext) {

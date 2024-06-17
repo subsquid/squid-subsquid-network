@@ -55,13 +55,11 @@ async function mapBlocks(ctx: MappingContext) {
   scheduleEpochs(ctx);
   listenRewardsDistributed(ctx);
 
-  if (ctx.isHead) {
-    listenUpdateWorkersCap(ctx);
-    listenOnlineUpdate(ctx);
-    listenMetricsUpdate(ctx);
-    listenRewardMetricsUpdate(ctx);
-    scheduleUpdateWorkerAprs(ctx);
-  }
+  listenUpdateWorkersCap(ctx);
+  listenOnlineUpdate(ctx);
+  listenMetricsUpdate(ctx);
+  listenRewardMetricsUpdate(ctx);
+  scheduleUpdateWorkerAprs(ctx);
 
   ctx.queue.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
 
