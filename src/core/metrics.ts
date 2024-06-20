@@ -12,7 +12,7 @@ import { DAY_MS, HOUR_MS, MINUTE_MS, toStartOfDay, toStartOfInterval } from '~/u
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,
-  httpTimeout: MINUTE_MS,
+  httpTimeout: 2 * MINUTE_MS,
 });
 
 const onlineUpdateInterval = 5 * MINUTE_MS;
@@ -39,7 +39,7 @@ export function listenOnlineUpdate(ctx: MappingContext) {
 
   ctx.log.debug(`listening for worker online updates`);
 
-  ctx.events.on(Events.BlockEnd, async (block) => {
+  ctx.events.on(Events.Initialization, async (block) => {
     if (
       block.timestamp - onlineUpdateInterval >=
       lastOnlineUpdateTimestamp + lastOnlineUpdateOffset
@@ -123,7 +123,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
 
   ctx.log.debug(`listening for worker stats updates`);
 
-  ctx.events.on(Events.BlockEnd, async (block) => {
+  ctx.events.on(Events.Initialization, async (block) => {
     if (
       block.timestamp - metricsUpdateInterval >
       lastMetricsUpdateTimestamp + lastMetricsUpdateOffset
@@ -134,7 +134,9 @@ export function listenMetricsUpdate(ctx: MappingContext) {
 
       const snapshotTimestamp = new Date(timestamp).getTime();
       if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
-        lastMetricsUpdateOffset += MINUTE_MS;
+        lastMetricsUpdateOffset = lastMetricsUpdateOffset
+          ? Math.min(lastMetricsUpdateOffset * 2, metricsUpdateInterval)
+          : MINUTE_MS;
         return;
       }
 
@@ -230,7 +232,7 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
 
   ctx.log.debug(`listening for worker reward stats updates`);
 
-  ctx.events.on(Events.BlockEnd, async (block) => {
+  ctx.events.on(Events.Initialization, async (block) => {
     if (
       block.timestamp - rewardMetricsUpdateInterval >
       lastRewardMetricsUpdateTimestamp + lastRewardMetricsUpdateOffset
@@ -254,7 +256,9 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       } catch (e) {
         if (e instanceof HttpError || e instanceof HttpTimeoutError) {
           ctx.log.warn(e);
-          lastRewardMetricsUpdateOffset += MINUTE_MS;
+          lastRewardMetricsUpdateOffset = lastRewardMetricsUpdateOffset
+            ? Math.min(lastRewardMetricsUpdateOffset * 2, metricsUpdateInterval)
+            : MINUTE_MS;
           return;
         }
 
