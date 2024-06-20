@@ -240,7 +240,7 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
 
       const startBlock = await ctx.store.findOne(Block, {
-        where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp - 24 * HOUR_MS)) },
+        where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp - 12 * HOUR_MS)) },
         order: { id: 'ASC' },
       });
       if (!startBlock) {
@@ -248,10 +248,19 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
         return;
       }
 
+      const endBlock = await ctx.store.findOne(Block, {
+        where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp)) },
+        order: { id: 'ASC' },
+      });
+      if (!endBlock) {
+        ctx.log.warn(`unable to fetch rewards starts: end block not found`);
+        return;
+      }
+
       let res: { workers: RewardStat[] };
       try {
         res = await client.get(
-          joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${block.l1BlockNumber}`),
+          joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${endBlock.l1BlockNumber}`),
         );
       } catch (e) {
         if (e instanceof HttpError || e instanceof HttpTimeoutError) {
