@@ -29,6 +29,7 @@ export function parseWorkerMetadata(ctx: { log: Logger }, rawMetadata: string): 
         metadata[prop as keyof WorkerMetadata] = parsed[prop];
       }
     }
+    metadata.email = null;
     return metadata;
   } catch (e) {
     ctx.log.warn(`unable to parse worker metadata "${rawMetadata}": ${e}`);

@@ -29,7 +29,6 @@ export const handleMetadataUpdated = createHandler({
       worker.name = metadata.name;
       worker.description = metadata.description;
       worker.website = metadata.website;
-      worker.email = metadata.email;
       await ctx.store.upsert(worker);
 
       ctx.log.info(`updated metadata of worker(${worker.id}) `);
