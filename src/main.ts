@@ -3,7 +3,7 @@ import { last } from 'lodash';
 import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 import { handlers } from './core';
-import { listenUpdateWorkersCap, scheduleUpdateWorkerAprs } from './core/cap';
+import { listenUpdateWorkersCap } from './core/cap';
 import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
 import { listenStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
 import { createSettings, createBlock } from './core/helpers/entities';
@@ -59,7 +59,6 @@ async function mapBlocks(ctx: MappingContext) {
   listenOnlineUpdate(ctx);
   listenMetricsUpdate(ctx);
   listenRewardMetricsUpdate(ctx);
-  scheduleUpdateWorkerAprs(ctx);
 
   ctx.queue.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
 

@@ -5,6 +5,8 @@ import { In, MoreThanOrEqual } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
 
+import { recalculateWorkerAprs } from './cap';
+
 import { network } from '~/config/network';
 import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings, Block } from '~/model';
 import { joinUrl, toPercent } from '~/utils/misc';
@@ -237,16 +239,9 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       block.timestamp - rewardMetricsUpdateInterval >
       lastRewardMetricsUpdateTimestamp + lastRewardMetricsUpdateOffset
     ) {
-      const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
+      const { rewardEpochLength } = await client.get(joinUrl(monitorUrl, `/config`));
 
-      const startBlock = await ctx.store.findOne(Block, {
-        where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp - 12 * HOUR_MS)) },
-        order: { id: 'ASC' },
-      });
-      if (!startBlock) {
-        ctx.log.warn(`unable to fetch rewards starts: start block not found`);
-        return;
-      }
+      const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
 
       const endBlock = await ctx.store.findOne(Block, {
         where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp)) },
@@ -254,6 +249,15 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       });
       if (!endBlock) {
         ctx.log.warn(`unable to fetch rewards starts: end block not found`);
+        return;
+      }
+
+      const startBlock = await ctx.store.findOne(Block, {
+        where: { l1BlockNumber: MoreThanOrEqual(endBlock.l1BlockNumber - rewardEpochLength) },
+        order: { id: 'ASC' },
+      });
+      if (!startBlock) {
+        ctx.log.warn(`unable to fetch rewards starts: start block not found`);
         return;
       }
 
@@ -295,7 +299,7 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
 
       ctx.log.info(`workers reward stats of ${activeWorkers.length} updated`);
 
-      ctx.recalculateAprs = true;
+      await recalculateWorkerAprs(ctx);
     }
   });
 }

@@ -53,19 +53,18 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
 
   await ctx.store.upsert(workers);
 
-  ctx.recalculateAprs = true;
+  await recalculateWorkerAprs(ctx);
 }
 
-export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
-  if (!ctx.isHead) return;
+// export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
 
-  ctx.events.on(Events.Finalization, async (block) => {
-    if (!ctx.recalculateAprs) return;
-    await recalculateWorkerAprs(ctx);
-  });
-}
+//   ctx.events.on(Events.Finalization, async (block) => {
+//     if (!ctx.recalculateAprs) return;
+//     await recalculateWorkerAprs(ctx);
+//   });
+// }
 
-async function recalculateWorkerAprs(ctx: MappingContext) {
+export async function recalculateWorkerAprs(ctx: MappingContext) {
   const statistics = await ctx.store.getOrFail(Statistics, network.name);
 
   const workers = await ctx.store.find(Worker, {

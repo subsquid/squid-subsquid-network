@@ -30,7 +30,6 @@ export type MappingContext = ProcessorContext<StoreWithCache> & {
   queue: TaskQueue;
   events: EventEmitter<EventMap>;
   delegatedWorkers: Set<string>; // TODO: need better solution for tracking workers with updated stakes
-  recalculateAprs?: boolean;
 };
 
 export type Handler = (ctx: MappingContext, item: Item) => void;
