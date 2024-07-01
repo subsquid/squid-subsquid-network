@@ -8,7 +8,8 @@ import { Settings } from '~/model';
 export const handleBondAmountUpdated = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.NetworkController) &&
+      isContract(item, network.contracts.NetworkController.address) &&
+      isContract(item, network.contracts.OldNetworkController.address) &&
       isLog(item) &&
       NetworkController.events.BondAmountUpdated.is(item.value)
     );

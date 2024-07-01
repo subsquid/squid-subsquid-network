@@ -11,7 +11,7 @@ import { WorkerStatusChange, WorkerStatus, Worker } from '~/model';
 export const handleWorkerDeregistered = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.WorkerRegistry) &&
+      isContract(item, network.contracts.WorkerRegistry.address) &&
       isLog(item) &&
       WorkerRegistry.events.WorkerDeregistered.is(item.value)
     );

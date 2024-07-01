@@ -30,7 +30,7 @@ export function listenUpdateWorkersCap(ctx: MappingContext) {
 async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) {
   if (!all && ctx.delegatedWorkers.size === 0) return;
 
-  const multicall = new Multicall(ctx, block, network.contracts.Multicall3);
+  const multicall = new Multicall(ctx, block, network.contracts.Multicall3.address);
 
   const workers = await ctx.store.find(Worker, {
     where: all ? {} : { id: In([...ctx.delegatedWorkers]) },
@@ -39,7 +39,7 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
 
   const capedDelegations = await multicall.aggregate(
     SoftCap.functions.capedStake,
-    network.contracts.SoftCap,
+    network.contracts.SoftCap.address,
     workers.map((w) => ({
       workerId: BigInt(w.id),
     })),

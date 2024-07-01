@@ -6,6 +6,7 @@ export const events = {
     AllowedVestedTargetUpdated: event("0x13077507c996c414a31510046627495d92322309f93e988a33cedb8108f2747f", {"target": p.address, "isAllowed": p.bool}),
     BondAmountUpdated: event("0xa15246e54ef77ae7edbf99b267138a83931b938b03e9f853067299eddb4099a7", {"bondAmount": p.uint256}),
     EpochLengthUpdated: event("0xbddf13f72535a30b09d184d523d014c36ebb18c3fcbdefca337707cd3a14731d", {"epochLength": p.uint128}),
+    LockPeriodUpdated: event("0x8249ec545e68f6f1e1230133ca48c704d831a7f8e635ded80f3dd9e99b09bb2f", {"lockPeriod": p.uint256}),
     RewardCoefficientUpdated: event("0xd5eee2f0795409a39ce32b09109addf49185c076a0a1f860b71eef53f6859a15", {"coefficient": p.uint256}),
     RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
     RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
@@ -25,12 +26,14 @@ export const functions = {
     grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
     hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
     isAllowedVestedTarget: viewFun("0x9425d1f4", {"_0": p.address}, p.bool),
+    lockPeriod: viewFun("0x3fd8b02f", {}, p.uint128),
     nextEpoch: viewFun("0xaea0e78b", {}, p.uint128),
     renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
     revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
     setAllowedVestedTarget: fun("0x02ac6b6c", {"target": p.address, "isAllowed": p.bool}, ),
     setBondAmount: fun("0x28f9f3e6", {"_bondAmount": p.uint256}, ),
     setEpochLength: fun("0x0d8d840b", {"_epochLength": p.uint128}, ),
+    setLockPeriod: fun("0x81f433f0", {"_lockPeriod": p.uint128}, ),
     setStakingDeadlock: fun("0x6214e299", {"_newDeadlock": p.uint256}, ),
     setStoragePerWorkerInGb: fun("0x7e9d6b0a", {"_storagePerWorkerInGb": p.uint128}, ),
     setTargetCapacity: fun("0xe10e9d60", {"target": p.uint256}, ),
@@ -39,6 +42,7 @@ export const functions = {
     storagePerWorkerInGb: viewFun("0x2b5d1529", {}, p.uint128),
     supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
     targetCapacityGb: viewFun("0x17395c74", {}, p.uint256),
+    workerEpochLength: viewFun("0xeda0e1da", {}, p.uint128),
     yearlyRewardCapCoefficient: viewFun("0x1cb34cb6", {}, p.uint256),
 }
 
@@ -76,6 +80,10 @@ export class Contract extends ContractBase {
         return this.eth_call(functions.isAllowedVestedTarget, {_0})
     }
 
+    lockPeriod() {
+        return this.eth_call(functions.lockPeriod, {})
+    }
+
     nextEpoch() {
         return this.eth_call(functions.nextEpoch, {})
     }
@@ -96,6 +104,10 @@ export class Contract extends ContractBase {
         return this.eth_call(functions.targetCapacityGb, {})
     }
 
+    workerEpochLength() {
+        return this.eth_call(functions.workerEpochLength, {})
+    }
+
     yearlyRewardCapCoefficient() {
         return this.eth_call(functions.yearlyRewardCapCoefficient, {})
     }
@@ -105,6 +117,7 @@ export class Contract extends ContractBase {
 export type AllowedVestedTargetUpdatedEventArgs = EParams<typeof events.AllowedVestedTargetUpdated>
 export type BondAmountUpdatedEventArgs = EParams<typeof events.BondAmountUpdated>
 export type EpochLengthUpdatedEventArgs = EParams<typeof events.EpochLengthUpdated>
+export type LockPeriodUpdatedEventArgs = EParams<typeof events.LockPeriodUpdated>
 export type RewardCoefficientUpdatedEventArgs = EParams<typeof events.RewardCoefficientUpdated>
 export type RoleAdminChangedEventArgs = EParams<typeof events.RoleAdminChanged>
 export type RoleGrantedEventArgs = EParams<typeof events.RoleGranted>
@@ -141,6 +154,9 @@ export type HasRoleReturn = FunctionReturn<typeof functions.hasRole>
 export type IsAllowedVestedTargetParams = FunctionArguments<typeof functions.isAllowedVestedTarget>
 export type IsAllowedVestedTargetReturn = FunctionReturn<typeof functions.isAllowedVestedTarget>
 
+export type LockPeriodParams = FunctionArguments<typeof functions.lockPeriod>
+export type LockPeriodReturn = FunctionReturn<typeof functions.lockPeriod>
+
 export type NextEpochParams = FunctionArguments<typeof functions.nextEpoch>
 export type NextEpochReturn = FunctionReturn<typeof functions.nextEpoch>
 
@@ -158,6 +174,9 @@ export type SetBondAmountReturn = FunctionReturn<typeof functions.setBondAmount>
 
 export type SetEpochLengthParams = FunctionArguments<typeof functions.setEpochLength>
 export type SetEpochLengthReturn = FunctionReturn<typeof functions.setEpochLength>
+
+export type SetLockPeriodParams = FunctionArguments<typeof functions.setLockPeriod>
+export type SetLockPeriodReturn = FunctionReturn<typeof functions.setLockPeriod>
 
 export type SetStakingDeadlockParams = FunctionArguments<typeof functions.setStakingDeadlock>
 export type SetStakingDeadlockReturn = FunctionReturn<typeof functions.setStakingDeadlock>
@@ -182,6 +201,9 @@ export type SupportsInterfaceReturn = FunctionReturn<typeof functions.supportsIn
 
 export type TargetCapacityGbParams = FunctionArguments<typeof functions.targetCapacityGb>
 export type TargetCapacityGbReturn = FunctionReturn<typeof functions.targetCapacityGb>
+
+export type WorkerEpochLengthParams = FunctionArguments<typeof functions.workerEpochLength>
+export type WorkerEpochLengthReturn = FunctionReturn<typeof functions.workerEpochLength>
 
 export type YearlyRewardCapCoefficientParams = FunctionArguments<typeof functions.yearlyRewardCapCoefficient>
 export type YearlyRewardCapCoefficientReturn = FunctionReturn<typeof functions.yearlyRewardCapCoefficient>

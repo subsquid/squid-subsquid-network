@@ -11,7 +11,7 @@ import {
 
 import { network } from './network';
 
-import * as RewardsDistibution from '~/abi/DistributedRewardsDistribution';
+import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import * as NetworkController from '~/abi/NetworkController';
 import * as SQD from '~/abi/SQD';
@@ -41,7 +41,8 @@ export const processor = new EvmBatchProcessor()
   })
   .includeAllBlocks()
   .addLog({
-    address: [network.contracts.WorkerRegistry],
+    address: [network.contracts.WorkerRegistry.address],
+    range: { from: network.contracts.WorkerRegistry.from },
     topic0: [
       WorkerRegistry.events.WorkerRegistered.topic,
       WorkerRegistry.events.WorkerDeregistered.topic,
@@ -51,14 +52,28 @@ export const processor = new EvmBatchProcessor()
     ],
   })
   .addLog({
-    address: [network.contracts.NetworkController],
+    address: [network.contracts.NetworkController.address],
+    range: { from: network.contracts.NetworkController.from },
+    topic0: [
+      NetworkController.events.BondAmountUpdated.topic,
+      NetworkController.events.EpochLengthUpdated.topic,
+      NetworkController.events.LockPeriodUpdated.topic,
+    ],
+  })
+  .addLog({
+    address: [network.contracts.OldNetworkController.address],
+    range: {
+      from: network.contracts.OldNetworkController.from,
+      to: network.contracts.NetworkController.from - 1,
+    },
     topic0: [
       NetworkController.events.BondAmountUpdated.topic,
       NetworkController.events.EpochLengthUpdated.topic,
     ],
   })
   .addLog({
-    address: [network.contracts.Staking],
+    address: [network.contracts.Staking.address],
+    range: { from: network.contracts.Staking.from },
     topic0: [
       Staking.events.Claimed.topic,
       Staking.events.Deposited.topic,
@@ -67,23 +82,31 @@ export const processor = new EvmBatchProcessor()
     ],
   })
   .addLog({
-    address: [network.contracts.SQD],
+    address: [network.contracts.SQD.address],
+    range: { from: network.contracts.SQD.from },
     topic0: [SQD.events.Transfer.topic],
   })
   .addLog({
-    address: [network.contracts.VestingFactory],
+    address: [network.contracts.VestingFactory.address],
+    range: { from: network.contracts.VestingFactory.from },
     topic0: [VestingFactory.events.VestingCreated.topic],
   })
   .addLog({
-    address: [network.contracts.TemporaryHoldingFactory],
+    address: [network.contracts.TemporaryHoldingFactory.address],
+    range: { from: network.contracts.TemporaryHoldingFactory.from },
     topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
   })
   .addLog({
-    address: [network.contracts.RewardsDistribution],
-    topic0: [RewardsDistibution.events.Claimed.topic, RewardsDistibution.events.Distributed.topic],
+    address: [network.contracts.RewardsDistribution.address],
+    range: { from: network.contracts.RewardsDistribution.from },
+    topic0: [
+      RewardsDistribution.events.Claimed.topic,
+      RewardsDistribution.events.Distributed.topic,
+    ],
   })
   .addLog({
-    address: [network.contracts.GatewayRegistry],
+    address: [network.contracts.GatewayRegistry.address],
+    range: { from: network.contracts.GatewayRegistry.from },
     topic0: [
       GatewayRegistry.events.Registered.topic,
       GatewayRegistry.events.Unregistered.topic,

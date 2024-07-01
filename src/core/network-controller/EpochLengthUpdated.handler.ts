@@ -9,7 +9,8 @@ import { toNextEpochStart } from '~/utils/misc';
 export const handleEpochLengthUpdated = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.NetworkController) &&
+      isContract(item, network.contracts.NetworkController.address) &&
+      isContract(item, network.contracts.OldNetworkController.address) &&
       isLog(item) &&
       NetworkController.events.EpochLengthUpdated.is(item.value)
     );

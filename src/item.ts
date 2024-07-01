@@ -15,8 +15,10 @@ export type TransactionItem = {
 
 export type Item = LogItem | TransactionItem;
 
-export function isContract(item: Item, address: string): boolean {
-  return item.address === normalizeAddress(address);
+export function isContract(item: Item, contract: string | { address: string }): boolean {
+  return (
+    item.address === normalizeAddress(typeof contract === 'string' ? contract : contract.address)
+  );
 }
 
 export function isLog(item: Item): item is LogItem {

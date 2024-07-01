@@ -167,6 +167,19 @@
   },
   {
     "type": "function",
+    "name": "lockPeriod",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "nextEpoch",
     "inputs": [],
     "outputs": [
@@ -251,6 +264,19 @@
     "inputs": [
       {
         "name": "_epochLength",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLockPeriod",
+    "inputs": [
+      {
+        "name": "_lockPeriod",
         "type": "uint128",
         "internalType": "uint128"
       }
@@ -370,6 +396,19 @@
   },
   {
     "type": "function",
+    "name": "workerEpochLength",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "yearlyRewardCapCoefficient",
     "inputs": [],
     "outputs": [
@@ -422,6 +461,19 @@
         "type": "uint128",
         "indexed": false,
         "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LockPeriodUpdated",
+    "inputs": [
+      {
+        "name": "lockPeriod",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

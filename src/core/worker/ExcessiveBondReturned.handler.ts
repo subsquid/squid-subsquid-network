@@ -9,7 +9,7 @@ import { Worker } from '~/model';
 export const handleExcessiveBondReturned = createHandler({
   filter(_, item): item is LogItem {
     return (
-      isContract(item, network.contracts.WorkerRegistry) &&
+      isContract(item, network.contracts.WorkerRegistry.address) &&
       isLog(item) &&
       WorkerRegistry.events.ExcessiveBondReturned.is(item.value)
     );
