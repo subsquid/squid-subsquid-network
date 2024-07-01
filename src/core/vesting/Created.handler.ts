@@ -14,9 +14,9 @@ export const handleVestingCreated = createHandler({
     if (!isLog(item)) return false;
 
     switch (item.address) {
-      case network.contracts.VestingFactory:
+      case network.contracts.VestingFactory.address:
         return VestingFactory.events.VestingCreated.is(item.value);
-      case network.contracts.TemporaryHoldingFactory:
+      case network.contracts.TemporaryHoldingFactory.address:
         return TemporaryHoldingFactory.events.TemporaryHoldingCreated.is(item.value);
       default:
         return false;
@@ -55,14 +55,14 @@ export const handleVestingCreated = createHandler({
 
 function decode(log: LogRecord & { address: string }) {
   switch (log.address) {
-    case network.contracts.VestingFactory: {
+    case network.contracts.VestingFactory.address: {
       const { beneficiary, vesting } = VestingFactory.events.VestingCreated.decode(log);
       return {
         vestingAddress: vesting,
         beneficiaryAddress: beneficiary,
       };
     }
-    case network.contracts.TemporaryHoldingFactory: {
+    case network.contracts.TemporaryHoldingFactory.address: {
       const { beneficiaryAddress, vesting } =
         TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(log);
       return {

@@ -5,6 +5,23 @@ import { Field, ObjectType, Query, Resolver } from 'type-graphql';
 import { EntityManager } from 'typeorm';
 
 @ObjectType()
+export class AprSnapshot {
+  @Field(() => DateTime, { nullable: false })
+  timestamp!: Date;
+
+  @Field(() => Number, { nullable: false })
+  stakerApr!: number;
+
+  @Field(() => Number, { nullable: false })
+  workerApr!: number;
+
+  constructor({ timestamp, ...props }: AprSnapshot) {
+    this.timestamp = new Date(timestamp);
+    Object.assign(this, props);
+  }
+}
+
+@ObjectType()
 export class NetworkStats {
   @Field(() => Number, { nullable: false })
   workerApr!: number;
@@ -57,7 +74,11 @@ export class NetworkStats {
   @Field(() => Number, { nullable: false })
   blockTimeL1!: number;
 
-  constructor(props: Partial<NetworkStats>) {
+  @Field(() => [AprSnapshot], { nullable: false })
+  aprs!: AprSnapshot[];
+
+  constructor({ aprs, ...props }: Partial<NetworkStats>) {
+    this.aprs = aprs?.map((apr) => new AprSnapshot(apr)) || [];
     Object.assign(this, props);
   }
 }
@@ -96,7 +117,17 @@ export class NetworkSummaryResolver {
           (SELECT EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100 * 1000 FROM block) as "blockTime",
           (SELECT max(height) FROM block_l1) as "lastBlockL1",
           (SELECT max(timestamp) FROM block_l1) as "lastBlockTimestampL1",
-          (SELECT ((EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100) - 2) * 1000 FROM block_l1) as "blockTimeL1"
+          (SELECT ((EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100) - 2) * 1000 FROM block_l1) as "blockTimeL1",
+          (SELECT json_agg(row_to_json(aprs_raw)) FROM (
+            SELECT 
+              DATE_TRUNC('day', "to") as "timestamp",
+              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'workerApr')::float) as "workerApr",
+              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'stakerApr')::float) as "stakerApr"
+            FROM COMMITMENT, JSONB_ARRAY_ELEMENTS(recipients) AS recipient
+            WHERE "to" >= DATE_TRUNC('day', NOW() - interval '13 DAY')
+            GROUP BY DATE_TRUNC('day', "to")
+            ORDER BY "timestamp") as "aprs_raw"
+          ) as "aprs"
         FROM worker
         `,
       )
