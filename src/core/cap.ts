@@ -81,14 +81,19 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
   statistics.utilizedStake = utilizedStake;
 
   for (const worker of workers) {
-    const supplyRatio = BigDecimal(worker.capedDelegation).add(worker.bond).div(utilizedStake);
+    const supplyRatio =
+      utilizedStake === 0n
+        ? BigDecimal(0)
+        : BigDecimal(worker.capedDelegation).add(worker.bond).div(utilizedStake);
 
-    const dTraffic = Math.min(
-      BigDecimal(worker.trafficWeight || 0)
-        .div(supplyRatio)
-        .toNumber() ** 0.1,
-      1,
-    );
+    const dTraffic = supplyRatio.eq(0)
+      ? 0
+      : Math.min(
+          BigDecimal(worker.trafficWeight || 0)
+            .div(supplyRatio)
+            .toNumber() ** 0.1,
+          1,
+        );
 
     const actualYield = baseApr
       .mul(worker.liveness || 0)
