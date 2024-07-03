@@ -1,11 +1,11 @@
 manifestVersion: subsquid.io/v0.1
 name: subsquid-network-mainnet
-version: 3
+version: 4
 description: Subsquid network indexer
 build:
 deploy:
   addons:
-    postgres:
+    neon:
   env:
     NETWORK: arbitrum
     RPC_ENDPOINT: ${{ secrets.ARBITRUM_RPC_URL }}
@@ -41,9 +41,9 @@ deploy:
 scale:
   dedicated: true
   addons:
-    postgres:
-      storage: 20G
-      profile: medium
+    neon:
+      autoscaling_limit_min_cu: "0.5"
+      autoscaling_limit_max_cu: "4"
   processor:
     profile: medium
   api:
