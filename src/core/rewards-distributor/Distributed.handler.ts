@@ -123,6 +123,7 @@ export const handleDistributed = createHandler({
         }
 
         worker.claimableReward += payment.workerReward;
+        worker.totalDelegationRewards += payment.stakerReward;
         await ctx.store.upsert(worker);
 
         if (payment.workerReward > 0) {

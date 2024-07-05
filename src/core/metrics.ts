@@ -242,6 +242,10 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       const { rewardEpochLength } = await client.get(joinUrl(monitorUrl, `/config`));
 
       const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
+      if (snapshotTimestamp > lastRewardMetricsUpdateTimestamp) {
+        lastRewardMetricsUpdateTimestamp = snapshotTimestamp;
+        lastRewardMetricsUpdateOffset = 0;
+      }
 
       const endBlock = await ctx.store.findOne(Block, {
         where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp)) },
@@ -271,7 +275,7 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
           ctx.log.warn(e);
           lastRewardMetricsUpdateOffset = lastRewardMetricsUpdateOffset
             ? Math.min(lastRewardMetricsUpdateOffset * 2, metricsUpdateInterval)
-            : MINUTE_MS;
+            : 5 * MINUTE_MS;
           return;
         }
 
