@@ -63,15 +63,25 @@ export function listenOnlineUpdate(ctx: MappingContext) {
         },
       });
 
+      const jailInfo: {
+        peer_id: string;
+        jailed: boolean;
+        jail_reason: string | null;
+      }[] = schedulerUrl ? await client.get(joinUrl(schedulerUrl, 'workers/jail_info')) : [];
+      const jailedWorkers = keyBy(jailInfo, (w) => w.peer_id);
+
+      await ctx.store.upsert(activeWorkers);
+
       for (const worker of activeWorkers) {
         const data = onlineWorkers[worker.peerId];
+        const jailData = jailedWorkers[worker.peerId];
 
         worker.online = !!data;
-        worker.jailed = data ? data.jailed : null;
-        worker.dialOk = data ? data.lastDialOk : null;
+        worker.dialOk = null;
         worker.storedData = data ? BigInt(data.storedBytes) : null;
         worker.version = data ? data.version : worker.version;
-        worker.jailReason = data ? data.jailReason : null;
+        worker.jailed = jailData ? jailData.jailed : null;
+        worker.jailReason = jailData ? jailData.jail_reason : null;
       }
 
       await ctx.store.upsert(activeWorkers);
@@ -84,18 +94,26 @@ export function listenOnlineUpdate(ctx: MappingContext) {
       );
 
       if (!schedulerUrl) return;
-      const {
-        recommended_worker_versions: recommendedWorkerVersion,
-        supported_worker_versions: minimalWorkerVersion,
-      }: { recommended_worker_versions?: string; supported_worker_versions?: string } =
-        await client.get(joinUrl(schedulerUrl, '/config'));
 
-      const settings = await settingsDefer.getOrFail();
+      const config = schedulerUrl
+        ? await client.get<{
+            recommended_worker_versions?: string;
+            supported_worker_versions?: string;
+          }>(joinUrl(schedulerUrl, '/config'))
+        : undefined;
+      if (config) {
+        const {
+          recommended_worker_versions: recommendedWorkerVersion,
+          supported_worker_versions: minimalWorkerVersion,
+        } = config;
 
-      settings.minimalWorkerVersion = minimalWorkerVersion || null;
-      settings.recommendedWorkerVersion = recommendedWorkerVersion || null;
+        const settings = await settingsDefer.getOrFail();
 
-      await ctx.store.upsert(settings);
+        settings.minimalWorkerVersion = minimalWorkerVersion || null;
+        settings.recommendedWorkerVersion = recommendedWorkerVersion || null;
+
+        await ctx.store.upsert(settings);
+      }
     }
   });
 }
