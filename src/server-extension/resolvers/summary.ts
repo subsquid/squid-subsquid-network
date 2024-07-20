@@ -103,8 +103,8 @@ export class NetworkSummaryResolver {
         SELECT
           SUM(bond) as "totalBond",
           SUM(total_delegation) as "totalDelegation",
-          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) as "workerApr",
-          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) as "stakerApr",
+          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0) as "workerApr",
+          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0) as "stakerApr",
           SUM(queries90_days) as "queries90Days",
           SUM(queries24_hours) as "queries24Hours",
           SUM(served_data24_hours) as "servedData24Hours",
@@ -121,8 +121,8 @@ export class NetworkSummaryResolver {
           (SELECT json_agg(row_to_json(aprs_raw)) FROM (
             SELECT 
               DATE_TRUNC('day', "to") as "timestamp",
-              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'workerApr')::float) as "workerApr",
-              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'stakerApr')::float) as "stakerApr"
+              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'workerApr')::float) FILTER(WHERE (recipient -> 'workerApr')::float > 0) as "workerApr",
+              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'stakerApr')::float) FILTER(WHERE (recipient -> 'stakerApr')::float > 0) "stakerApr"
             FROM COMMITMENT, JSONB_ARRAY_ELEMENTS(recipients) AS recipient
             WHERE "to" >= DATE_TRUNC('day', NOW() - interval '13 DAY')
             GROUP BY DATE_TRUNC('day', "to")

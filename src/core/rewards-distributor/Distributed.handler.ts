@@ -119,7 +119,7 @@ export const handleDistributed = createHandler({
                   .toNumber(),
                 true,
               )
-            : 0;
+            : payment.workerApr / 2;
         }
 
         worker.claimableReward += payment.workerReward;
