@@ -103,8 +103,8 @@ export class NetworkSummaryResolver {
         SELECT
           SUM(bond) as "totalBond",
           SUM(total_delegation) as "totalDelegation",
-          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0) as "workerApr",
-          PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0) as "stakerApr",
+          COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0), 0) as "workerApr",
+          COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0), 0) as "stakerApr",
           SUM(queries90_days) as "queries90Days",
           SUM(queries24_hours) as "queries24Hours",
           SUM(served_data24_hours) as "servedData24Hours",
