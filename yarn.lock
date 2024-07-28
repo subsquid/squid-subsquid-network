@@ -667,10 +667,10 @@
   resolved "https://registry.npmjs.org/@subsquid/graphiql-console/-/graphiql-console-0.3.0.tgz"
   integrity sha512-C89mus6IXnNi0xMQrZqUFBZwLj8tbuq9lye8Gq/lHmmERAUpi6UsWEyLdJLx2mneZzF3JtY8eNiiZ16jmjtvfw==
 
-"@subsquid/graphql-server@^4.6.0":
-  version "4.6.0"
-  resolved "https://registry.npmjs.org/@subsquid/graphql-server/-/graphql-server-4.6.0.tgz"
-  integrity sha512-urQr5yLgYaPKSkCDQQ7ZwmpnYDOFfUSIKGxA7qk5LFoJlIJ+ycO4rkzb3ln29LrhSw25D3E/ZfrDlS+PFnV4ZA==
+"@subsquid/graphql-server@^4.7.0-beta.e0338f":
+  version "4.7.0-beta.e0338f"
+  resolved "https://registry.yarnpkg.com/@subsquid/graphql-server/-/graphql-server-4.7.0-beta.e0338f.tgz#371a997820d08a36c8bfb90e7a7b10a61351900c"
+  integrity sha512-3sVniWrDOfa3dEA9bAHI0pctglYCvC9NN07wGO3v7OdNWj/Wspi9IzVg6cikcxuGB37ZR4XswTaV8fpATzNobg==
   dependencies:
     "@apollo/utils.keyvadapter" "~1.1.2"
     "@apollo/utils.keyvaluecache" "~1.0.2"
@@ -679,7 +679,7 @@
     "@graphql-tools/utils" "^10.0.11"
     "@keyv/redis" "~2.5.8"
     "@subsquid/logger" "^1.3.3"
-    "@subsquid/openreader" "^4.6.0"
+    "@subsquid/openreader" "5.0.0-beta.e0338f"
     "@subsquid/typeorm-config" "^4.1.1"
     "@subsquid/util-internal" "^3.2.0"
     "@subsquid/util-internal-commander" "^1.4.0"
@@ -714,6 +714,31 @@
     "@subsquid/util-internal-hex" "^1.2.2"
     "@subsquid/util-internal-json" "^1.2.2"
     supports-color "^8.1.1"
+
+"@subsquid/openreader@5.0.0-beta.e0338f":
+  version "5.0.0-beta.e0338f"
+  resolved "https://registry.yarnpkg.com/@subsquid/openreader/-/openreader-5.0.0-beta.e0338f.tgz#8c7efe4de1d3ab3261a8bafa9ddbbe256fb53462"
+  integrity sha512-Fi/TiUvpve01yF8287RySMhhbNvaq8DH6XtgvOYbTqf/G9aQ1cFnxiVCt3mS+atfD/1efO4rd8rV6e7xlWPmCw==
+  dependencies:
+    "@graphql-tools/merge" "^9.0.1"
+    "@subsquid/graphiql-console" "^0.3.0"
+    "@subsquid/logger" "^1.3.3"
+    "@subsquid/util-internal" "^3.2.0"
+    "@subsquid/util-internal-commander" "^1.4.0"
+    "@subsquid/util-internal-hex" "^1.2.2"
+    "@subsquid/util-internal-http-server" "^2.0.0"
+    "@subsquid/util-naming" "^1.3.0"
+    apollo-server-core "^3.13.0"
+    apollo-server-express "^3.13.0"
+    commander "^11.1.0"
+    deep-equal "^2.2.3"
+    express "^4.18.2"
+    graphql "^15.8.0"
+    graphql-parse-resolve-info "^4.14.0"
+    graphql-ws "^5.14.2"
+    inflected "^2.1.0"
+    pg "^8.11.3"
+    ws "^8.14.2"
 
 "@subsquid/openreader@^4.6.0":
   version "4.6.0"

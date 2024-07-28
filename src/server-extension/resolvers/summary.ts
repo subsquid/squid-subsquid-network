@@ -121,8 +121,8 @@ export class NetworkSummaryResolver {
           (SELECT json_agg(row_to_json(aprs_raw)) FROM (
             SELECT 
               DATE_TRUNC('day', "to") as "timestamp",
-              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'workerApr')::float) FILTER(WHERE (recipient -> 'workerApr')::float > 0) as "workerApr",
-              PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'stakerApr')::float) FILTER(WHERE (recipient -> 'stakerApr')::float > 0) "stakerApr"
+              COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'workerApr')::float) FILTER(WHERE (recipient -> 'workerApr')::float > 0), 0) as "workerApr",
+              COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY (recipient -> 'stakerApr')::float) FILTER(WHERE (recipient -> 'stakerApr')::float > 0), 0) as "stakerApr"
             FROM COMMITMENT, JSONB_ARRAY_ELEMENTS(recipients) AS recipient
             WHERE "to" >= DATE_TRUNC('day', NOW() - interval '13 DAY')
             GROUP BY DATE_TRUNC('day', "to")
