@@ -1,6 +1,7 @@
 import assert from 'assert';
 
 import { BigInteger, DateTime } from '@subsquid/graphql-server';
+import { defaults, isNil, omitBy } from 'lodash';
 import { Field, ObjectType, Query, Resolver } from 'type-graphql';
 import { EntityManager } from 'typeorm';
 
@@ -68,7 +69,7 @@ export class NetworkStats {
   @Field(() => Number, { nullable: false })
   lastBlockL1!: number;
 
-  @Field(() => DateTime, { nullable: false })
+  @Field(() => DateTime, { nullable: false, defaultValue: new Date(0) })
   lastBlockTimestampL1!: Date;
 
   @Field(() => Number, { nullable: false })
@@ -79,7 +80,10 @@ export class NetworkStats {
 
   constructor({ aprs, ...props }: Partial<NetworkStats>) {
     this.aprs = aprs?.map((apr) => new AprSnapshot(apr)) || [];
-    Object.assign(this, props);
+    Object.assign(
+      this,
+      omitBy(props, (v) => isNil(v)),
+    );
   }
 }
 
@@ -101,17 +105,17 @@ export class NetworkSummaryResolver {
           SELECT height, timestamp as timestamp FROM public.block ORDER BY height DESC LIMIT 100 
         )
         SELECT
-          SUM(bond) as "totalBond",
-          SUM(total_delegation) as "totalDelegation",
+          COALESCE(SUM(bond), 0) as "totalBond",
+          COALESCE(SUM(total_delegation), 0) as "totalDelegation",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0), 0) as "workerApr",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0), 0) as "stakerApr",
-          SUM(queries90_days) as "queries90Days",
-          SUM(queries24_hours) as "queries24Hours",
-          SUM(served_data24_hours) as "servedData24Hours",
-          SUM(served_data90_days) as "servedData90Days",
-          SUM(stored_data) as "storedData",
-          (SELECT count(*) FROM worker WHERE status IN ('ACTIVE')) as "workersCount",
-          (SELECT count(*) FROM worker WHERE online = TRUE AND status IN ('ACTIVE')) as "onlineWorkersCount",
+          COALESCE(SUM(queries90_days), 0) as "queries90Days",
+          COALESCE(SUM(queries24_hours), 0) as "queries24Hours",
+          COALESCE(SUM(served_data24_hours), 0) as "servedData24Hours",
+          COALESCE(SUM(served_data90_days), 0) as "servedData90Days",
+          COALESCE(SUM(stored_data), 0) as "storedData",
+          COALESCE((SELECT count(*) FROM worker WHERE status IN ('ACTIVE')), 0) as "workersCount",
+          COALESCE((SELECT count(*) FROM worker WHERE online = TRUE AND status IN ('ACTIVE')), 0) as "onlineWorkersCount",
           (SELECT max(height) FROM block) as "lastBlock",
           (SELECT max(timestamp) FROM block) as "lastBlockTimestamp",
           (SELECT EXTRACT(EPOCH FROM (max(timestamp) - min(timestamp))) / 100 * 1000 FROM block) as "blockTime",
