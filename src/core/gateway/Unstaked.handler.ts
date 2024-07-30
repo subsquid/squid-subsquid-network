@@ -4,7 +4,7 @@ import { createGatewayOperatorId } from '../helpers/ids';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
-import { GatewayOperator } from '~/model';
+import { GatewayStake } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
 export const handleUnstaked = createHandler({
@@ -18,25 +18,25 @@ export const handleUnstaked = createHandler({
   handle(ctx, { value: log }) {
     const event = GatewayRegistry.events.Unstaked.decode(log);
 
-    const operatorId = createGatewayOperatorId(event.gatewayOperator);
-    const operatorDeferred = ctx.store.defer(GatewayOperator, {
-      id: operatorId,
-      relations: { account: { owner: true }, stake: true },
+    const stakeId = createGatewayOperatorId(event.gatewayOperator);
+    const stakeDeferred = ctx.store.defer(GatewayStake, {
+      id: stakeId,
+      relations: { owner: true },
     });
 
     ctx.queue.add(async () => {
-      const operator = await operatorDeferred.getOrFail();
-      const account = operator.account;
+      const stake = await stakeDeferred.getOrFail();
+      const account = stake.owner;
 
-      if (operator.stake) {
-        const stake = operator.stake;
+      stake.amount = 0n;
+      stake.computationUnits = 0n;
+      stake.lockStart = null;
+      stake.lockEnd = null;
+      stake.computationUnitsPending = null;
 
-        operator.stake = null;
-        await ctx.store.upsert(operator);
-        await ctx.store.remove(stake);
+      await ctx.store.upsert(stake);
 
-        ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(stake.amount)}`);
-      }
+      ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)}`);
     });
   },
 });

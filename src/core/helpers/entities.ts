@@ -8,6 +8,7 @@ import {
   Commitment,
   CommitmentRecipient,
   Delegation,
+  GatewayStake,
   Settings,
   Worker,
   WorkerStatus,
@@ -88,7 +89,7 @@ export function unwrapAccount(account: Account) {
     case AccountType.USER:
       return account;
     case AccountType.VESTING:
-      return assertNotNull(account.owner);
+      return assertNotNull(account.owner, 'vesting account must have an owner');
   }
 }
 export function createWorker(
@@ -150,4 +151,25 @@ export function resetWorkerStats(worker: Worker) {
     apr: null,
     stakerApr: null,
   } satisfies Partial<Worker>);
+}
+
+export function createGatewayStake(
+  id: string,
+  {
+    owner,
+    realOwner,
+  }: {
+    owner: Account;
+    realOwner: Account;
+  },
+) {
+  return new GatewayStake({
+    id,
+    owner,
+    realOwner,
+    autoExtension: false,
+    amount: 0n,
+    computationUnits: 0n,
+    locked: false,
+  });
 }

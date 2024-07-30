@@ -1,14 +1,11 @@
-import { MappingContext, Events } from '../../types';
+import assert from 'assert';
 
-import { listenStakeUnlock } from './CheckStakeStatus.listener';
+import { MappingContext, Events } from '../../types';
 
 import { GatewayStake } from '~/model';
 
 export function listenStakeApply(ctx: MappingContext, id: string) {
-  const stakeDeferred = ctx.store.defer(GatewayStake, {
-    id,
-    relations: { operator: { stake: true } },
-  });
+  const stakeDeferred = ctx.store.defer(GatewayStake, id);
 
   const listenerId = `stake-apply-${id}`;
 
@@ -17,20 +14,15 @@ export function listenStakeApply(ctx: MappingContext, id: string) {
     Events.BlockStart,
     async (block) => {
       const stake = await stakeDeferred.getOrFail();
-      if (stake.lockStart > block.l1BlockNumber) return;
+      if (stake.lockStart && stake.lockStart > block.l1BlockNumber) return;
 
-      const operator = stake.operator;
-      if (operator.stake) {
-        await ctx.store.remove(operator.stake);
-      }
+      assert(stake.computationUnitsPending);
 
-      operator.stake = stake;
-      operator.pendingStake = null;
-      await ctx.store.upsert(operator);
+      stake.computationUnits = stake.computationUnitsPending;
+      stake.computationUnitsPending = null;
+      await ctx.store.upsert(stake);
 
       ctx.log.info(`stake(${stake.id}) applied`);
-
-      listenStakeUnlock(ctx, stake.id);
 
       ctx.events.off(Events.BlockStart, listenerId);
     },

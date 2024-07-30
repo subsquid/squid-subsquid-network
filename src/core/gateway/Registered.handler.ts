@@ -1,18 +1,11 @@
 import { isContract, isLog, LogItem } from '../../item';
 import { createHandler } from '../base';
-import { createAccount, unwrapAccount } from '../helpers/entities';
+import { createAccount, createGatewayStake, unwrapAccount } from '../helpers/entities';
 import { createAccountId, createGatewayOperatorId, createWorkerStatusId } from '../helpers/ids';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
-import {
-  Account,
-  Gateway,
-  GatewayOperator,
-  GatewayStatus,
-  GatewayStatusChange,
-  Settings,
-} from '~/model';
+import { Account, Gateway, GatewayStake, GatewayStatus, GatewayStatusChange } from '~/model';
 import { parsePeerId } from '~/utils/misc';
 
 export const handleRegistered = createHandler({
@@ -32,33 +25,35 @@ export const handleRegistered = createHandler({
       relations: { owner: true },
     });
 
-    const operatorId = createGatewayOperatorId(event.gatewayOperator);
-    const operatorDeferred = ctx.store.defer(GatewayOperator, {
-      id: operatorId,
+    const stakeId = createGatewayOperatorId(event.gatewayOperator);
+    const stakeDeferred = ctx.store.defer(GatewayStake, {
+      id: stakeId,
     });
 
     const gatewayId = parsePeerId(event.peerId);
-    const gatewayDeferred = ctx.store.defer(Gateway, gatewayId);
 
     ctx.queue.add(async () => {
       const account = await accountDeferred.getOrInsert((id) => createAccount(id));
 
-      const operator = await operatorDeferred.getOrInsert(async (id) => {
-        return new GatewayOperator({
-          id,
-          account,
-          autoExtension: false,
-        });
-      });
+      const stake = await stakeDeferred.getOrInsert(async (id) =>
+        createGatewayStake(id, {
+          owner: account,
+          realOwner: unwrapAccount(account),
+        }),
+      );
 
-      const gateway = await gatewayDeferred.getOrInsert((id) => {
-        ctx.log.info(`created gateway(${id})`);
-
-        return new Gateway({
-          id,
-          status: GatewayStatus.UNKNOWN,
-          createdAt: new Date(log.block.timestamp),
-        });
+      const gateway = new Gateway({
+        id: gatewayId,
+        status: GatewayStatus.UNKNOWN,
+        createdAt: new Date(log.block.timestamp),
+        owner: account,
+        realOwner: unwrapAccount(account),
+        stake,
+        description: null,
+        email: null,
+        endpointUrl: null,
+        name: null,
+        website: null,
       });
 
       const statusChange = new GatewayStatusChange({
@@ -70,8 +65,6 @@ export const handleRegistered = createHandler({
       });
       await ctx.store.insert(statusChange);
 
-      gateway.operator = operator;
-      gateway.owner = unwrapAccount(account);
       gateway.status = statusChange.status;
       await ctx.store.upsert(gateway);
 

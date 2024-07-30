@@ -1,3 +1,4 @@
+import { handleAutoExtensionChanged } from './AutoExtensionChanged.handler';
 import { handleMetadataChanged } from './MetadataChanged.handler';
 import { handleRegistered } from './Registered.handler';
 import { handleStaked } from './Staked.handler';
@@ -10,4 +11,5 @@ export const handlers = [
   handleMetadataChanged,
   handleRegistered,
   handleUnregistered,
+  handleAutoExtensionChanged,
 ];

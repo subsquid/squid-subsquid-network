@@ -4,27 +4,23 @@ import { MappingContext, Events } from '../../types';
 
 import { GatewayStake } from '~/model';
 
-export function listenStakeUnlock(ctx: MappingContext, id: string) {
-  const stakeDeferred = ctx.store.defer(GatewayStake, {
-    id,
-    relations: { operator: true },
-  });
+export function listenGatewayStakeUnlock(ctx: MappingContext, id: string) {
+  const operatorDeferred = ctx.store.defer(GatewayStake, id);
 
   const listenerId = `stake-unlock-${id}`;
   ctx.events.off(Events.BlockStart, listenerId);
   ctx.events.on(
     Events.BlockStart,
     async (block: { l1BlockNumber: number; timestamp: number }) => {
-      const stake = await stakeDeferred.get();
-      if (!stake) return; // was deleted in favor of new stake
+      const operator = await operatorDeferred.getOrFail();
 
-      assert(stake.locked, `stake(${stake.id}) already unlocked`);
-      if (stake.lockEnd > block.l1BlockNumber) return;
+      assert(operator.locked, `operator(${operator.id}) already unlocked`);
+      if (operator.lockEnd && operator.lockEnd > block.l1BlockNumber) return;
 
-      stake.locked = false;
-      await ctx.store.upsert(stake);
+      operator.locked = false;
+      await ctx.store.upsert(operator);
 
-      ctx.log.info(`stake(${stake.id}) unlocked`);
+      ctx.log.info(`operator(${operator.id}) unlocked`);
 
       ctx.events.off(Events.BlockStart, listenerId);
     },

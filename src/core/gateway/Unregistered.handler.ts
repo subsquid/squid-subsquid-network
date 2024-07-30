@@ -40,8 +40,6 @@ export const handleUnregistered = createHandler({
       await ctx.store.insert(statusChange);
 
       gateway.status = statusChange.status;
-      gateway.owner = null;
-      gateway.operator = null;
       await ctx.store.upsert(gateway);
 
       ctx.log.info(`account(${owner.id}) deregistered gateway(${gatewayId})`);

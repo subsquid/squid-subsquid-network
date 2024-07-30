@@ -1,13 +1,13 @@
 import { isContract, isLog, LogItem } from '../../item';
 import { createHandler } from '../base';
-import { unwrapAccount } from '../helpers/entities';
+import { createGatewayStake, unwrapAccount } from '../helpers/entities';
 import { createAccountId, createGatewayOperatorId, createGatewayStakeId } from '../helpers/ids';
 
 import { listenStakeApply } from './CheckStakeApply.listener';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
-import { Account, GatewayOperator, GatewayStake } from '~/model';
+import { Account, GatewayStake } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
 export const handleStaked = createHandler({
@@ -27,56 +27,33 @@ export const handleStaked = createHandler({
       relations: { owner: true },
     });
 
-    const operatorId = createGatewayOperatorId(event.gatewayOperator);
-    const operatorDeferred = ctx.store.defer(GatewayOperator, {
-      id: operatorId,
-      relations: { account: { owner: true }, stake: true, pendingStake: true },
-    });
+    const stakeId = createGatewayOperatorId(event.gatewayOperator);
+    const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
 
     ctx.queue.add(async () => {
       const account = await accountDeferred.getOrFail();
 
-      const operator = await operatorDeferred.getOrInsert(async (id) => {
-        return new GatewayOperator({
-          id,
-          account,
-          autoExtension: false,
-        });
-      });
+      const stake = await stakeDeferred.getOrInsert(async (id) =>
+        createGatewayStake(id, {
+          owner: account,
+          realOwner: unwrapAccount(account),
+        }),
+      );
 
-      let stake: GatewayStake;
-      if (operator.pendingStake) {
-        stake = operator.pendingStake;
+      stake.amount += event.amount;
+      stake.computationUnitsPending = event.computationUnits;
 
-        stake.amount += event.amount;
+      stake.lockStart = Number(event.lockStart);
+      stake.lockEnd = event.lockEnd > INT32_MAX ? INT32_MAX : Number(event.lockEnd);
+      stake.locked = true;
 
-        await ctx.store.upsert(stake);
-      } else {
-        const index = operator.stake ? operator.stake.index + 1 : 0;
-        const amount = operator.stake ? operator.stake.amount + event.amount : event.amount;
+      await ctx.store.upsert(stake);
 
-        stake = new GatewayStake({
-          id: createGatewayStakeId(operator.id, index),
-          index,
-          operator,
-          owner: unwrapAccount(account),
-          lockStart: Number(event.lockStart),
-          lockEnd: event.lockEnd > INT32_MAX ? INT32_MAX : Number(event.lockEnd),
-          amount,
-          computationUnits: event.computationUnits,
-          locked: true,
-        });
-        await ctx.store.insert(stake);
+      ctx.log.info(
+        `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}]`,
+      );
 
-        operator.pendingStake = stake;
-        await ctx.store.upsert(operator);
-
-        ctx.log.info(
-          `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}]`,
-        );
-
-        listenStakeApply(ctx, stake.id);
-      }
+      listenStakeApply(ctx, stake.id);
     });
   },
 });

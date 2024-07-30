@@ -5,7 +5,7 @@ import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { handlers } from './core';
 import { listenUpdateWorkersCap } from './core/cap';
 import { listenStakeApply } from './core/gateway/CheckStakeApply.listener';
-import { listenStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
+import { listenGatewayStakeUnlock } from './core/gateway/CheckStakeStatus.listener';
 import { createSettings, createBlock } from './core/helpers/entities';
 import { createEpochId } from './core/helpers/ids';
 import {
@@ -30,7 +30,7 @@ import {
   Delegation,
   Epoch,
   EpochStatus,
-  GatewayOperator,
+  GatewayStake,
   Settings,
   Statistics,
   Worker,
@@ -136,34 +136,17 @@ function scheduleInit(ctx: MappingContext) {
     });
     pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
 
-    const operatorsWithPendingOrLockedStakes = await ctx.store.find(GatewayOperator, {
-      where: [
-        {
-          pendingStake: {
-            lockStart: LessThanOrEqual(lastBlock.l1BlockNumber),
-          },
-        },
-        {
-          stake: {
-            locked: true,
-            lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
-          },
-        },
-      ],
-      relations: {
-        stake: true,
-        pendingStake: true,
-      },
+    const pendingGatewayStakes = await ctx.store.find(GatewayStake, {
+      where: { lockStart: LessThanOrEqual(lastBlock.l1BlockNumber) },
       cache: false,
     });
-    operatorsWithPendingOrLockedStakes.forEach((o) => {
-      if (o.pendingStake) {
-        listenStakeApply(ctx, o.pendingStake!.id);
-      }
-      if (o.stake?.locked) {
-        listenStakeUnlock(ctx, o.stake!.id);
-      }
+    pendingGatewayStakes.forEach((o) => listenStakeApply(ctx, o.id));
+
+    const lockedGatewayStakes = await ctx.store.find(GatewayStake, {
+      where: { lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      cache: false,
     });
+    lockedGatewayStakes.forEach((o) => listenGatewayStakeUnlock(ctx, o.id));
 
     const lockedDelegations = await ctx.store.find(Delegation, {
       where: {

@@ -1,6 +1,6 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
-import {GatewayOperator} from "./gatewayOperator.model"
 import {Account} from "./account.model"
+import {GatewayStake} from "./gatewayStake.model"
 import {GatewayStatus} from "./_gatewayStatus"
 import {GatewayStatusChange} from "./gatewayStatusChange.model"
 
@@ -17,12 +17,16 @@ export class Gateway {
     createdAt!: Date
 
     @Index_()
-    @ManyToOne_(() => GatewayOperator, {nullable: true})
-    operator!: GatewayOperator | undefined | null
+    @ManyToOne_(() => Account, {nullable: true})
+    owner!: Account
 
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
-    owner!: Account | undefined | null
+    realOwner!: Account
+
+    @Index_()
+    @ManyToOne_(() => GatewayStake, {nullable: true})
+    stake!: GatewayStake
 
     @Column_("varchar", {length: 12, nullable: false})
     status!: GatewayStatus

@@ -23,9 +23,8 @@ type Account @entity {
 
   claims: [Claim!] @derivedFrom(field: "account")
 
-  gatewayOperator: GatewayOperator @derivedFrom(field: "account")
-  gateways: [Gateway!] @derivedFrom(field: "owner")
-  gatewayStakes: [GatewayStake!] @derivedFrom(field: "owner")
+  gatewayStakes: [GatewayStake!] @derivedFrom(field: "realOwner")
+  gateways: [Gateway!] @derivedFrom(field: "realOwner")
 }
 
 enum TransferDirection {
@@ -260,8 +259,10 @@ type Gateway @entity {
 
   createdAt: DateTime!
 
-  operator: GatewayOperator
-  owner: Account
+  owner: Account!
+  realOwner: Account!
+
+  stake: GatewayStake!
 
   status: GatewayStatus!
   statusHistory: [GatewayStatusChange!]! @derivedFrom(field: "gateway")
@@ -283,29 +284,21 @@ type GatewayStatusChange @entity {
 type GatewayStake @entity {
   id: ID!
 
-  index: Int!
-
-  operator: GatewayOperator!
   owner: Account!
-
-  amount: BigInt!
-  computationUnits: BigInt!
-
-  locked: Boolean!
-  lockStart: Int!
-  lockEnd: Int!
-}
-
-type GatewayOperator @entity {
-  id: ID!
-
-  account: Account! @unique
+  realOwner: Account!
 
   autoExtension: Boolean!
 
-  gateways: [Gateway!]! @derivedFrom(field: "operator")
-  stake: GatewayStake
-  pendingStake: GatewayStake
+  gateways: [Gateway!]! @derivedFrom(field: "stake")
+
+  amount: BigInt!
+
+  computationUnits: BigInt!
+  computationUnitsPending: BigInt
+
+  locked: Boolean!
+  lockStart: Int
+  lockEnd: Int
 }
 
 type Statistics @entity {

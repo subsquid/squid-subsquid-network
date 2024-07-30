@@ -113,6 +113,8 @@ export const processor = new EvmBatchProcessor()
       GatewayRegistry.events.Staked.topic,
       GatewayRegistry.events.Unstaked.topic,
       GatewayRegistry.events.MetadataChanged.topic,
+      GatewayRegistry.events.AutoextensionEnabled.topic,
+      GatewayRegistry.events.AutoextensionDisabled.topic,
     ],
   })
   .addLog({

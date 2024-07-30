@@ -1,0 +1,53 @@
+module.exports = class Data1722339757698 {
+    name = 'Data1722339757698'
+
+    async up(db) {
+        await db.query(`ALTER TABLE "gateway" DROP CONSTRAINT "FK_d7c701bef51228883fd503da5aa"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP CONSTRAINT "FK_238c27058f0c591ae15f48d5213"`)
+        await db.query(`DROP INDEX "public"."IDX_d7c701bef51228883fd503da5a"`)
+        await db.query(`DROP INDEX "public"."IDX_238c27058f0c591ae15f48d521"`)
+        await db.query(`ALTER TABLE "gateway" DROP COLUMN "operator_id"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP COLUMN "index"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP COLUMN "operator_id"`)
+        await db.query(`ALTER TABLE "gateway" ADD "real_owner_id" character varying`)
+        await db.query(`ALTER TABLE "gateway" ADD "stake_id" character varying`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD "auto_extension" boolean NOT NULL`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD "computation_units_pending" numeric`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD "real_owner_id" character varying`)
+        await db.query(`ALTER TABLE "gateway_stake" ALTER COLUMN "lock_start" DROP NOT NULL`)
+        await db.query(`ALTER TABLE "gateway_stake" ALTER COLUMN "lock_end" DROP NOT NULL`)
+        await db.query(`ALTER TABLE "statistics" ALTER COLUMN "utilized_stake" DROP DEFAULT`)
+        await db.query(`ALTER TABLE "statistics" ALTER COLUMN "base_apr" DROP DEFAULT`)
+        await db.query(`CREATE INDEX "IDX_552709a55697b67c4fdf7e262b" ON "gateway" ("real_owner_id") `)
+        await db.query(`CREATE INDEX "IDX_3ee2bb729914d8b6ae595b47d3" ON "gateway" ("stake_id") `)
+        await db.query(`CREATE INDEX "IDX_6ce9ac8fe1ba9315c8e05d46fd" ON "gateway_stake" ("real_owner_id") `)
+        await db.query(`ALTER TABLE "gateway" ADD CONSTRAINT "FK_552709a55697b67c4fdf7e262b7" FOREIGN KEY ("real_owner_id") REFERENCES "account"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "gateway" ADD CONSTRAINT "FK_3ee2bb729914d8b6ae595b47d35" FOREIGN KEY ("stake_id") REFERENCES "gateway_stake"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD CONSTRAINT "FK_6ce9ac8fe1ba9315c8e05d46fde" FOREIGN KEY ("real_owner_id") REFERENCES "account"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+    }
+
+    async down(db) {
+        await db.query(`ALTER TABLE "gateway" ADD CONSTRAINT "FK_d7c701bef51228883fd503da5aa" FOREIGN KEY ("operator_id") REFERENCES "gateway_operator"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD CONSTRAINT "FK_238c27058f0c591ae15f48d5213" FOREIGN KEY ("operator_id") REFERENCES "gateway_operator"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`CREATE INDEX "IDX_d7c701bef51228883fd503da5a" ON "gateway" ("operator_id") `)
+        await db.query(`CREATE INDEX "IDX_238c27058f0c591ae15f48d521" ON "gateway_stake" ("operator_id") `)
+        await db.query(`ALTER TABLE "gateway" ADD "operator_id" character varying`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD "index" integer NOT NULL`)
+        await db.query(`ALTER TABLE "gateway_stake" ADD "operator_id" character varying`)
+        await db.query(`ALTER TABLE "gateway" DROP COLUMN "real_owner_id"`)
+        await db.query(`ALTER TABLE "gateway" DROP COLUMN "stake_id"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP COLUMN "auto_extension"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP COLUMN "computation_units_pending"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP COLUMN "real_owner_id"`)
+        await db.query(`ALTER TABLE "gateway_stake" ALTER COLUMN "lock_start" SET NOT NULL`)
+        await db.query(`ALTER TABLE "gateway_stake" ALTER COLUMN "lock_end" SET NOT NULL`)
+        await db.query(`ALTER TABLE "statistics" ALTER COLUMN "utilized_stake" SET DEFAULT '0'`)
+        await db.query(`ALTER TABLE "statistics" ALTER COLUMN "base_apr" SET DEFAULT '0'`)
+        await db.query(`DROP INDEX "public"."IDX_552709a55697b67c4fdf7e262b"`)
+        await db.query(`DROP INDEX "public"."IDX_3ee2bb729914d8b6ae595b47d3"`)
+        await db.query(`DROP INDEX "public"."IDX_6ce9ac8fe1ba9315c8e05d46fd"`)
+        await db.query(`ALTER TABLE "gateway" DROP CONSTRAINT "FK_552709a55697b67c4fdf7e262b7"`)
+        await db.query(`ALTER TABLE "gateway" DROP CONSTRAINT "FK_3ee2bb729914d8b6ae595b47d35"`)
+        await db.query(`ALTER TABLE "gateway_stake" DROP CONSTRAINT "FK_6ce9ac8fe1ba9315c8e05d46fde"`)
+    }
+}
