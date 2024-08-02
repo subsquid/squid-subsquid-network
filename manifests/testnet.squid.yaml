@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: subsquid-network-testnet
-version: 3
+version: 5
 description: Subsquid network indexer
 build:
 deploy:
