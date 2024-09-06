@@ -31,7 +31,7 @@ export const handleVestingCreated = createHandler({
       relations: { owner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const owner = await ownerDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`);
         return createAccount(id, { type: AccountType.USER });

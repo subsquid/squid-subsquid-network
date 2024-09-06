@@ -22,7 +22,7 @@ export const handleMetadataUpdated = createHandler({
     const workerId = createWorkerId(workerIndex);
     const workerDeferred = ctx.store.defer(Worker, workerId);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const metadata = parseWorkerMetadata(ctx, metadataRaw);
 
       const worker = await workerDeferred.getOrFail();

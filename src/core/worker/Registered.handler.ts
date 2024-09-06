@@ -35,7 +35,7 @@ export const handleWorkerRegistered = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const settings = await settingsDeferred.getOrFail();
 
       const bond = assertNotNull(settings.bondAmount, `bond amount is not defined`);

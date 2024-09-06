@@ -1,5 +1,7 @@
 import assert from 'assert';
 
+import { isNil } from 'lodash';
+
 import { MappingContext, Events } from '../../types';
 
 import { GatewayStake } from '~/model';
@@ -16,7 +18,10 @@ export function listenStakeApply(ctx: MappingContext, id: string) {
       const stake = await stakeDeferred.getOrFail();
       if (stake.lockStart && stake.lockStart > block.l1BlockNumber) return;
 
-      assert(stake.computationUnitsPending);
+      assert(
+        !isNil(stake.computationUnitsPending),
+        `pending computation units is equal to ${stake.computationUnitsPending}`,
+      );
 
       stake.computationUnits = stake.computationUnitsPending;
       stake.computationUnitsPending = null;

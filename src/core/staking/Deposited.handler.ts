@@ -42,7 +42,7 @@ export const handleDeposited = createHandler({
       relations: { worker: true, realOwner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const settings = await ctx.store.getOrFail(Settings, network.name);
 
       const delegation = await delegationDeferred.getOrInsert(async (id) => {

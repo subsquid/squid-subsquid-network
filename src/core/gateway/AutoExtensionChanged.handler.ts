@@ -33,7 +33,7 @@ export const handleAutoExtensionChanged = createHandler({
     const stakeId = createGatewayOperatorId(gatewayOperator);
     const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const stake = await stakeDeferred.getOrFail();
 
       stake.autoExtension = autoExtension;

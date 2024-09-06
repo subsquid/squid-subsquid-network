@@ -24,7 +24,7 @@ export const handleWorkerWithdrawn = createHandler({
       relations: { realOwner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const worker = await workerDeferred.getOrFail();
 
       const statusChange = new WorkerStatusChange({

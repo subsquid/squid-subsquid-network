@@ -38,7 +38,7 @@ export const handleDistributed = createHandler({
 
     const recipientIds = event.recipients.map((r) => createWorkerId(r));
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       if (recipientIds.length === 0) {
         ctx.log.info(`nothing to reward`);
         return;

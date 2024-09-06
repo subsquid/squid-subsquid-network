@@ -30,7 +30,7 @@ export const handleStaked = createHandler({
     const stakeId = createGatewayOperatorId(event.gatewayOperator);
     const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const account = await accountDeferred.getOrFail();
 
       const stake = await stakeDeferred.getOrInsert(async (id) =>

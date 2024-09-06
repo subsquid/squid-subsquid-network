@@ -22,7 +22,7 @@ export const handleVestingTransfered = createHandler({
       id: createAccountId(log.address),
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const vesting = await vestingDeferred.get();
       if (!vesting) return; // not our vesting
 

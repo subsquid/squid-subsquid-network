@@ -24,7 +24,7 @@ export const handleUnstaked = createHandler({
       relations: { owner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const stake = await stakeDeferred.getOrFail();
       const account = stake.owner;
 

@@ -32,7 +32,7 @@ export const handleRegistered = createHandler({
 
     const gatewayId = parsePeerId(event.peerId);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const account = await accountDeferred.getOrInsert((id) => createAccount(id));
 
       const stake = await stakeDeferred.getOrInsert(async (id) =>

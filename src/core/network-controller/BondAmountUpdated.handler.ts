@@ -19,7 +19,7 @@ export const handleBondAmountUpdated = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const settings = await settingsDeferred.getOrFail();
 
       settings.bondAmount = bondAmount;

@@ -26,7 +26,7 @@ export const handleUnregistered = createHandler({
       relations: { owner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const gateway = await gatewayDeferred.getOrFail();
       const owner = assertNotNull(gateway.owner);
 

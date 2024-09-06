@@ -21,7 +21,7 @@ export const handleEpochLengthUpdated = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const settings = await settingsDeferred.getOrFail();
 
       settings.epochLength = epochLength;

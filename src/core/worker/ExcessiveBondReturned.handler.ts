@@ -21,7 +21,7 @@ export const handleExcessiveBondReturned = createHandler({
     const workerId = createWorkerId(workerIndex);
     const workerDeferred = ctx.store.defer(Worker, workerId);
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const worker = await workerDeferred.getOrFail();
       worker.bond -= amount;
       await ctx.store.upsert(worker);

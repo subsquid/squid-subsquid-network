@@ -26,7 +26,7 @@ export const handleWorkerDeregistered = createHandler({
       relations: { realOwner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const worker = await workerDeferred.getOrFail();
       if (worker.status === WorkerStatus.DEREGISTERING) return; // handle contract bug with duplicated deregistering calls
 

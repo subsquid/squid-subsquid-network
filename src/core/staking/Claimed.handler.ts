@@ -35,7 +35,7 @@ export const handleClaimed = createHandler({
       }),
     );
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const account = await accountDeferred.getOrFail();
 
       let delegations: Delegation[];

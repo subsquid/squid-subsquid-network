@@ -32,7 +32,7 @@ export const handleWithdrawn = createHandler({
       relations: { worker: true, realOwner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const delegation = await delegationDeferred.getOrFail();
       delegation.deposit -= amount;
 

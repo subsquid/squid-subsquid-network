@@ -31,7 +31,7 @@ export const handleClaimed = createHandler({
       relations: { owner: true, realOwner: true },
     });
 
-    ctx.queue.add(async () => {
+    ctx.tasks.add(async () => {
       const worker = await workerDeferred.getOrFail();
       assert(worker.owner.id === accountId); // should never happen, but just in case
 

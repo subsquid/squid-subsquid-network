@@ -1,6 +1,6 @@
 import { TypeormDatabaseWithCache } from '@belopash/typeorm-store';
 import { last } from 'lodash';
-import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { IsNull, LessThanOrEqual, Not } from 'typeorm';
 
 import { handlers } from './core';
 import { listenUpdateWorkersCap } from './core/cap';
@@ -39,16 +39,15 @@ import {
 } from '~/model';
 import { HOUR_MS, MINUTE_MS, toStartOfInterval } from '~/utils/time';
 
-processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
-  await mapBlocks({
-    ...ctx,
-    queue: new TaskQueue(),
+processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx_) => {
+  const ctx = Object.assign(ctx_, {
+    tasks: new TaskQueue(),
     events: new EventEmitter(),
-    delegatedWorkers: new Set(),
+    delegatedWorkers: new Set<string>(),
   });
-});
 
-async function mapBlocks(ctx: MappingContext) {
+  ctx.tasks.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
+
   scheduleInit(ctx);
   scheduleComplete(ctx);
 
@@ -60,21 +59,19 @@ async function mapBlocks(ctx: MappingContext) {
   listenRewardMetricsUpdate(ctx);
   listenUpdateWorkersCap(ctx);
 
-  ctx.queue.add(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
-
   for (const block of ctx.blocks) {
     mapBlock(ctx, block);
   }
 
-  ctx.queue.add(() => ctx.events.emit(Events.Finalization, last(ctx.blocks)!.header));
+  ctx.tasks.add(() => ctx.events.emit(Events.Finalization, last(ctx.blocks)!.header));
 
-  await ctx.queue.run();
-}
+  await ctx.tasks.run();
+});
 
 function mapBlock(ctx: MappingContext, block: BlockData) {
   const items = sortItems(block);
 
-  ctx.queue.add(async () => {
+  ctx.tasks.add(async () => {
     await ctx.store.insert(createBlock(block.header));
 
     await ctx.events.emit(Events.BlockStart, block.header);
@@ -86,7 +83,7 @@ function mapBlock(ctx: MappingContext, block: BlockData) {
     }
   }
 
-  ctx.queue.add(() => ctx.events.emit(Events.BlockEnd, block.header));
+  ctx.tasks.add(() => ctx.events.emit(Events.BlockEnd, block.header));
 }
 
 function scheduleInit(ctx: MappingContext) {
@@ -118,12 +115,17 @@ function scheduleInit(ctx: MappingContext) {
         lastSnapshotTimestamp: new Date(
           toStartOfInterval(firstBlock.timestamp, 12 * HOUR_MS) - MINUTE_MS,
         ),
+        utilizedStake: 0n,
+        baseApr: 0,
       });
     });
 
     // schedule pending worker statuses
     const pendingStatuses = await ctx.store.find(WorkerStatusChange, {
-      where: { pending: true, blockNumber: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      where: {
+        blockNumber: LessThanOrEqual(lastBlock.l1BlockNumber),
+        pending: true,
+      },
       relations: { worker: true },
       order: { blockNumber: 'ASC' },
       cache: false,
@@ -131,19 +133,28 @@ function scheduleInit(ctx: MappingContext) {
     pendingStatuses.forEach((s) => listenStatusCheck(ctx, s.id));
 
     const pendingUnlocks = await ctx.store.find(Worker, {
-      where: { locked: true, lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      where: {
+        lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
+        locked: true,
+      },
       cache: false,
     });
     pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
 
     const pendingGatewayStakes = await ctx.store.find(GatewayStake, {
-      where: { lockStart: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      where: {
+        lockStart: LessThanOrEqual(lastBlock.l1BlockNumber),
+        computationUnitsPending: Not(IsNull()),
+      },
       cache: false,
     });
     pendingGatewayStakes.forEach((o) => listenStakeApply(ctx, o.id));
 
     const lockedGatewayStakes = await ctx.store.find(GatewayStake, {
-      where: { lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber) },
+      where: {
+        lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
+        locked: true,
+      },
       cache: false,
     });
     lockedGatewayStakes.forEach((o) => listenGatewayStakeUnlock(ctx, o.id));
@@ -165,40 +176,7 @@ function scheduleComplete(ctx: MappingContext) {
   ctx.events.on(Events.Finalization, async () => {
     const lastBlock = last(ctx.blocks)!.header;
 
-    // const lb = lastBlock;
-    // statistics.lastBlock = lb.height;
-    // statistics.lastBlockTimestamp = new Date(lb.timestamp);
-
-    // const lbL1 = lastBlock;
-    // statistics.lastBlockL1 = lbL1.l1BlockNumber;
-    // statistics.lastBlockTimestampL1 = new Date(lb.timestamp);
-
     if (blocksPassed > 1000) {
-      // const statistics = await ctx.store.getOrFail(Statistics, network.name);
-
-      // const blocks = await ctx.store.find(Block, {
-      //   where: {
-      //     timestamp: MoreThanOrEqual(new Date(lastBlock.timestamp - 10 * MINUTE_MS)),
-      //   },
-      //   order: { height: 'ASC' },
-      //   cache: false,
-      // });
-
-      // statistics.blockTime = Math.round((10 * MINUTE_MS) / blocks.length);
-      // statistics.blockTimeL1 = Math.round(
-      //   (10 * MINUTE_MS) /
-      //     blocks.reduce(
-      //       (r, b) => {
-      //         if (b.l1BlockNumber > r.last) {
-      //           r.length += 1;
-      //           r.last = b.l1BlockNumber;
-      //         }
-      //         return r;
-      //       },
-      //       { length: 0, last: 0 },
-      //     ).length,
-      // );
-
       const limit = 50_000;
       const offset = 0;
       while (true) {
@@ -217,8 +195,6 @@ function scheduleComplete(ctx: MappingContext) {
       blocksPassed = 0;
     }
     blocksPassed += ctx.blocks.length;
-
-    // await ctx.store.upsert(statistics);
   });
 }
 
