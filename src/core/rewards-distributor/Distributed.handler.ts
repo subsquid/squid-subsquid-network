@@ -44,8 +44,15 @@ export const handleDistributed = createHandler({
         return;
       }
 
+      // since certain block distribution intervals became to overlap,
+      // but it is not reflected in the event interval due to contract limitation
+      const normalizedFromBlockNumber =
+        network.name === 'arbitrum' && log.block.height >= 250398109
+          ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
+          : event.fromBlock;
+
       let fromBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: LessThanOrEqual(Number(event.fromBlock)) },
+        where: { l1BlockNumber: LessThanOrEqual(Number(normalizedFromBlockNumber)) },
         order: { height: 'DESC' },
       });
       if (!fromBlock) {
@@ -157,7 +164,7 @@ export const handleDistributed = createHandler({
         new Commitment({
           id: createCommitmentId(event.fromBlock, event.toBlock),
           from: fromBlock?.timestamp,
-          fromBlock: Number(event.fromBlock),
+          fromBlock: Number(normalizedFromBlockNumber),
           to: toBlock?.timestamp,
           toBlock: Number(event.toBlock),
           recipients: Object.values(payments).map((p) => new CommitmentRecipient(p)),
