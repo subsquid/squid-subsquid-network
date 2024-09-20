@@ -63,7 +63,6 @@ export function listenOnlineUpdate(ctx: MappingContext) {
         },
       });
 
-
       try {
         const jailInfo: {
           peer_id: string;
@@ -260,7 +259,10 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       block.timestamp - rewardMetricsUpdateInterval >
       lastRewardMetricsUpdateTimestamp + lastRewardMetricsUpdateOffset
     ) {
-      const { rewardEpochLength } = await client.get(joinUrl(monitorUrl, `/config`));
+      const { rewardEpochLength: rewardEpochLength_ } = await client.get(
+        joinUrl(monitorUrl, `/config`),
+      );
+      const rewardEpochLength = rewardEpochLength_ * 2;
 
       const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval);
       if (snapshotTimestamp > lastRewardMetricsUpdateTimestamp) {
