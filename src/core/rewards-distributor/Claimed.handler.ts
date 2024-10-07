@@ -31,7 +31,7 @@ export const handleClaimed = createHandler({
       relations: { owner: true, realOwner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const worker = await workerDeferred.getOrFail();
       assert(worker.owner.id === accountId); // should never happen, but just in case
 
@@ -56,6 +56,6 @@ export const handleClaimed = createHandler({
       );
 
       await ctx.store.insert(claim);
-    });
+    };
   },
 });

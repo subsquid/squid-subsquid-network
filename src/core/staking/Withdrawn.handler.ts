@@ -32,7 +32,7 @@ export const handleWithdrawn = createHandler({
       relations: { worker: true, realOwner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const delegation = await delegationDeferred.getOrFail();
       delegation.deposit -= amount;
 
@@ -52,6 +52,6 @@ export const handleWithdrawn = createHandler({
       );
 
       ctx.delegatedWorkers.add(worker.id);
-    });
+    };
   },
 });

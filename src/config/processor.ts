@@ -138,7 +138,7 @@ if (process.env.GATEWAY_URL) {
 
 export type Fields = EvmBatchProcessorFields<typeof processor>;
 export type BlockData = _BlockData<Fields>;
-export type Block = _BlockHeader<Fields>;
+export type BlockHeader = _BlockHeader<Fields>;
 export type Log = _Log<Fields>;
 export type Transaction = _Transaction<Fields>;
 

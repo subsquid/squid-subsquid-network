@@ -25,7 +25,7 @@ export const handleMetadataChanged = createHandler({
       relations: { owner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const gateway = await gatewayDeferred.getOrFail();
 
       const metadata = parseGatewayMetadata(ctx, event.metadata);
@@ -38,6 +38,6 @@ export const handleMetadataChanged = createHandler({
       await ctx.store.upsert(gateway);
 
       ctx.log.info(`updated metadata of gateway(${gatewayId}) `);
-    });
+    };
   },
 });

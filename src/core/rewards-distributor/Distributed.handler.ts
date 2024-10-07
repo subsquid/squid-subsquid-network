@@ -38,7 +38,7 @@ export const handleDistributed = createHandler({
 
     const recipientIds = event.recipients.map((r) => createWorkerId(r));
 
-    ctx.tasks.add(async () => {
+    return async () => {
       if (recipientIds.length === 0) {
         ctx.log.info(`nothing to reward`);
         return;
@@ -176,7 +176,7 @@ export const handleDistributed = createHandler({
       ctx.log.info(
         `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,
       );
-    });
+    };
   },
 });
 

@@ -22,7 +22,7 @@ export const handleMetadataUpdated = createHandler({
     const workerId = createWorkerId(workerIndex);
     const workerDeferred = ctx.store.defer(Worker, workerId);
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const metadata = parseWorkerMetadata(ctx, metadataRaw);
 
       const worker = await workerDeferred.getOrFail();
@@ -32,6 +32,6 @@ export const handleMetadataUpdated = createHandler({
       await ctx.store.upsert(worker);
 
       ctx.log.info(`updated metadata of worker(${worker.id}) `);
-    });
+    };
   },
 });

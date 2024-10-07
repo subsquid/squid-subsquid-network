@@ -23,7 +23,7 @@ export const handleTransfer = createHandler({
     const toId = createAccountId(event.to);
     const toDeferred = ctx.store.defer(Account, toId);
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const from = await fromDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`);
         return createAccount(id, { type: AccountType.USER });
@@ -68,6 +68,6 @@ export const handleTransfer = createHandler({
       ctx.log.info(
         `account(${from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${to.id})`,
       );
-    });
+    };
   },
 });

@@ -19,7 +19,7 @@ export const handleBondAmountUpdated = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const settings = await settingsDeferred.getOrFail();
 
       settings.bondAmount = bondAmount;
@@ -27,6 +27,6 @@ export const handleBondAmountUpdated = createHandler({
       await ctx.store.upsert(settings);
 
       ctx.log.debug(`set bond amount set ${bondAmount}`);
-    });
+    };
   },
 });

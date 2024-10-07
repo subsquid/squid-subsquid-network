@@ -15,6 +15,7 @@ export const handleUnstaked = createHandler({
       GatewayRegistry.events.Unstaked.is(item.value)
     );
   },
+
   handle(ctx, { value: log }) {
     const event = GatewayRegistry.events.Unstaked.decode(log);
 
@@ -24,7 +25,7 @@ export const handleUnstaked = createHandler({
       relations: { owner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const stake = await stakeDeferred.getOrFail();
       const account = stake.owner;
 
@@ -37,6 +38,6 @@ export const handleUnstaked = createHandler({
       await ctx.store.upsert(stake);
 
       ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)}`);
-    });
+    };
   },
 });

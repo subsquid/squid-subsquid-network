@@ -1,6 +1,6 @@
 import { assertNotNull } from '@subsquid/evm-processor';
 
-import { Block as _Block } from '~/config/processor';
+import { BlockHeader as _Block } from '~/config/processor';
 import {
   Account,
   AccountType,

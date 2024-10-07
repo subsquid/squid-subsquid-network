@@ -24,7 +24,7 @@ export const handleWorkerWithdrawn = createHandler({
       relations: { realOwner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const worker = await workerDeferred.getOrFail();
 
       const statusChange = new WorkerStatusChange({
@@ -45,6 +45,6 @@ export const handleWorkerWithdrawn = createHandler({
       ctx.log.info(
         `account(${worker.realOwner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
       );
-    });
+    };
   },
 });

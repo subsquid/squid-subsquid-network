@@ -31,7 +31,7 @@ export const handleVestingCreated = createHandler({
       relations: { owner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const owner = await ownerDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`);
         return createAccount(id, { type: AccountType.USER });
@@ -49,7 +49,7 @@ export const handleVestingCreated = createHandler({
       }
 
       ctx.log.info(`created vesting(${vesting.id}) for account(${owner.id})`);
-    });
+    };
   },
 });
 

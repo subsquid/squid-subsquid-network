@@ -35,7 +35,7 @@ export const handleClaimed = createHandler({
       }),
     );
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const account = await accountDeferred.getOrFail();
 
       let delegations: Delegation[];
@@ -83,6 +83,6 @@ export const handleClaimed = createHandler({
 
       account.claimableDelegationCount = 0;
       await ctx.store.upsert(account);
-    });
+    };
   },
 });

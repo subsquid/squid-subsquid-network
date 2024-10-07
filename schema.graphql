@@ -59,6 +59,10 @@ type Settings @entity {
   epochLength: Int
   minimalWorkerVersion: String
   recommendedWorkerVersion: String
+
+  currentEpoch: Int
+  utilizedStake: BigInt!
+  baseApr: Float!
 }
 
 enum ClaimType {
@@ -299,20 +303,6 @@ type GatewayStake @entity {
   locked: Boolean!
   lockStart: Int
   lockEnd: Int
-}
-
-type Statistics @entity {
-  id: ID!
-  currentEpoch: Int
-  lastSnapshotTimestamp: DateTime!
-  blockTime: Int!
-  lastBlock: Int!
-  lastBlockTimestamp: DateTime!
-  blockTimeL1: Int!
-  lastBlockL1: Int!
-  lastBlockTimestampL1: DateTime!
-  utilizedStake: BigInt!
-  baseApr: Float!
 }
 
 enum EpochStatus {

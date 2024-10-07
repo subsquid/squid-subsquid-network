@@ -32,6 +32,7 @@ export const network = {
       process.env.TEMPORARY_HOLDING_FACTORY_CONTRACT_ADDRESS,
       'Temporary Holding Factory',
     ),
+    Router: parseAddress(process.env.ROUTER_CONTRACT_ADDRESS, 'Router'),
   },
   range: {
     from: process.env.RANGE_FROM ? Number(process.env.RANGE_FROM) : 0,

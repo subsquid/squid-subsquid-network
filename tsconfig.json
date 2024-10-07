@@ -14,27 +14,15 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "paths": {
-      "~/abi/*": [
-        "./src/abi/*"
-      ],
-      "~/model": [
-        "./src/model"
-      ],
-      "~/model/*": [
-        "./src/model/*"
-      ],
-      "~/utils/*": [
-        "./src/utils/*"
-      ],
-      "~/config/*": [
-        "./src/config/*"
-      ]
+      "~/abi/*": ["./src/abi/*"],
+      "~/core/*": ["./src/core/*"],
+      "~/core": ["./src/core"],
+      "~/model": ["./src/model"],
+      "~/model/*": ["./src/model/*"],
+      "~/utils/*": ["./src/utils/*"],
+      "~/config/*": ["./src/config/*"]
     }
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

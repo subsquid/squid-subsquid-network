@@ -21,7 +21,7 @@ export const handleEpochLengthUpdated = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const settings = await settingsDeferred.getOrFail();
 
       settings.epochLength = epochLength;
@@ -35,6 +35,6 @@ export const handleEpochLengthUpdated = createHandler({
       // }
 
       ctx.log.debug(`set epoch length to ${epochLength}`);
-    });
+    };
   },
 });

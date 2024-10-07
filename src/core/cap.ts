@@ -6,7 +6,7 @@ import { Events, MappingContext } from '../types';
 import { Multicall } from '~/abi/multicall';
 import * as SoftCap from '~/abi/SoftCap';
 import { network } from '~/config/network';
-import { Block } from '~/config/processor';
+import { BlockHeader } from '~/config/processor';
 import { Statistics, Worker, WorkerStatus } from '~/model';
 
 let INIT_CAPS = false;
@@ -27,7 +27,7 @@ export function listenUpdateWorkersCap(ctx: MappingContext) {
   });
 }
 
-async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) {
+async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, all = false) {
   if (!all && ctx.delegatedWorkers.size === 0) return;
 
   const multicall = new Multicall(ctx, block, network.contracts.Multicall3.address);

@@ -35,7 +35,7 @@ export const handleWorkerRegistered = createHandler({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const settings = await settingsDeferred.getOrFail();
 
       const bond = assertNotNull(settings.bondAmount, `bond amount is not defined`);
@@ -87,6 +87,6 @@ export const handleWorkerRegistered = createHandler({
       ctx.log.info(
         `account(${worker.realOwner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
       );
-    });
+    };
   },
 });

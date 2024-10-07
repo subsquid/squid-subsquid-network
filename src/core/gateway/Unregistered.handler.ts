@@ -26,7 +26,7 @@ export const handleUnregistered = createHandler({
       relations: { owner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const gateway = await gatewayDeferred.getOrFail();
       const owner = assertNotNull(gateway.owner);
 
@@ -43,6 +43,6 @@ export const handleUnregistered = createHandler({
       await ctx.store.upsert(gateway);
 
       ctx.log.info(`account(${owner.id}) deregistered gateway(${gatewayId})`);
-    });
+    };
   },
 });

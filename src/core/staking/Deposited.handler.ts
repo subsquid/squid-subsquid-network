@@ -42,7 +42,7 @@ export const handleDeposited = createHandler({
       relations: { worker: true, realOwner: true },
     });
 
-    ctx.tasks.add(async () => {
+    return async () => {
       const settings = await ctx.store.getOrFail(Settings, network.name);
 
       const delegation = await delegationDeferred.getOrInsert(async (id) => {
@@ -81,6 +81,6 @@ export const handleDeposited = createHandler({
       ctx.log.info(
         `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
       );
-    });
+    };
   },
 });

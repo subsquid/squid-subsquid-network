@@ -23,4 +23,13 @@ export class Settings {
 
     @StringColumn_({nullable: true})
     recommendedWorkerVersion!: string | undefined | null
+
+    @IntColumn_({nullable: true})
+    currentEpoch!: number | undefined | null
+
+    @BigIntColumn_({nullable: false})
+    utilizedStake!: bigint
+
+    @FloatColumn_({nullable: false})
+    baseApr!: number
 }
