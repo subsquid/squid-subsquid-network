@@ -134,7 +134,7 @@ type WorkerStat = {
   responseBytes90Days: string;
   readChunks90Days: string;
   queryCount90Days: string;
-  dayUptimes: [date: string, uptime: number][];
+  dayUptimes: { date: string; dayUptime: number }[];
 };
 
 export function listenMetricsUpdate(ctx: MappingContext) {
@@ -168,28 +168,28 @@ export function listenMetricsUpdate(ctx: MappingContext) {
       });
 
       for (const worker of activeWorkers) {
-        const data = workersStats[worker.peerId];
+        const workerStats = workersStats[worker.peerId];
 
-        worker.servedData90Days = data ? BigInt(data.responseBytes90Days) : 0n;
-        worker.scannedData90Days = data ? BigInt(data.readChunks90Days) : 0n;
-        worker.queries90Days = data ? BigInt(data.queryCount90Days) : 0n;
+        worker.servedData90Days = workerStats ? BigInt(workerStats.responseBytes90Days) : 0n;
+        worker.scannedData90Days = workerStats ? BigInt(workerStats.readChunks90Days) : 0n;
+        worker.queries90Days = workerStats ? BigInt(workerStats.queryCount90Days) : 0n;
 
-        worker.servedData24Hours = data ? BigInt(data.responseBytes24Hours) : 0n;
-        worker.scannedData24Hours = data ? BigInt(data.readChunks24Hours) : 0n;
-        worker.queries24Hours = data ? BigInt(data.queryCount24Hours) : 0n;
+        worker.servedData24Hours = workerStats ? BigInt(workerStats.responseBytes24Hours) : 0n;
+        worker.scannedData24Hours = workerStats ? BigInt(workerStats.readChunks24Hours) : 0n;
+        worker.queries24Hours = workerStats ? BigInt(workerStats.queryCount24Hours) : 0n;
 
         const createdTimestamp = worker.createdAt.getTime();
 
-        worker.uptime24Hours = data
+        worker.uptime24Hours = workerStats
           ? toPercent(
               createdTimestamp > snapshotTimestamp - DAY_MS
-                ? data.uptime24Hours / ((snapshotTimestamp - createdTimestamp) / DAY_MS)
-                : data.uptime24Hours,
+                ? workerStats.uptime24Hours / ((snapshotTimestamp - createdTimestamp) / DAY_MS)
+                : workerStats.uptime24Hours,
             )
           : null;
 
-        if (data?.dayUptimes) {
-          const dayUptimes = keyBy(data.dayUptimes, ([date]) => new Date(date).getTime());
+        if (workerStats?.dayUptimes) {
+          const dayUptimes = keyBy(workerStats.dayUptimes, ({ date }) => new Date(date).getTime());
 
           worker.dayUptimes = [];
 
@@ -197,7 +197,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
           const to = toStartOfDay(snapshotTimestamp);
 
           for (let t = from; t <= to; t += DAY_MS) {
-            let uptime = dayUptimes[t]?.[1] ?? 0;
+            let uptime = dayUptimes[t]?.dayUptime ?? 0;
 
             if (t === from) {
               uptime = uptime / ((t + DAY_MS - createdTimestamp) / DAY_MS);
