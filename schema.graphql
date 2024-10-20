@@ -17,8 +17,11 @@ type Account @entity {
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
 
   workers: [Worker!] @derivedFrom(field: "realOwner")
+  workers2: [Worker!] @derivedFrom(field: "owner")
 
   delegations: [Delegation!] @derivedFrom(field: "realOwner")
+  delegations2: [Delegation!] @derivedFrom(field: "owner")
+
   claimableDelegationCount: Int!
 
   claims: [Claim!] @derivedFrom(field: "account")
