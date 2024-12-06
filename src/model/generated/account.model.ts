@@ -42,8 +42,14 @@ export class Account {
     @OneToMany_(() => Worker, e => e.realOwner)
     workers!: Worker[]
 
+    @OneToMany_(() => Worker, e => e.owner)
+    workers2!: Worker[]
+
     @OneToMany_(() => Delegation, e => e.realOwner)
     delegations!: Delegation[]
+
+    @OneToMany_(() => Delegation, e => e.owner)
+    delegations2!: Delegation[]
 
     @IntColumn_({nullable: false})
     claimableDelegationCount!: number
