@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createGatewayOperatorId } from '../helpers/ids';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
@@ -7,7 +7,7 @@ import { network } from '~/config/network';
 import { GatewayStake } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
-export const handleUnstaked = createHandler({
+export const handleUnstaked = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.GatewayRegistry) &&

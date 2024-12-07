@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccount, createGatewayStake, unwrapAccount } from '../helpers/entities';
 import { createAccountId, createGatewayOperatorId, createWorkerStatusId } from '../helpers/ids';
 
@@ -8,7 +8,7 @@ import { network } from '~/config/network';
 import { Account, Gateway, GatewayStake, GatewayStatus, GatewayStatusChange } from '~/model';
 import { parsePeerId } from '~/utils/misc';
 
-export const handleRegistered = createHandler({
+export const handleRegistered = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.GatewayRegistry) &&

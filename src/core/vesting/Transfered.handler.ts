@@ -1,12 +1,12 @@
 import { isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccount } from '../helpers/entities';
 import { createAccountId } from '../helpers/ids';
 
 import * as Vesting from '~/abi/SubsquidVesting';
 import { Account, AccountType, Delegation, Worker } from '~/model';
 
-export const handleVestingTransfered = createHandler({
+export const handleVestingTransfered = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isLog(item) &&

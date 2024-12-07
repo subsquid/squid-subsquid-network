@@ -1,7 +1,7 @@
 import { assertNotNull } from '@subsquid/evm-processor';
 
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createWorkerStatusId } from '../helpers/ids';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
@@ -9,7 +9,7 @@ import { network } from '~/config/network';
 import { Gateway, GatewayStatus, GatewayStatusChange } from '~/model';
 import { parsePeerId } from '~/utils/misc';
 
-export const handleUnregistered = createHandler({
+export const handleUnregistered = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.GatewayRegistry) &&

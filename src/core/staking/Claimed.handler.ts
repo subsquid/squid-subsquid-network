@@ -1,7 +1,7 @@
 import assert from 'assert';
 
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids';
 
 import * as Staking from '~/abi/Staking';
@@ -9,7 +9,7 @@ import { network } from '~/config/network';
 import { Account, Claim, ClaimType, Delegation } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
-export const handleClaimed = createHandler({
+export const handleClaimed = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.Staking) &&

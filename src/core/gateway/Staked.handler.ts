@@ -1,6 +1,6 @@
 import { isContract, isLog, LogItem } from '../../item';
 import { Handler } from '../../types';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createGatewayStake, unwrapAccount } from '../helpers/entities';
 import { createAccountId, createGatewayOperatorId, createGatewayStakeId } from '../helpers/ids';
 

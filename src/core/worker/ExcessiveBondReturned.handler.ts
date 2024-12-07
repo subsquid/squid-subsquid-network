@@ -1,12 +1,12 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createWorkerId } from '../helpers/ids';
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';
 import { Worker } from '~/model';
 
-export const handleExcessiveBondReturned = createHandler({
+export const handleExcessiveBondReturned = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.WorkerRegistry.address) &&

@@ -1,4 +1,4 @@
-import { isContract, isLog, LogItem } from '../../item';
+import { isContract, isLog } from '../../item';
 import { createHandler } from '../base';
 import { createGatewayOperatorId } from '../helpers/ids';
 
@@ -8,43 +8,44 @@ import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
 import { GatewayStake } from '~/model';
 
-export const handleAutoExtensionChanged = createHandler({
-  filter: (_, item): item is LogItem => {
-    return (
-      isContract(item, network.contracts.GatewayRegistry) &&
-      isLog(item) &&
-      (GatewayRegistry.events.AutoextensionEnabled.is(item.value) ||
-        GatewayRegistry.events.AutoextensionDisabled.is(item.value))
-    );
-  },
-  handle: (ctx, { value: log }) => {
-    let gatewayOperator: string, lockEnd: number, autoExtension: boolean;
+export const autoExtensionChangedHandler = createHandler((ctx, item) => {
+  if (!isContract(item, network.contracts.GatewayRegistry)) return;
+  if (!isLog(item)) return;
+  if (
+    !GatewayRegistry.events.AutoextensionEnabled.is(item.value) &&
+    !GatewayRegistry.events.AutoextensionDisabled.is(item.value)
+  )
+    return;
 
-    if (GatewayRegistry.events.AutoextensionEnabled.is(log)) {
-      const data = GatewayRegistry.events.AutoextensionEnabled.decode(log);
-      (gatewayOperator = data.gatewayOperator), (lockEnd = INT32_MAX);
-      autoExtension = true;
-    } else {
-      const data = GatewayRegistry.events.AutoextensionDisabled.decode(log);
-      (gatewayOperator = data.gatewayOperator), (lockEnd = Number(data.lockEnd));
-      autoExtension = false;
-    }
+  const log = item.value;
 
-    const stakeId = createGatewayOperatorId(gatewayOperator);
-    const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
+  let gatewayOperator: string, lockEnd: number | null, autoExtension: boolean;
 
-    return async () => {
-      const stake = await stakeDeferred.get();
-      if (!stake) return;
+  if (GatewayRegistry.events.AutoextensionEnabled.is(log)) {
+    const data = GatewayRegistry.events.AutoextensionEnabled.decode(log);
+    gatewayOperator = data.gatewayOperator;
+    lockEnd = null;
+    autoExtension = true;
+  } else {
+    const data = GatewayRegistry.events.AutoextensionDisabled.decode(log);
+    gatewayOperator = data.gatewayOperator;
+    lockEnd = Number(data.lockEnd);
+    autoExtension = false;
+  }
 
-      stake.autoExtension = autoExtension;
-      stake.lockEnd = lockEnd;
+  const stakeId = createGatewayOperatorId(gatewayOperator);
+  const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
 
-      await ctx.store.upsert(stake);
+  return async () => {
+    const stake = await stakeDeferred.get();
+    // for some reason it's possible to change autoExtension before staking any tokens
+    if (!stake) return;
 
-      listenGatewayStakeUnlock(ctx, stake.id);
-    };
-  },
+    stake.autoExtension = autoExtension;
+    stake.lockEnd = lockEnd;
+
+    await ctx.store.upsert(stake);
+
+    listenGatewayStakeUnlock(ctx, stake.id);
+  };
 });
-
-const INT32_MAX = 2_147_483_647;

@@ -1,7 +1,7 @@
 import { assertNotNull } from '@subsquid/evm-processor';
 
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createWorker } from '../helpers/entities';
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids';
 
@@ -12,7 +12,7 @@ import { network } from '~/config/network';
 import { Account, Settings, WorkerStatus, WorkerStatusChange, Worker } from '~/model';
 import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc';
 
-export const handleWorkerRegistered = createHandler({
+export const handleWorkerRegistered = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.WorkerRegistry) &&

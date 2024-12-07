@@ -6,7 +6,7 @@ import { In, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
 
 import { isContract, isLog, LogItem } from '../../item';
 import { Events, MappingContext } from '../../types';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createCommitmentId, createWorkerId } from '../helpers/ids';
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
@@ -25,7 +25,7 @@ import {
 import { toPercent } from '~/utils/misc';
 import { DAY_MS, YEAR_MS } from '~/utils/time';
 
-export const handleDistributed = createHandler({
+export const handleDistributed = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.RewardsDistribution) &&

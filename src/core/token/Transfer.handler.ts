@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccount } from '../helpers/entities';
 import { createAccountId } from '../helpers/ids';
 
@@ -8,7 +8,7 @@ import { network } from '~/config/network';
 import { Account, Transfer, AccountTransfer, TransferDirection, AccountType } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
-export const handleTransfer = createHandler({
+export const handleTransfer = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.SQD) && isLog(item) && SQD.events.Transfer.is(item.value)

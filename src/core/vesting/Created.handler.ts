@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccount } from '../helpers/entities';
 import { createAccountId } from '../helpers/ids';
 
@@ -9,7 +9,7 @@ import * as VestingFactory from '~/abi/VestingFactory';
 import { network } from '~/config/network';
 import { Account, AccountType } from '~/model';
 
-export const handleVestingCreated = createHandler({
+export const handleVestingCreated = createHandlerOld({
   filter(_, item): item is LogItem {
     if (!isLog(item)) return false;
 

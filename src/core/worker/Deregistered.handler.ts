@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids';
 
 import { listenStatusCheck } from './CheckStatus.listener';
@@ -8,7 +8,7 @@ import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';
 import { WorkerStatusChange, WorkerStatus, Worker } from '~/model';
 
-export const handleWorkerDeregistered = createHandler({
+export const handleWorkerDeregistered = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.WorkerRegistry.address) &&

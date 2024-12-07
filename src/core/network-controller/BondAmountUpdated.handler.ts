@@ -1,11 +1,11 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 
 import * as NetworkController from '~/abi/NetworkController';
 import { network } from '~/config/network';
 import { Settings } from '~/model';
 
-export const handleBondAmountUpdated = createHandler({
+export const handleBondAmountUpdated = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.NetworkController.address) &&

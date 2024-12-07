@@ -1,12 +1,12 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 
 import * as NetworkController from '~/abi/NetworkController';
 import { network } from '~/config/network';
 import { Epoch, Settings } from '~/model';
 import { toNextEpochStart } from '~/utils/misc';
 
-export const handleEpochLengthUpdated = createHandler({
+export const handleEpochLengthUpdated = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.NetworkController.address) &&
