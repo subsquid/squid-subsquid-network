@@ -47,7 +47,8 @@ export const handleDistributed = createHandlerOld({
       // since certain block distribution intervals became to overlap,
       // but it is not reflected in the event interval due to contract limitation
       const normalizedFromBlockNumber =
-        network.name === 'arbitrum' && log.block.height >= 250398109
+        (network.name === 'arbitrum' && log.block.height >= 250398109) ||
+        (network.name === 'arbitrum-sepolia' && log.block.height >= 77573325)
           ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
           : event.fromBlock;
 
