@@ -1,19 +1,19 @@
-import fs from 'fs';
+import fs from 'fs'
 
-import { EvmBatchProcessor } from '@subsquid/evm-processor';
+import { EvmBatchProcessor } from '@subsquid/evm-processor'
 
-import { ContractConfig, network } from '../network';
+import { ContractConfig, network } from '../network'
 
-import * as NetworkController from '~/abi/NetworkController';
+import * as NetworkController from '~/abi/NetworkController'
 
 export type NetworkControllerMetadata = {
-  height: number;
-  networkController: ContractConfig[];
-};
+  height: number
+  networkController: ContractConfig[]
+}
 
 export function addNetworkControllerQuery(processor: EvmBatchProcessor) {
-  const file = fs.readFileSync(`./assets/${network.name}/router.json`, 'utf-8');
-  const metadata = JSON.parse(file) as NetworkControllerMetadata;
+  const file = fs.readFileSync(`./assets/${network.name}/router.json`, 'utf-8')
+  const metadata = JSON.parse(file) as NetworkControllerMetadata
 
   for (const contract of metadata.networkController) {
     processor.addLog({
@@ -27,6 +27,17 @@ export function addNetworkControllerQuery(processor: EvmBatchProcessor) {
         NetworkController.events.EpochLengthUpdated.topic,
         NetworkController.events.LockPeriodUpdated.topic,
       ],
-    });
+    })
   }
+
+  processor.addLog({
+    range: {
+      from: metadata.height + 1,
+    },
+    topic0: [
+      NetworkController.events.BondAmountUpdated.topic,
+      NetworkController.events.EpochLengthUpdated.topic,
+      NetworkController.events.LockPeriodUpdated.topic,
+    ],
+  })
 }

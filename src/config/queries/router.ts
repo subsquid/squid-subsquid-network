@@ -1,8 +1,8 @@
-import { EvmBatchProcessor } from '@subsquid/evm-processor';
+import { EvmBatchProcessor } from '@subsquid/evm-processor'
 
-import { network } from '../network';
+import { network } from '../network'
 
-import * as Router from '~/abi/Router';
+import * as Router from '~/abi/Router'
 
 export function addRouterQuery(processor: EvmBatchProcessor) {
   processor.addLog({
@@ -15,5 +15,5 @@ export function addRouterQuery(processor: EvmBatchProcessor) {
       Router.events.WorkerRegistrationSet.topic,
       Router.events.StakingSet.topic,
     ],
-  });
+  })
 }

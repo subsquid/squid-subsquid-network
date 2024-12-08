@@ -6,6 +6,7 @@ import {
   ensureGatewayStakeApplyQueue,
   processGatewayStakeApplyQueue,
 } from './core/gateway/StakeApply.queue'
+import { updateWorkerRewardStats, updateWorkersMetrics, updateWorkersOnline } from './core/metrics'
 import { ensureWorkerUnlock, processWorkerUnlockQueue } from './core/worker/WorkerUnlock.queue'
 import { sortItems } from './item'
 import { MappingContext } from './types'
@@ -105,6 +106,12 @@ async function init(ctx: MappingContext, block: BlockHeader) {
   await ensureGatewayStakeApplyQueue(ctx)
   await ensureGatewayStakeUnlockQueue(ctx)
   await ensureWorkerCapQueue(ctx, block)
+
+  if (ctx.isHead) {
+    await updateWorkersOnline(ctx, block)
+    await updateWorkersMetrics(ctx, block)
+    await updateWorkerRewardStats(ctx, block)
+  }
 }
 
 let blocksPassed = Infinity

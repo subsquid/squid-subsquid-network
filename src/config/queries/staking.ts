@@ -1,19 +1,19 @@
-import fs from 'fs';
+import fs from 'fs'
 
-import { EvmBatchProcessor } from '@subsquid/evm-processor';
+import { EvmBatchProcessor } from '@subsquid/evm-processor'
 
-import { ContractConfig, network } from '../network';
+import { ContractConfig, network } from '../network'
 
-import * as Staking from '~/abi/Staking';
+import * as Staking from '~/abi/Staking'
 
 export type StakingMetadata = {
-  height: number;
-  staking: ContractConfig[];
-};
+  height: number
+  staking: ContractConfig[]
+}
 
 export function addStakingQuery(processor: EvmBatchProcessor) {
-  const file = fs.readFileSync(`./assets/${network.name}/router.json`, 'utf-8');
-  const metadata = JSON.parse(file) as StakingMetadata;
+  const file = fs.readFileSync(`./assets/${network.name}/router.json`, 'utf-8')
+  const metadata = JSON.parse(file) as StakingMetadata
 
   for (const contract of metadata.staking) {
     processor.addLog({
@@ -28,6 +28,18 @@ export function addStakingQuery(processor: EvmBatchProcessor) {
         Staking.events.Withdrawn.topic,
         Staking.events.Rewarded.topic,
       ],
-    });
+    })
   }
+
+  processor.addLog({
+    range: {
+      from: metadata.height + 1,
+    },
+    topic0: [
+      Staking.events.Claimed.topic,
+      Staking.events.Deposited.topic,
+      Staking.events.Withdrawn.topic,
+      Staking.events.Rewarded.topic,
+    ],
+  })
 }
