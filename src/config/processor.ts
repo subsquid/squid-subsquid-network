@@ -7,19 +7,19 @@ import {
   Log as _Log,
   Transaction as _Transaction,
   DataHandlerContext,
-} from '@subsquid/evm-processor';
+} from '@subsquid/evm-processor'
 
-import { network } from './network';
-import { addNetworkControllerQuery } from './queries/networkController';
-import { addRouterQuery } from './queries/router';
-import { addStakingQuery } from './queries/staking';
-import { addVestingsQuery } from './queries/vestings';
-import { addWorkersRegistryQuery } from './queries/workersRegistry';
+import { network } from './network'
+import { addNetworkControllerQuery } from './queries/networkController'
+import { addRouterQuery } from './queries/router'
+import { addStakingQuery } from './queries/staking'
+import { addVestingsQuery } from './queries/vestings'
+import { addWorkersRegistryQuery } from './queries/workersRegistry'
 
-import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
-import * as GatewayRegistry from '~/abi/GatewayRegistry';
-import * as SQD from '~/abi/SQD';
-import * as TemporaryHoldingFactory from '~/abi/TemporaryHoldingFactory';
+import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution'
+import * as GatewayRegistry from '~/abi/GatewayRegistry'
+import * as SQD from '~/abi/SQD'
+import * as TemporaryHoldingFactory from '~/abi/TemporaryHoldingFactory'
 
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
@@ -29,10 +29,9 @@ export const processor = new EvmBatchProcessor()
   .setRpcDataIngestionSettings({
     newHeadTimeout: 30_000,
   })
-  .setBlockRange(network.range)
-  .setFinalityConfirmation(10)
   .setFields({
     block: {
+      timestamp: true,
       l1BlockNumber: true,
     },
     log: {
@@ -41,10 +40,10 @@ export const processor = new EvmBatchProcessor()
       data: true,
     },
   })
-  .includeAllBlocks();
+  .includeAllBlocks()
 
 if (process.env.PORTAL_ENDPOINT) {
-  processor.setGateway(process.env.PORTAL_ENDPOINT);
+  processor.setGateway(process.env.PORTAL_ENDPOINT)
 }
 
 processor
@@ -78,18 +77,18 @@ processor
       GatewayRegistry.events.AutoextensionEnabled.topic,
       GatewayRegistry.events.AutoextensionDisabled.topic,
     ],
-  });
+  })
 
-addVestingsQuery(processor);
-addWorkersRegistryQuery(processor);
-addNetworkControllerQuery(processor);
-addStakingQuery(processor);
-addRouterQuery(processor);
+addVestingsQuery(processor)
+addWorkersRegistryQuery(processor)
+addNetworkControllerQuery(processor)
+addStakingQuery(processor)
+addRouterQuery(processor)
 
-export type Fields = EvmBatchProcessorFields<typeof processor>;
-export type BlockData = _BlockData<Fields>;
-export type BlockHeader = _BlockHeader<Fields>;
-export type Log = _Log<Fields>;
-export type Transaction = _Transaction<Fields>;
+export type Fields = EvmBatchProcessorFields<typeof processor>
+export type BlockData = _BlockData<Fields>
+export type BlockHeader = _BlockHeader<Fields>
+export type Log = _Log<Fields>
+export type Transaction = _Transaction<Fields>
 
-export type ProcessorContext<Store> = DataHandlerContext<Store, Fields>;
+export type ProcessorContext<Store> = DataHandlerContext<Store, Fields>

@@ -28,6 +28,8 @@ export function createAccount(id: string, opts?: { owner?: Account; type?: Accou
 export function createSettings(id: string) {
   return new Settings({
     id,
+    utilizedStake: 0n,
+    baseApr: 0,
   });
 }
 

@@ -1,59 +1,59 @@
-import { isContract, isLog } from '../../item';
-import { createHandler } from '../base';
-import { createGatewayStake, unwrapAccount } from '../helpers/entities';
-import { createAccountId, createGatewayOperatorId } from '../helpers/ids';
+import { isContract, isLog } from '../../item'
+import { createHandler } from '../base'
+import { createGatewayStake, unwrapAccount } from '../helpers/entities'
+import { createAccountId, createGatewayOperatorId } from '../helpers/ids'
 
-import { addToGatewayStakeApplyQueue } from './StakeApply.queue';
-import { addToGatewayStakeUnlockQueue } from './StakeUnlock.queue';
+import { addToGatewayStakeApplyQueue } from './StakeApply.queue'
+import { addToGatewayStakeUnlockQueue } from './StakeUnlock.queue'
 
-import * as GatewayRegistry from '~/abi/GatewayRegistry';
-import { network } from '~/config/network';
-import { Account, GatewayStake } from '~/model';
-import { toHumanSQD } from '~/utils/misc';
+import * as GatewayRegistry from '~/abi/GatewayRegistry'
+import { network } from '~/config/network'
+import { Account, GatewayStake } from '~/model'
+import { toHumanSQD } from '~/utils/misc'
 
 export const gatewayStakedHandler = createHandler((ctx, item) => {
-  if (!isContract(item, network.contracts.GatewayRegistry)) return;
-  if (!isLog(item)) return;
-  if (!GatewayRegistry.events.Staked.is(item.value)) return;
+  if (!isContract(item, network.contracts.GatewayRegistry)) return
+  if (!isLog(item)) return
+  if (!GatewayRegistry.events.Staked.is(item.value)) return
 
-  const log = item.value;
-  const event = GatewayRegistry.events.Staked.decode(log);
+  const log = item.value
+  const event = GatewayRegistry.events.Staked.decode(log)
 
-  const accountId = createAccountId(event.gatewayOperator);
+  const accountId = createAccountId(event.gatewayOperator)
   const accountDeferred = ctx.store.defer(Account, {
     id: accountId,
     relations: { owner: true },
-  });
+  })
 
-  const stakeId = createGatewayOperatorId(event.gatewayOperator);
-  const stakeDeferred = ctx.store.defer(GatewayStake, stakeId);
+  const stakeId = createGatewayOperatorId(event.gatewayOperator)
+  const stakeDeferred = ctx.store.defer(GatewayStake, stakeId)
 
   return async () => {
-    const account = await accountDeferred.getOrFail();
+    const account = await accountDeferred.getOrFail()
 
     const stake = await stakeDeferred.getOrInsert(async (id) =>
       createGatewayStake(id, {
         owner: account,
         realOwner: unwrapAccount(account),
       }),
-    );
+    )
 
-    stake.amount += event.amount;
-    stake.computationUnitsPending = event.computationUnits;
+    stake.amount += event.amount
+    stake.computationUnitsPending = event.computationUnits
 
-    stake.lockStart = Number(event.lockStart);
-    stake.lockEnd = event.lockEnd > INT32_MAX ? INT32_MAX : Number(event.lockEnd);
-    stake.locked = true;
+    stake.lockStart = Number(event.lockStart)
+    stake.lockEnd = event.lockEnd > INT32_MAX ? INT32_MAX : Number(event.lockEnd)
+    stake.locked = true
 
-    await ctx.store.upsert(stake);
+    await ctx.store.upsert(stake)
 
     ctx.log.info(
       `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}]`,
-    );
+    )
 
-    await addToGatewayStakeApplyQueue(ctx, stake.id);
-    await addToGatewayStakeUnlockQueue(ctx, stake.id);
-  };
-});
+    await addToGatewayStakeApplyQueue(ctx, stake.id)
+    await addToGatewayStakeUnlockQueue(ctx, stake.id)
+  }
+})
 
-export const INT32_MAX = 2_147_483_647;
+export const INT32_MAX = 2_147_483_647

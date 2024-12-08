@@ -1,6 +1,5 @@
 import { BigDecimal } from '@subsquid/big-decimal';
 import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client';
-import { keyBy, last } from 'lodash';
 import { In, MoreThanOrEqual } from 'typeorm';
 
 import { Events, MappingContext } from '../types';
@@ -56,7 +55,10 @@ export function listenOnlineUpdate(ctx: MappingContext) {
         return;
       }
 
-      const onlineWorkers = keyBy(data, (w) => w.peerId);
+      const onlineWorkers = data.reduce(
+        (r, w) => r.set(w.peerId, w),
+        new Map<string, WorkerOnline>(),
+      );
       const activeWorkers = await ctx.store.find(Worker, {
         where: {
           status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]),
@@ -69,11 +71,14 @@ export function listenOnlineUpdate(ctx: MappingContext) {
           jailed: boolean;
           jail_reason: string | null;
         }[] = schedulerUrl ? await client.get(joinUrl(schedulerUrl, 'workers/jail_info')) : [];
-        const jailedWorkers = keyBy(jailInfo, (w) => w.peer_id);
+        const jailedWorkers = jailInfo.reduce(
+          (r, w) => r.set(w.peer_id, w),
+          new Map<string, { jailed: boolean; jail_reason: string | null }>(),
+        );
 
         for (const worker of activeWorkers) {
-          const data = onlineWorkers[worker.peerId];
-          const jailData = jailedWorkers[worker.peerId];
+          const data = onlineWorkers.get(worker.peerId);
+          const jailData = jailedWorkers.get(worker.peerId);
 
           worker.online = !!data;
           worker.dialOk = null;
@@ -162,13 +167,13 @@ export function listenMetricsUpdate(ctx: MappingContext) {
         return;
       }
 
-      const workersStats = keyBy(data, (w) => w.peerId);
+      const workersStats = data.reduce((r, w) => r.set(w.peerId, w), new Map<string, WorkerStat>());
       const activeWorkers = await ctx.store.find(Worker, {
         where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
       });
 
       for (const worker of activeWorkers) {
-        const workerStats = workersStats[worker.peerId];
+        const data = workersStats.get(worker.peerId);
 
         worker.servedData90Days = workerStats ? BigInt(workerStats.responseBytes90Days) : 0n;
         worker.scannedData90Days = workerStats ? BigInt(workerStats.readChunks90Days) : 0n;
@@ -188,8 +193,11 @@ export function listenMetricsUpdate(ctx: MappingContext) {
             )
           : null;
 
-        if (workerStats?.dayUptimes) {
-          const dayUptimes = keyBy(workerStats.dayUptimes, ({ date }) => new Date(date).getTime());
+        if (data?.dayUptimes) {
+          const dayUptimes = data.dayUptimes.reduce(
+            (r, d) => r.set(new Date(d[0]).getTime(), d[1]),
+            new Map<number, number>(),
+          );
 
           worker.dayUptimes = [];
 
@@ -197,7 +205,7 @@ export function listenMetricsUpdate(ctx: MappingContext) {
           const to = toStartOfDay(snapshotTimestamp);
 
           for (let t = from; t <= to; t += DAY_MS) {
-            let uptime = dayUptimes[t]?.dayUptime ?? 0;
+            let uptime = dayUptimes.get(t) ?? 0;
 
             if (t === from) {
               uptime = uptime / ((t + DAY_MS - createdTimestamp) / DAY_MS);
@@ -306,13 +314,13 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       }
       const { workers: data } = res;
 
-      const workersStats = keyBy(data, (w) => w.id);
+      const workersStats = data.reduce((r, w) => r.set(w.id, w), new Map<string, RewardStat>());
       const activeWorkers = await ctx.store.find(Worker, {
         where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
       });
 
       for (const worker of activeWorkers) {
-        const data = workersStats[worker.peerId];
+        const data = workersStats.get(worker.id);
 
         worker.trafficWeight = data?.traffic.trafficWeight ?? null;
         worker.dTenure = data?.liveness.tenure ?? null;

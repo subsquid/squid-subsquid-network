@@ -67,6 +67,7 @@ module.exports = {
         'no-negated-condition': 'off',
         'prettier/prettier': ['error', { printWidth: 100, endOfLine: "auto" }],
         // 'quotes': ['warn', 'single', { 'avoidEscape': true }],
+        'semi': 'off',
     },
 };
 

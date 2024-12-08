@@ -13,23 +13,6 @@ import { WorkerRegistryMetadata } from '~/config/queries/workersRegistry';
 
 const OUTPUT_FILE = 'router.json';
 
-const DEFAULTS =
-  process.env.NETWORK === 'mainnet'
-    ? {
-        networkController: '0x4cf58097d790b193d22ed633bf8b15c9bc4f0da7',
-        rewardCalculation: '0xd3d2c185a30484641c07b60e7d952d7b85516eb5',
-        rewardTreasury: '0x237abf43bc51fd5c50d0d598a1a4c26e56a8a2a0',
-        workerRegistration: '0x36e2b147db67e76ab67a4d07c293670ebefcae4e',
-        staking: '0xb31a0d39d2c69ed4b28d96e12cbf52c5f9ac9a51',
-      }
-    : {
-        networkController: '0x68fc7e375945d8c8dfb0050c337ff09e962d976d',
-        rewardCalculation: '0x93d16d5210122c804de9931b41b3c6fa2649ce3f',
-        rewardTreasury: '0x785136e611e15d532c36502aabdfe8e35008c7ca',
-        workerRegistration: '0xcd8e983f8c4202b0085825cf21833927d1e2b6dc',
-        staking: '0x347e326b8b4ea27c87d5ca291e708cdec6d65eb5',
-      };
-
 const processor = new EvmBatchProcessor()
   .setPortal(assertNotNull(process.env.PORTAL_ENDPOINT))
   .setBlockRange({
@@ -72,31 +55,31 @@ const db = new Database({
         if (!isInit) {
           networkController = metadata.networkController || [
             {
-              address: DEFAULTS.networkController,
+              address: network.defaultRouterContracts.networkController,
               range: { from: network.contracts.Router.range.from },
             },
           ];
           rewardCalculation = metadata.rewardCalculation || [
             {
-              address: DEFAULTS.rewardCalculation,
+              address: network.defaultRouterContracts.rewardCalculation,
               range: { from: network.contracts.Router.range.from },
             },
           ];
           rewardTreasury = metadata.rewardTreasury || [
             {
-              address: DEFAULTS.rewardTreasury,
+              address: network.defaultRouterContracts.rewardTreasury,
               range: { from: network.contracts.Router.range.from },
             },
           ];
           workerRegistration = metadata.workerRegistration || [
             {
-              address: DEFAULTS.workerRegistration,
+              address: network.defaultRouterContracts.workerRegistration,
               range: { from: network.contracts.Router.range.from },
             },
           ];
           staking = metadata.staking || [
             {
-              address: DEFAULTS.staking,
+              address: network.defaultRouterContracts.staking,
               range: { from: network.contracts.Router.range.from },
             },
           ];

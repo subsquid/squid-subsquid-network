@@ -23,7 +23,6 @@
     "bs58": "^5.0.0",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
-    "lodash": "^4.17.21",
     "pg": "^8.11.3",
     "type-graphql": "^1.2.0-rc.1",
     "typeorm": "^0.3.20"
@@ -46,5 +45,6 @@
     "prettier": "^3.2.5",
     "tsc-alias": "^1.8.8",
     "typescript": "~5.4.2"
-  }
+  },
+  "packageManager": "yarn@4.1.1"
 }

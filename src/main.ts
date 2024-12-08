@@ -1,327 +1,169 @@
-import { TypeormDatabaseWithCache } from '@belopash/typeorm-store';
-import { EvmBatchProcessor } from '@subsquid/evm-processor';
-import { last } from 'lodash';
-import { IsNull, LessThanOrEqual, Not } from 'typeorm';
+import { TypeormDatabaseWithCache } from '@belopash/typeorm-store'
+import { LessThanOrEqual } from 'typeorm'
 
-import { ensureGatewayStakeApplyQueue } from './core/gateway/StakeApply.queue';
-import { sortItems } from './item';
-import { Events, MappingContext } from './types';
+import { ensureWorkerCapQueue, updateWorkersCap } from './core/cap'
+import {
+  ensureGatewayStakeApplyQueue,
+  processGatewayStakeApplyQueue,
+} from './core/gateway/StakeApply.queue'
+import { ensureWorkerUnlock, processWorkerUnlockQueue } from './core/worker/WorkerUnlock.queue'
+import { sortItems } from './item'
+import { MappingContext } from './types'
 
-import * as Router from '~/abi/Router';
-import { network } from '~/config/network';
-import { processor, BlockData, BlockHeader } from '~/config/processor';
-import { handlers } from '~/core';
-import { listenUpdateWorkersCap } from '~/core/cap';
+import { network } from '~/config/network'
+import { processor, BlockHeader } from '~/config/processor'
+import { handlers } from '~/core'
 import {
   ensureGatewayStakeUnlockQueue,
-  listenGatewayStakeUnlock,
-} from '~/core/gateway/StakeUnlock.queue';
-import { createSettings, createBlock } from '~/core/helpers/entities';
-import { createEpochId } from '~/core/helpers/ids';
-import {
-  listenOnlineUpdate,
-  listenMetricsUpdate,
-  listenRewardsDistributed,
-  listenRewardMetricsUpdate,
-} from '~/core/metrics';
+  processGatewayStakeUnlockQueue,
+} from '~/core/gateway/StakeUnlock.queue'
+import { createSettings, createBlock } from '~/core/helpers/entities'
+import { createEpochId } from '~/core/helpers/ids'
 import {
   ensureDelegationUnlockQueue,
-  listenDelegationUnlock,
-} from '~/core/staking/CheckDelegationUnlock.listener';
-import { listenStatusCheck } from '~/core/worker/WorkerStatusApply.listener';
-import { listenUnlockCheck } from '~/core/worker/WorkerUnlock.listener';
+  processDelegationUnlockQueue,
+} from '~/core/staking/CheckDelegationUnlock.listener'
 import {
-  Block,
-  Delegation,
-  Epoch,
-  EpochStatus,
-  GatewayStake,
-  Settings,
-  Worker,
-  WorkerStatus,
-  WorkerStatusChange,
-} from '~/model';
-import { EventEmitter } from '~/utils/events';
-import { toNextEpochStart } from '~/utils/misc';
-import { Task, TaskQueue } from '~/utils/queue';
-import { HOUR_MS, MINUTE_MS, toStartOfInterval } from '~/utils/time';
+  ensureWorkerStatusApplyQueue,
+  processWorkerStatusApplyQueue,
+} from '~/core/worker/WorkerStatusApply.queue'
+import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
+import { last, toNextEpochStart } from '~/utils/misc'
+import { Task } from '~/utils/queue'
 
-processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx_) => {
-  const ctx = Object.assign(ctx_, {
-    events: new EventEmitter(),
-    delegatedWorkers: new Set<string>(),
-  });
+processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
+  const tasks: Task[] = []
 
-  const tasks: Task[] = [];
+  tasks.push(() => init(ctx, ctx.blocks[0].header))
 
-  // tasks.push(() => ctx.events.emit(Events.Initialization, ctx.blocks[0].header));
+  // listenRewardsDistributed(ctx)
 
-  tasks.push(init(ctx));
-
-  listenRewardsDistributed(ctx);
-
-  listenOnlineUpdate(ctx);
-  listenMetricsUpdate(ctx);
-  listenRewardMetricsUpdate(ctx);
-  listenUpdateWorkersCap(ctx);
+  // listenOnlineUpdate(ctx)
+  // listenMetricsUpdate(ctx)
+  // listenRewardMetricsUpdate(ctx)
+  // listenUpdateWorkersCap(ctx)
 
   for (const block of ctx.blocks) {
-    const items = sortItems(block);
+    const items = sortItems(block)
 
     tasks.push(async () => {
-      await ctx.store.insert(createBlock(block.header));
+      await ctx.store.insert(createBlock(block.header))
 
-      await ctx.events.emit(Events.BlockStart, block.header);
-    });
+      await checkForNewEpoch(ctx, block.header)
 
-    tasks.push(endEpoch(ctx, block.header));
+      await processWorkerUnlockQueue(ctx, block.header)
+      await processWorkerStatusApplyQueue(ctx, block.header)
+      await processDelegationUnlockQueue(ctx, block.header)
+      await processGatewayStakeApplyQueue(ctx, block.header)
+      await processGatewayStakeUnlockQueue(ctx, block.header)
+    })
 
     for (const item of items) {
       for (const handler of handlers) {
-        const task = handler(ctx, item);
-        if (task) tasks.push(task);
+        const task = handler(ctx, item)
+        if (task) tasks.push(task)
       }
     }
-
-    tasks.push(() => ctx.events.emit(Events.BlockEnd, block.header));
   }
 
-  tasks.push(complete(ctx));
-
-  // tasks.push(() => ctx.events.emit(Events.Finalization, last(ctx.blocks)!.header));
+  tasks.push(() => complete(ctx, last(ctx.blocks)!.header))
 
   for (const task of tasks) {
-    await task();
+    await task()
   }
-});
+})
 
-function init(ctx: MappingContext) {
-  const settingsDefer = ctx.store.defer(Settings, network.name);
+async function init(ctx: MappingContext, block: BlockHeader) {
+  // ensure settings
+  await ctx.store.getOrInsert(Settings, network.name, (id) => {
+    const settings = createSettings(id)
+    settings.delegationLimitCoefficient = 0.2
+    settings.bondAmount = 10n ** 23n
+    settings.baseApr = 0
+    settings.utilizedStake = 0n
 
-  return async () => {
-    const firstBlock = ctx.blocks[0].header;
-    const lastBlock = last(ctx.blocks)!.header;
+    settings.contracts = new Contracts({
+      gatewayRegistry: network.contracts.GatewayRegistry.address,
+      distributedRewardsDistribution: network.contracts.RewardsDistribution.address,
+      router: network.contracts.Router.address,
+      temporaryHoldingFactory: network.contracts.TemporaryHoldingFactory.address,
+      vestingFactory: network.contracts.VestingFactory.address,
+      softCap: network.contracts.SoftCap.address,
+      networkController: network.defaultRouterContracts.networkController,
+      rewardCalculation: network.defaultRouterContracts.rewardCalculation,
+      rewardTreasury: network.defaultRouterContracts.rewardTreasury,
+      staking: network.defaultRouterContracts.staking,
+      workerRegistration: network.defaultRouterContracts.workerRegistration,
+    })
 
-    // ensure settings
-    await settingsDefer.getOrInsert((id) => {
-      const settings = createSettings(id);
-      settings.delegationLimitCoefficient = 0.2;
-      settings.bondAmount = 10n ** 23n;
-      settings.baseApr = 0;
-      settings.utilizedStake = 0n;
-      return settings;
-    });
+    return settings
+  })
 
-    await ensureGatewayStakeApplyQueue(ctx);
-    await ensureDelegationUnlockQueue(ctx);
-    await ensureGatewayStakeApplyQueue(ctx);
-    await ensureGatewayStakeUnlockQueue(ctx);
-
-    // schedule pending worker statuses
-    const pendingStatuses = await ctx.store.find(WorkerStatusChange, {
-      where: {
-        blockNumber: LessThanOrEqual(lastBlock.l1BlockNumber),
-        pending: true,
-      },
-      relations: { worker: true },
-      order: { blockNumber: 'ASC' },
-      cache: false,
-    });
-    pendingStatuses.forEach((s) => listenStatusCheck(ctx, s.id));
-
-    const pendingUnlocks = await ctx.store.find(Worker, {
-      where: {
-        lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
-        locked: true,
-      },
-      cache: false,
-    });
-    pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
-
-    const lockedGatewayStakes = await ctx.store.find(GatewayStake, {
-      where: {
-        lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
-        locked: true,
-      },
-      cache: false,
-    });
-    lockedGatewayStakes.forEach((o) => listenGatewayStakeUnlock(ctx, o.id));
-
-    const lockedDelegations = await ctx.store.find(Delegation, {
-      where: {
-        locked: true,
-        lockEnd: LessThanOrEqual(lastBlock.l1BlockNumber),
-      },
-      order: { lockStart: 'ASC' },
-      cache: false,
-    });
-    lockedDelegations.forEach((s) => listenDelegationUnlock(ctx, s.id));
-  };
+  await ensureWorkerUnlock(ctx)
+  await ensureWorkerStatusApplyQueue(ctx)
+  await ensureDelegationUnlockQueue(ctx)
+  await ensureGatewayStakeApplyQueue(ctx)
+  await ensureGatewayStakeUnlockQueue(ctx)
+  await ensureWorkerCapQueue(ctx, block)
 }
 
-let blocksPassed = Infinity;
-function complete(ctx: MappingContext) {
-  return async () => {
-    const lastBlock = last(ctx.blocks)!.header;
+let blocksPassed = Infinity
+async function complete(ctx: MappingContext, block: BlockHeader) {
+  await updateWorkersCap(ctx, block)
 
-    if (blocksPassed > 1000) {
-      const limit = 50_000;
-      const offset = 0;
-      while (true) {
-        const batch = await ctx.store.find(Block, {
-          where: { l1BlockNumber: LessThanOrEqual(lastBlock.l1BlockNumber - 50_000) },
-          order: { l1BlockNumber: 'ASC' },
-          skip: offset,
-          take: limit,
-          cache: false,
-        });
+  if (blocksPassed > 1000) {
+    const limit = 50_000
+    const offset = 0
+    while (true) {
+      const batch = await ctx.store.find(Block, {
+        where: { l1BlockNumber: LessThanOrEqual(block.l1BlockNumber - 50_000) },
+        order: { l1BlockNumber: 'ASC' },
+        skip: offset,
+        take: limit,
+        cache: false,
+      })
 
-        await ctx.store.remove(batch);
-        if (batch.length < limit) break;
-      }
-
-      blocksPassed = 0;
+      await ctx.store.remove(batch)
+      if (batch.length < limit) break
     }
-    blocksPassed += ctx.blocks.length;
-  };
+
+    blocksPassed = 0
+  }
+  blocksPassed += ctx.blocks.length
 }
 
-function endEpoch(ctx: MappingContext, block: BlockHeader) {
-  const settingsDefer = ctx.store.defer(Settings, network.name);
+async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
+  const settings = await ctx.store.getOrFail(Settings, network.name)
+  const epochLength = settings?.epochLength
+  if (epochLength == null) return
 
-  let currentEpochId: string | undefined;
+  let currentEpoch: Epoch | undefined
+  if (settings.currentEpoch != null) {
+    currentEpoch = await ctx.store.getOrFail(Epoch, createEpochId(settings.currentEpoch))
+  }
 
-  return async () => {
-    const settings = await settingsDefer.get();
-    const epochLength = settings?.epochLength;
-    if (!epochLength) return;
+  const nextEpochStart =
+    currentEpoch == null ? toNextEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
+  if (block.l1BlockNumber < nextEpochStart) return
 
-    let currentEpoch: Epoch | undefined;
-    if (!currentEpochId) {
-      currentEpoch = await ctx.store.findOne(Epoch, { where: {}, order: { start: 'DESC' } });
-    } else {
-      currentEpoch = await ctx.store.getOrFail(Epoch, currentEpochId);
-    }
+  if (currentEpoch) {
+    currentEpoch.status = EpochStatus.ENDED
+    currentEpoch.endedAt = new Date(block.timestamp)
+    await ctx.store.upsert(currentEpoch)
 
-    const nextEpochStart = currentEpoch
-      ? currentEpoch.end + 1
-      : toNextEpochStart(block.l1BlockNumber, epochLength);
+    ctx.log.info(`epoch ${currentEpoch.number} ended`)
+  }
 
-    if (currentEpoch) {
-      if (nextEpochStart > block.l1BlockNumber || currentEpoch.status !== EpochStatus.STARTED) {
-        // nothing need to be done
-      } else {
-        currentEpoch.status = EpochStatus.ENDED;
-        currentEpoch.endedAt = new Date(block.timestamp);
-        await ctx.store.upsert(currentEpoch);
+  const newEpochNumber = settings.currentEpoch == null ? 0 : settings.currentEpoch + 1
+  currentEpoch = new Epoch({
+    id: createEpochId(newEpochNumber),
+    number: newEpochNumber,
+    start: nextEpochStart,
+    end: nextEpochStart + epochLength - 1,
+    status: EpochStatus.STARTED,
+  })
+  await ctx.store.insert(currentEpoch)
 
-        ctx.log.info(`epoch ${currentEpoch.number} ended`);
-        await ctx.events.emit(Events.EpochEnd, block, currentEpoch.id);
-
-        const newEpochNumber = currentEpoch.number + 1;
-        currentEpoch = new Epoch({
-          id: createEpochId(newEpochNumber),
-          number: newEpochNumber,
-          start: nextEpochStart,
-          end: nextEpochStart + epochLength - 1,
-          status: EpochStatus.PLANNED,
-        });
-        await ctx.store.insert(currentEpoch);
-      }
-    } else {
-      ctx.log.info(`no epoch was found`);
-      currentEpoch = new Epoch({
-        id: createEpochId(1),
-        number: 1,
-        start: nextEpochStart,
-        end: nextEpochStart + epochLength - 1,
-        status: EpochStatus.PLANNED,
-      });
-      await ctx.store.insert(currentEpoch);
-    }
-
-    currentEpochId = currentEpoch.id;
-  };
-}
-
-function startEpoch(ctx: MappingContext, block: BlockHeader) {
-  const settingsDefer = ctx.store.defer(Settings, network.name);
-  let currentEpochId: string | undefined;
-
-  return async () => {
-    const settings = await ctx.store.get(Settings, network.name);
-    const epochLength = settings?.epochLength;
-    if (!epochLength) return;
-
-    let currentEpoch: Epoch | undefined;
-    if (!currentEpochId) {
-      currentEpoch = await ctx.store.findOne(Epoch, { where: {}, order: { start: 'DESC' } });
-    } else {
-      currentEpoch = await ctx.store.getOrFail(Epoch, currentEpochId);
-    }
-
-    const nextEpochStart = currentEpoch
-      ? currentEpoch.end + 1
-      : toNextEpochStart(block.l1BlockNumber, epochLength);
-
-    if (currentEpoch) {
-      if (nextEpochStart > block.l1BlockNumber || currentEpoch.status !== EpochStatus.STARTED) {
-        // nothing need to be done
-      } else {
-        currentEpoch.status = EpochStatus.ENDED;
-        currentEpoch.endedAt = new Date(block.timestamp);
-        await ctx.store.upsert(currentEpoch);
-
-        ctx.log.info(`epoch ${currentEpoch.number} ended`);
-        await ctx.events.emit(Events.EpochEnd, block, currentEpoch.id);
-
-        const newEpochNumber = currentEpoch.number + 1;
-        currentEpoch = new Epoch({
-          id: createEpochId(newEpochNumber),
-          number: newEpochNumber,
-          start: nextEpochStart,
-          end: nextEpochStart + epochLength - 1,
-          status: EpochStatus.PLANNED,
-        });
-        await ctx.store.insert(currentEpoch);
-      }
-    } else {
-      ctx.log.info(`no epoch was found`);
-      currentEpoch = new Epoch({
-        id: createEpochId(1),
-        number: 1,
-        start: nextEpochStart,
-        end: nextEpochStart + epochLength - 1,
-        status: EpochStatus.PLANNED,
-      });
-      await ctx.store.insert(currentEpoch);
-    }
-
-    currentEpochId = currentEpoch.id;
-  };
-
-  ctx.events.on(Events.BlockStart, async (block) => {
-    if (!currentEpochId) return;
-
-    const currentEpoch = await ctx.store.getOrFail(Epoch, currentEpochId);
-    if (currentEpoch.status === EpochStatus.PLANNED) {
-      if (currentEpoch.start <= block.l1BlockNumber) {
-        const activeWorkers = await ctx.store.find(Worker, {
-          where: { status: WorkerStatus.ACTIVE },
-        });
-
-        currentEpoch.status = EpochStatus.STARTED;
-        currentEpoch.startedAt = new Date(block.timestamp);
-        currentEpoch.activeWorkerIds = activeWorkers.map((w) => w.id);
-        await ctx.store.upsert(currentEpoch);
-
-        ctx.log.info(`epoch ${currentEpoch.number} started`);
-
-        const statistics = await ctx.store.getOrFail(Statistics, network.name);
-
-        statistics.currentEpoch = currentEpoch.number;
-        await ctx.store.upsert(statistics);
-      }
-    }
-  });
+  settings.currentEpoch = currentEpoch.number
+  await ctx.store.upsert(settings)
 }
