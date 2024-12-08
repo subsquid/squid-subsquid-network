@@ -1,21 +1,15 @@
-import assert from 'assert';
-
-import { isContract, isLog, LogItem } from '../../item';
+import { isLog, LogItem } from '../../item';
 import { createHandlerOld } from '../base';
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids';
 
 import * as Staking from '~/abi/Staking';
 import { network } from '~/config/network';
-import { Account, Claim, ClaimType, Delegation } from '~/model';
+import { Account, Claim, ClaimType, Delegation, Settings } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
 export const handleClaimed = createHandlerOld({
   filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.Staking) &&
-      isLog(item) &&
-      Staking.events.Claimed.is(item.value)
-    );
+    return isLog(item) && Staking.events.Claimed.is(item.value);
   },
   handle(ctx, { value: log }) {
     const { staker: stakerAccount, workerIds: workerIndexes } = Staking.events.Claimed.decode(log);
@@ -35,7 +29,12 @@ export const handleClaimed = createHandlerOld({
       }),
     );
 
+    const settingsDeferred = ctx.store.defer(Settings, network.name);
+
     return async () => {
+      const settings = await settingsDeferred.getOrFail();
+      if (settings.contracts.staking !== log.address) return;
+
       const account = await accountDeferred.getOrFail();
 
       let delegations: Delegation[];

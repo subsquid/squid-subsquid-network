@@ -3,7 +3,7 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor';
 import { last } from 'lodash';
 import { IsNull, LessThanOrEqual, Not } from 'typeorm';
 
-import { ensureGatewayStakeApply } from './core/gateway/StakeApply.queue';
+import { ensureGatewayStakeApplyQueue } from './core/gateway/StakeApply.queue';
 import { sortItems } from './item';
 import { Events, MappingContext } from './types';
 
@@ -12,7 +12,10 @@ import { network } from '~/config/network';
 import { processor, BlockData, BlockHeader } from '~/config/processor';
 import { handlers } from '~/core';
 import { listenUpdateWorkersCap } from '~/core/cap';
-import { listenGatewayStakeUnlock } from '~/core/gateway/StakeUnlock.queue';
+import {
+  ensureGatewayStakeUnlockQueue,
+  listenGatewayStakeUnlock,
+} from '~/core/gateway/StakeUnlock.queue';
 import { createSettings, createBlock } from '~/core/helpers/entities';
 import { createEpochId } from '~/core/helpers/ids';
 import {
@@ -21,7 +24,10 @@ import {
   listenRewardsDistributed,
   listenRewardMetricsUpdate,
 } from '~/core/metrics';
-import { listenDelegationUnlock } from '~/core/staking/CheckDelegationUnlock.listener';
+import {
+  ensureDelegationUnlockQueue,
+  listenDelegationUnlock,
+} from '~/core/staking/CheckDelegationUnlock.listener';
 import { listenStatusCheck } from '~/core/worker/WorkerStatusApply.listener';
 import { listenUnlockCheck } from '~/core/worker/WorkerUnlock.listener';
 import {
@@ -39,17 +45,6 @@ import { EventEmitter } from '~/utils/events';
 import { toNextEpochStart } from '~/utils/misc';
 import { Task, TaskQueue } from '~/utils/queue';
 import { HOUR_MS, MINUTE_MS, toStartOfInterval } from '~/utils/time';
-
-const preprocessor = new EvmBatchProcessor()
-  .addLog({
-    address: [network.contracts.Router.address],
-    topic0: [Router.events.Initialized.topic],
-    transaction: true,
-  })
-  .addLog({
-    address: [network.contracts.Router.address],
-    topic0: Object.values(Router.events).map((e) => e.topic),
-  });
 
 processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx_) => {
   const ctx = Object.assign(ctx_, {
@@ -117,7 +112,10 @@ function init(ctx: MappingContext) {
       return settings;
     });
 
-    await ensureGatewayStakeApply(ctx);
+    await ensureGatewayStakeApplyQueue(ctx);
+    await ensureDelegationUnlockQueue(ctx);
+    await ensureGatewayStakeApplyQueue(ctx);
+    await ensureGatewayStakeUnlockQueue(ctx);
 
     // schedule pending worker statuses
     const pendingStatuses = await ctx.store.find(WorkerStatusChange, {

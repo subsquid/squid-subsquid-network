@@ -10,7 +10,7 @@ export type StakeUnlockTask = {
   id: string;
 };
 
-export async function ensureGatewayStakeUnlock(ctx: MappingContext) {
+export async function ensureGatewayStakeUnlockQueue(ctx: MappingContext) {
   const queue = await ctx.store.getOrInsert(
     Queue<StakeUnlockTask>,
     STAKE_UNLOCK_QUEUE,

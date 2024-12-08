@@ -10,7 +10,7 @@ export type StakeApplyTask = {
   id: string;
 };
 
-export async function ensureGatewayStakeApply(ctx: MappingContext) {
+export async function ensureGatewayStakeApplyQueue(ctx: MappingContext) {
   const queue = await ctx.store.getOrInsert(
     Queue<StakeApplyTask>,
     STAKE_APPLY_QUEUE,

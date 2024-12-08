@@ -10,7 +10,7 @@ export type DelegationUnlockTask = {
   id: string;
 };
 
-export async function ensureDelegationUnlock(ctx: MappingContext) {
+export async function ensureDelegationUnlockQueue(ctx: MappingContext) {
   const queue = await ctx.store.getOrInsert(
     Queue<DelegationUnlockTask>,
     DELEGATION_UNLOCK_QUEUE,

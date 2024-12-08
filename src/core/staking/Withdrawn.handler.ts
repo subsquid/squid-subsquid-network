@@ -1,16 +1,15 @@
 import assert from 'assert';
 
-import { isContract, isLog, LogItem } from '../../item';
-import { createHandler, createHandlerOld } from '../base';
+import { isLog } from '../../item';
+import { createHandler } from '../base';
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids';
 
 import * as Staking from '~/abi/Staking';
 import { network } from '~/config/network';
-import { Delegation } from '~/model';
+import { Delegation, Settings } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
 export const handleWithdrawn = createHandler((ctx, item) => {
-  if (!isContract(item, network.contracts.Staking)) return;
   if (!isLog(item)) return;
   if (!Staking.events.Withdrawn.is(item.value)) return;
 
@@ -29,7 +28,12 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     relations: { worker: true, realOwner: true },
   });
 
+  const settingsDeferred = ctx.store.defer(Settings, network.name);
+
   return async () => {
+    const settings = await settingsDeferred.getOrFail();
+    if (settings.contracts.staking !== log.address) return;
+
     const delegation = await delegationDeferred.getOrFail();
     delegation.deposit -= amount;
 

@@ -13,7 +13,6 @@ import { Worker, Account, Delegation, Settings } from '~/model';
 import { toHumanSQD, toNextEpochStart } from '~/utils/misc';
 
 export const handleDeposited = createHandler((ctx, item) => {
-  if (!isContract(item, network.contracts.Staking)) return;
   if (!isLog(item)) return;
   if (!Staking.events.Deposited.is(item.value)) return;
 
@@ -39,8 +38,11 @@ export const handleDeposited = createHandler((ctx, item) => {
     relations: { worker: true, realOwner: true },
   });
 
+  const settingsDeferred = ctx.store.defer(Settings, network.name);
+
   return async () => {
-    const settings = await ctx.store.getOrFail(Settings, network.name);
+    const settings = await settingsDeferred.getOrFail();
+    if (settings.contracts.staking !== log.address) return;
 
     const delegation = await delegationDeferred.getOrInsert(async (id) => {
       const worker = await workerDeferred.getOrFail();
@@ -59,7 +61,7 @@ export const handleDeposited = createHandler((ctx, item) => {
     if (settings.epochLength) {
       delegation.locked = true;
       delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength);
-      delegation.lockEnd = delegation.lockStart + settings.epochLength;
+      delegation.lockEnd = delegation.lockStart + (settings.lockPeriod ?? settings.epochLength);
       addToDelegationUnlockQueue(ctx, delegation.id);
     } else {
       delegation.locked = false;
