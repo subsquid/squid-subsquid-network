@@ -1,4 +1,6 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_, IntColumn as IntColumn_, StringColumn as StringColumn_} from "@subsquid/typeorm-store"
+import * as marshal from "./marshal"
+import {Contracts} from "./_contracts"
 
 @Entity_()
 export class Settings {
@@ -23,6 +25,12 @@ export class Settings {
 
     @StringColumn_({nullable: true})
     recommendedWorkerVersion!: string | undefined | null
+
+    @IntColumn_({nullable: true})
+    lockPeriod!: number | undefined | null
+
+    @Column_("jsonb", {transformer: {to: obj => obj.toJSON(), from: obj => obj == null ? undefined : new Contracts(undefined, obj)}, nullable: false})
+    contracts!: Contracts
 
     @IntColumn_({nullable: true})
     currentEpoch!: number | undefined | null

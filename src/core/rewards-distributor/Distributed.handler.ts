@@ -2,11 +2,11 @@ import assert from 'assert';
 
 import { BigDecimal } from '@subsquid/big-decimal';
 import { keyBy } from 'lodash';
-import { In, LessThanOrEqual, MoreThan, MoreThanOrEqual } from 'typeorm';
+import { In, LessThanOrEqual, MoreThan } from 'typeorm';
 
-import { isContract, isLog, LogItem } from '../../item';
+import { isContract, isLog } from '../../item';
 import { Events, MappingContext } from '../../types';
-import { createHandlerOld } from '../base';
+import { createHandler } from '../base';
 import { createCommitmentId, createWorkerId } from '../helpers/ids';
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution';
@@ -23,162 +23,158 @@ import {
   CommitmentRecipient,
 } from '~/model';
 import { toPercent } from '~/utils/misc';
-import { DAY_MS, YEAR_MS } from '~/utils/time';
+import { YEAR_MS } from '~/utils/time';
 
-export const handleDistributed = createHandlerOld({
-  filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.RewardsDistribution) &&
-      isLog(item) &&
-      RewardsDistribution.events.Distributed.is(item.value)
+export const rewardsDistributedHandler = createHandler((ctx, item) => {
+  if (!isContract(item, network.contracts.RewardsDistribution)) return;
+  if (!isLog(item)) return;
+  if (!RewardsDistribution.events.Distributed.is(item.value)) return;
+
+  const log = item.value;
+  const event = RewardsDistribution.events.Distributed.decode(log);
+
+  const recipientIds = event.recipients.map((r) => createWorkerId(r));
+
+  return async () => {
+    if (recipientIds.length === 0) {
+      ctx.log.info(`nothing to reward`);
+      return;
+    }
+
+    // since certain block distribution intervals became to overlap,
+    // but it is not reflected in the event interval due to contract limitation
+    const normalizedFromBlockNumber =
+      (network.name === 'arbitrum' && log.block.height >= 250398109) ||
+      (network.name === 'arbitrum-sepolia' && log.block.height >= 77573325)
+        ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
+        : event.fromBlock;
+
+    let fromBlock = await ctx.store.findOne(Block, {
+      where: { l1BlockNumber: LessThanOrEqual(Number(normalizedFromBlockNumber)) },
+      order: { height: 'DESC' },
+    });
+    if (!fromBlock) {
+      fromBlock = await ctx.store.findOne(Block, { where: {}, order: { height: 'ASC' } });
+      assert(fromBlock);
+    }
+
+    let toBlock = await ctx.store.findOne(Block, {
+      where: { l1BlockNumber: LessThanOrEqual(Number(event.toBlock)) },
+      order: { height: 'DESC' },
+    });
+    if (!toBlock) {
+      toBlock = fromBlock;
+    }
+
+    const activeWorkers = await ctx.store.find(Worker, {
+      where: [
+        { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+        { id: In(recipientIds) },
+      ],
+    });
+
+    const payments = keyBy(
+      recipientIds.map((workerId, i) => ({
+        workerId,
+        workerReward: event.workerRewards[i],
+        workerApr: 0,
+        stakerReward: event.stakerRewards[i],
+        stakerApr: 0,
+      })),
+      (r) => r.workerId,
     );
-  },
-  handle(ctx, { value: log }) {
-    const event = RewardsDistribution.events.Distributed.decode(log);
 
-    const recipientIds = event.recipients.map((r) => createWorkerId(r));
+    let delegationRewardsCount = 0;
+    for (const worker of activeWorkers) {
+      if (worker.createdAt.getTime() >= toBlock.timestamp.getTime()) continue;
 
-    return async () => {
-      if (recipientIds.length === 0) {
-        ctx.log.info(`nothing to reward`);
-        return;
-      }
-
-      // since certain block distribution intervals became to overlap,
-      // but it is not reflected in the event interval due to contract limitation
-      const normalizedFromBlockNumber =
-        (network.name === 'arbitrum' && log.block.height >= 250398109) ||
-        (network.name === 'arbitrum-sepolia' && log.block.height >= 77573325)
-          ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
-          : event.fromBlock;
-
-      let fromBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: LessThanOrEqual(Number(normalizedFromBlockNumber)) },
-        order: { height: 'DESC' },
-      });
-      if (!fromBlock) {
-        fromBlock = await ctx.store.findOne(Block, { where: {}, order: { height: 'ASC' } });
-        assert(fromBlock);
-      }
-
-      let toBlock = await ctx.store.findOne(Block, {
-        where: { l1BlockNumber: LessThanOrEqual(Number(event.toBlock)) },
-        order: { height: 'DESC' },
-      });
-      if (!toBlock) {
-        toBlock = fromBlock;
-      }
-
-      const activeWorkers = await ctx.store.find(Worker, {
-        where: [
-          { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
-          { id: In(recipientIds) },
-        ],
-      });
-
-      const payments = keyBy(
-        recipientIds.map((workerId, i) => ({
-          workerId,
-          workerReward: event.workerRewards[i],
+      let payment = payments[worker.id];
+      if (!payment) {
+        payment = {
+          workerId: worker.id,
+          workerReward: 0n,
           workerApr: 0,
-          stakerReward: event.stakerRewards[i],
+          stakerReward: 0n,
           stakerApr: 0,
-        })),
-        (r) => r.workerId,
-      );
-
-      let delegationRewardsCount = 0;
-      for (const worker of activeWorkers) {
-        if (worker.createdAt.getTime() >= toBlock.timestamp.getTime()) continue;
-
-        let payment = payments[worker.id];
-        if (!payment) {
-          payment = {
-            workerId: worker.id,
-            workerReward: 0n,
-            workerApr: 0,
-            stakerReward: 0n,
-            stakerApr: 0,
-          };
-          payments[worker.id] = payment;
-        }
-
-        const interval =
-          toBlock.timestamp.getTime() -
-          Math.max(fromBlock.timestamp.getTime(), worker.createdAt.getTime());
-
-        if (interval > 0) {
-          payment.workerApr = worker.bond
-            ? toPercent(
-                BigDecimal(payment.workerReward)
-                  .div(interval)
-                  .mul(YEAR_MS)
-                  .div(worker.bond)
-                  .toNumber(),
-                true,
-              )
-            : 0;
-          payment.stakerApr = worker.totalDelegation
-            ? toPercent(
-                BigDecimal(payment.stakerReward)
-                  .div(interval)
-                  .mul(YEAR_MS)
-                  .div(worker.totalDelegation)
-                  .toNumber(),
-                true,
-              )
-            : payment.workerApr / 2;
-        }
-
-        worker.claimableReward += payment.workerReward;
-        worker.totalDelegationRewards += payment.stakerReward;
-        await ctx.store.upsert(worker);
-
-        if (payment.workerReward > 0) {
-          const reward = new WorkerReward({
-            id: `${log.id}-${worker.id.padStart(5, '0')}`,
-            blockNumber: log.block.height,
-            timestamp: new Date(log.block.timestamp),
-            worker,
-            amount: payment.workerReward,
-            stakersReward: payment.stakerReward,
-          });
-
-          await ctx.store.insert(reward);
-        }
-
-        if (payment.stakerReward > 0) {
-          const rewardsPerShare = worker.totalDelegation
-            ? (payment.stakerReward * 10n ** 18n) / worker.totalDelegation
-            : 0n;
-
-          const count = await distributeReward(ctx, log, {
-            workerId: worker.id,
-            rewardsPerShare,
-            offset: delegationRewardsCount,
-          });
-          delegationRewardsCount += count;
-        }
+        };
+        payments[worker.id] = payment;
       }
 
-      await ctx.store.insert(
-        new Commitment({
-          id: createCommitmentId(event.fromBlock, event.toBlock),
-          from: fromBlock?.timestamp,
-          fromBlock: Number(normalizedFromBlockNumber),
-          to: toBlock?.timestamp,
-          toBlock: Number(event.toBlock),
-          recipients: Object.values(payments).map((p) => new CommitmentRecipient(p)),
-        }),
-      );
+      const interval =
+        toBlock.timestamp.getTime() -
+        Math.max(fromBlock.timestamp.getTime(), worker.createdAt.getTime());
 
-      await ctx.events.emit(Events.RewardsDistributed, log.block);
+      if (interval > 0) {
+        payment.workerApr = worker.bond
+          ? toPercent(
+              BigDecimal(payment.workerReward)
+                .div(interval)
+                .mul(YEAR_MS)
+                .div(worker.bond)
+                .toNumber(),
+              true,
+            )
+          : 0;
+        payment.stakerApr = worker.totalDelegation
+          ? toPercent(
+              BigDecimal(payment.stakerReward)
+                .div(interval)
+                .mul(YEAR_MS)
+                .div(worker.totalDelegation)
+                .toNumber(),
+              true,
+            )
+          : payment.workerApr / 2;
+      }
 
-      ctx.log.info(
-        `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,
-      );
-    };
-  },
+      worker.claimableReward += payment.workerReward;
+      worker.totalDelegationRewards += payment.stakerReward;
+      await ctx.store.upsert(worker);
+
+      if (payment.workerReward > 0) {
+        const reward = new WorkerReward({
+          id: `${log.id}-${worker.id.padStart(5, '0')}`,
+          blockNumber: log.block.height,
+          timestamp: new Date(log.block.timestamp),
+          worker,
+          amount: payment.workerReward,
+          stakersReward: payment.stakerReward,
+        });
+
+        await ctx.store.insert(reward);
+      }
+
+      if (payment.stakerReward > 0) {
+        const rewardsPerShare = worker.totalDelegation
+          ? (payment.stakerReward * 10n ** 18n) / worker.totalDelegation
+          : 0n;
+
+        const count = await distributeReward(ctx, log, {
+          workerId: worker.id,
+          rewardsPerShare,
+          offset: delegationRewardsCount,
+        });
+        delegationRewardsCount += count;
+      }
+    }
+
+    await ctx.store.insert(
+      new Commitment({
+        id: createCommitmentId(event.fromBlock, event.toBlock),
+        from: fromBlock?.timestamp,
+        fromBlock: Number(normalizedFromBlockNumber),
+        to: toBlock?.timestamp,
+        toBlock: Number(event.toBlock),
+        recipients: Object.values(payments).map((p) => new CommitmentRecipient(p)),
+      }),
+    );
+
+    ctx.log.info(
+      `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,
+    );
+
+    // await ctx.events.emit(Events.RewardsDistributed, log.block);
+  };
 });
 
 async function distributeReward(

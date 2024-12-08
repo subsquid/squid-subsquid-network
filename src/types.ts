@@ -28,7 +28,7 @@ export type EventMap = {
 
 export type MappingContext = ProcessorContext<StoreWithCache> & {
   // tasks: TaskQueue;
-  events: EventEmitter<EventMap>;
+  // events: EventEmitter<EventMap>;
   delegatedWorkers: Set<string>; // TODO: need better solution for tracking workers with updated stakes
 };
 

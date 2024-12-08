@@ -7,9 +7,9 @@ deploy:
   addons:
     postgres:
   env:
-    NETWORK: arbitrum-sepolia
+    NETWORK: tethys
     RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
-    GATEWAY_URL: https://v2.archive.subsquid.io/network/arbitrum-sepolia
+    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_sepolia.http }}
     STAKING_CONTRACT_ADDRESS: "0x347E326b8b4EA27c87d5CA291e708cdEC6d65EB5"
     WORKER_REGISTRY_CONTRACT_ADDRESS: "0xCD8e983F8c4202B0085825Cf21833927D1e2b6Dc"
     SQD_CONTRACT_ADDRESS: "0x24f9C46d86c064a6FA2a568F918fe62fC6917B3c"
@@ -28,16 +28,24 @@ deploy:
     REWARDS_MONITOR_API_URL: https://rewards-monitor.testnet.subsquid.io
   processor:
     cmd:
-      - sqd
-      - process:prod
+      - node
+      - lib/main.js
   api:
     cmd:
-      - sqd
-      - serve:prod
+      - squid-graphql-server
+      - --dumb-cache
+      - in-memory
+      - --dumb-cache-ttl
+      - "1000"
+      - --dumb-cache-size
+      - "100"
+      - --dumb-cache-max-age
+      - "1000"
+      - --no-squid-status
   init:
     cmd:
-      - sqd
-      - migration:apply
+      - squid-typeorm-migration
+      - apply
 scale:
   dedicated: true
   addons:

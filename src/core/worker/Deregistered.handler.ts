@@ -2,7 +2,7 @@ import { isContract, isLog, LogItem } from '../../item';
 import { createHandlerOld } from '../base';
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids';
 
-import { listenStatusCheck } from './CheckStatus.listener';
+import { listenStatusCheck } from './WorkerStatusApply.listener';
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';

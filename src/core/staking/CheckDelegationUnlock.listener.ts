@@ -1,29 +1,54 @@
 import assert from 'assert';
 
-import { MappingContext, Events } from '../../types';
+import { MappingContext } from '../../types';
 
-import { Delegation } from '~/model';
+import { Delegation, Queue } from '~/model';
 
-export function listenDelegationUnlock(ctx: MappingContext, id: string) {
-  const delegationDeferred = ctx.store.defer(Delegation, id);
+export const DELEGATION_UNLOCK_QUEUE = 'delegation-unlock';
 
-  const listenerId = `delegation-unlock-${id}`;
-  ctx.events.on(
-    Events.BlockStart,
-    async (block) => {
-      const delegation = await delegationDeferred.getOrFail();
-      assert(delegation.lockEnd);
-      if (delegation.lockEnd > block.l1BlockNumber) return;
+export type DelegationUnlockTask = {
+  id: string;
+};
 
-      delegation.locked = false;
-      await ctx.store.upsert(delegation);
-
-      ctx.log.info(`delegation(${delegation.id}) unlocked`);
-
-      ctx.events.off(Events.BlockStart, listenerId);
-    },
-    {
-      id: listenerId,
-    },
+export async function ensureDelegationUnlock(ctx: MappingContext) {
+  const queue = await ctx.store.getOrInsert(
+    Queue<DelegationUnlockTask>,
+    DELEGATION_UNLOCK_QUEUE,
+    (id) => new Queue({ id, tasks: [] }),
   );
+
+  for (const task of queue.tasks) {
+    ctx.store.defer(Delegation, task.id);
+  }
+}
+
+export async function addToDelegationUnlockQueue(ctx: MappingContext, id: string) {
+  const queue = await ctx.store.getOrFail(Queue<DelegationUnlockTask>, DELEGATION_UNLOCK_QUEUE);
+
+  if (queue.tasks.some((task) => task.id === id)) return;
+  queue.tasks.push({ id });
+
+  await ctx.store.upsert(queue);
+}
+
+export async function processDelegationUnlockQueue(
+  ctx: MappingContext,
+  block: { l1BlockNumber: number },
+) {
+  const queue = await ctx.store.getOrFail(Queue<DelegationUnlockTask>, DELEGATION_UNLOCK_QUEUE);
+
+  const tasks: DelegationUnlockTask[] = [];
+  for (const task of queue.tasks) {
+    const delegation = await ctx.store.getOrFail(Delegation, task.id);
+    assert(delegation.lockEnd);
+    if (delegation.lockEnd > block.l1BlockNumber) return;
+
+    delegation.locked = false;
+    await ctx.store.upsert(delegation);
+
+    ctx.log.info(`delegation(${delegation.id}) unlocked`);
+  }
+
+  queue.tasks = tasks;
+  await ctx.store.upsert(queue);
 }

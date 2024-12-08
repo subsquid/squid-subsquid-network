@@ -3,22 +3,22 @@ import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
-    Approval: event("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925", {"owner": indexed(p.address), "spender": indexed(p.address), "value": p.uint256}),
-    Transfer: event("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", {"from": indexed(p.address), "to": indexed(p.address), "value": p.uint256}),
+    Approval: event("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925", "Approval(address,address,uint256)", {"owner": indexed(p.address), "spender": indexed(p.address), "value": p.uint256}),
+    Transfer: event("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", "Transfer(address,address,uint256)", {"from": indexed(p.address), "to": indexed(p.address), "value": p.uint256}),
 }
 
 export const functions = {
-    allowance: viewFun("0xdd62ed3e", {"owner": p.address, "spender": p.address}, p.uint256),
-    approve: fun("0x095ea7b3", {"spender": p.address, "value": p.uint256}, p.bool),
-    balanceOf: viewFun("0x70a08231", {"account": p.address}, p.uint256),
-    decimals: viewFun("0x313ce567", {}, p.uint8),
-    isArbitrumEnabled: viewFun("0x8e5f5ad1", {}, p.uint8),
-    name: viewFun("0x06fdde03", {}, p.string),
-    registerTokenOnL2: fun("0xfc792d8e", {"l2CustomTokenAddress": p.address, "maxSubmissionCostForCustomGateway": p.uint256, "maxSubmissionCostForRouter": p.uint256, "maxGasForCustomGateway": p.uint256, "maxGasForRouter": p.uint256, "gasPriceBid": p.uint256, "valueForGateway": p.uint256, "valueForRouter": p.uint256, "creditBackAddress": p.address}, ),
-    symbol: viewFun("0x95d89b41", {}, p.string),
-    totalSupply: viewFun("0x18160ddd", {}, p.uint256),
-    transfer: fun("0xa9059cbb", {"to": p.address, "value": p.uint256}, p.bool),
-    transferFrom: fun("0x23b872dd", {"from": p.address, "to": p.address, "value": p.uint256}, p.bool),
+    allowance: viewFun("0xdd62ed3e", "allowance(address,address)", {"owner": p.address, "spender": p.address}, p.uint256),
+    approve: fun("0x095ea7b3", "approve(address,uint256)", {"spender": p.address, "value": p.uint256}, p.bool),
+    balanceOf: viewFun("0x70a08231", "balanceOf(address)", {"account": p.address}, p.uint256),
+    decimals: viewFun("0x313ce567", "decimals()", {}, p.uint8),
+    isArbitrumEnabled: viewFun("0x8e5f5ad1", "isArbitrumEnabled()", {}, p.uint8),
+    name: viewFun("0x06fdde03", "name()", {}, p.string),
+    registerTokenOnL2: fun("0xfc792d8e", "registerTokenOnL2(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address)", {"l2CustomTokenAddress": p.address, "maxSubmissionCostForCustomGateway": p.uint256, "maxSubmissionCostForRouter": p.uint256, "maxGasForCustomGateway": p.uint256, "maxGasForRouter": p.uint256, "gasPriceBid": p.uint256, "valueForGateway": p.uint256, "valueForRouter": p.uint256, "creditBackAddress": p.address}, ),
+    symbol: viewFun("0x95d89b41", "symbol()", {}, p.string),
+    totalSupply: viewFun("0x18160ddd", "totalSupply()", {}, p.uint256),
+    transfer: fun("0xa9059cbb", "transfer(address,uint256)", {"to": p.address, "value": p.uint256}, p.bool),
+    transferFrom: fun("0x23b872dd", "transferFrom(address,address,uint256)", {"from": p.address, "to": p.address, "value": p.uint256}, p.bool),
 }
 
 export class Contract extends ContractBase {

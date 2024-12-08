@@ -3,7 +3,7 @@ import assert from 'assert';
 import { MappingContext, Events } from '../../types';
 import { resetWorkerStats } from '../helpers/entities';
 
-import { listenUnlockCheck } from './CheckUnlock.listener';
+import { listenUnlockCheck } from './WorkerUnlock.listener';
 
 import { network } from '~/config/network';
 import { WorkerStatusChange, WorkerStatus, Worker, Settings } from '~/model';

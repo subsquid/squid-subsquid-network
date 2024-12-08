@@ -1,32 +1,27 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandlerOld } from '../base';
+import { createHandler, createHandlerOld } from '../base';
 
 import * as NetworkController from '~/abi/NetworkController';
 import { network } from '~/config/network';
 import { Settings } from '~/model';
 
-export const handleBondAmountUpdated = createHandlerOld({
-  filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.NetworkController.address) &&
-      isContract(item, network.contracts.OldNetworkController.address) &&
-      isLog(item) &&
-      NetworkController.events.BondAmountUpdated.is(item.value)
-    );
-  },
-  handle(ctx, { value: log }) {
-    const { bondAmount } = NetworkController.events.BondAmountUpdated.decode(log);
+export const handleBondAmountUpdated = createHandler((ctx, item) => {
+  if (!isLog(item)) return;
+  if (!NetworkController.events.BondAmountUpdated.is(item.value)) return;
 
-    const settingsDeferred = ctx.store.defer(Settings, network.name);
+  const log = item.value;
+  const { bondAmount } = NetworkController.events.BondAmountUpdated.decode(log);
 
-    return async () => {
-      const settings = await settingsDeferred.getOrFail();
+  const settingsDeferred = ctx.store.defer(Settings, network.name);
 
-      settings.bondAmount = bondAmount;
+  return async () => {
+    const settings = await settingsDeferred.getOrFail();
+    if (log.address !== settings.contracts.networkController) return;
 
-      await ctx.store.upsert(settings);
+    settings.bondAmount = bondAmount;
 
-      ctx.log.debug(`set bond amount set ${bondAmount}`);
-    };
-  },
+    await ctx.store.upsert(settings);
+
+    ctx.log.debug(`set bond amount set ${bondAmount}`);
+  };
 });

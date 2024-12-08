@@ -3,6 +3,7 @@ import { EvmBatchProcessor } from '@subsquid/evm-processor';
 import { last } from 'lodash';
 import { IsNull, LessThanOrEqual, Not } from 'typeorm';
 
+import { ensureGatewayStakeApply } from './core/gateway/StakeApply.queue';
 import { sortItems } from './item';
 import { Events, MappingContext } from './types';
 
@@ -11,8 +12,7 @@ import { network } from '~/config/network';
 import { processor, BlockData, BlockHeader } from '~/config/processor';
 import { handlers } from '~/core';
 import { listenUpdateWorkersCap } from '~/core/cap';
-import { listenStakeApply } from '~/core/gateway/CheckStakeApply.listener';
-import { listenGatewayStakeUnlock } from '~/core/gateway/CheckStakeStatus.listener';
+import { listenGatewayStakeUnlock } from '~/core/gateway/StakeUnlock.queue';
 import { createSettings, createBlock } from '~/core/helpers/entities';
 import { createEpochId } from '~/core/helpers/ids';
 import {
@@ -22,8 +22,8 @@ import {
   listenRewardMetricsUpdate,
 } from '~/core/metrics';
 import { listenDelegationUnlock } from '~/core/staking/CheckDelegationUnlock.listener';
-import { listenStatusCheck } from '~/core/worker/CheckStatus.listener';
-import { listenUnlockCheck } from '~/core/worker/CheckUnlock.listener';
+import { listenStatusCheck } from '~/core/worker/WorkerStatusApply.listener';
+import { listenUnlockCheck } from '~/core/worker/WorkerUnlock.listener';
 import {
   Block,
   Delegation,
@@ -102,7 +102,6 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
 
 function init(ctx: MappingContext) {
   const settingsDefer = ctx.store.defer(Settings, network.name);
-  const statisticsDefer = ctx.store.defer(Statistics, network.name);
 
   return async () => {
     const firstBlock = ctx.blocks[0].header;
@@ -113,26 +112,12 @@ function init(ctx: MappingContext) {
       const settings = createSettings(id);
       settings.delegationLimitCoefficient = 0.2;
       settings.bondAmount = 10n ** 23n;
+      settings.baseApr = 0;
+      settings.utilizedStake = 0n;
       return settings;
     });
 
-    await statisticsDefer.getOrInsert((id) => {
-      return new Statistics({
-        id,
-        blockTime: 0,
-        lastBlock: firstBlock.height,
-        lastBlockTimestamp: new Date(firstBlock.timestamp),
-        blockTimeL1: 0,
-        lastBlockL1: firstBlock.l1BlockNumber,
-        lastBlockTimestampL1: new Date(firstBlock.timestamp),
-        currentEpoch: null,
-        lastSnapshotTimestamp: new Date(
-          toStartOfInterval(firstBlock.timestamp, 12 * HOUR_MS) - MINUTE_MS,
-        ),
-        utilizedStake: 0n,
-        baseApr: 0,
-      });
-    });
+    await ensureGatewayStakeApply(ctx);
 
     // schedule pending worker statuses
     const pendingStatuses = await ctx.store.find(WorkerStatusChange, {
@@ -154,15 +139,6 @@ function init(ctx: MappingContext) {
       cache: false,
     });
     pendingUnlocks.forEach((w) => listenUnlockCheck(ctx, w.id));
-
-    const pendingGatewayStakes = await ctx.store.find(GatewayStake, {
-      where: {
-        lockStart: LessThanOrEqual(lastBlock.l1BlockNumber),
-        computationUnitsPending: Not(IsNull()),
-      },
-      cache: false,
-    });
-    pendingGatewayStakes.forEach((o) => listenStakeApply(ctx, o.id));
 
     const lockedGatewayStakes = await ctx.store.find(GatewayStake, {
       where: {
@@ -214,7 +190,8 @@ function complete(ctx: MappingContext) {
 
 function endEpoch(ctx: MappingContext, block: BlockHeader) {
   const settingsDefer = ctx.store.defer(Settings, network.name);
-  const statisticsDefer = ctx.store.defer(Statistics, network.name);
+
+  let currentEpochId: string | undefined;
 
   return async () => {
     const settings = await settingsDefer.get();
@@ -270,6 +247,9 @@ function endEpoch(ctx: MappingContext, block: BlockHeader) {
 }
 
 function startEpoch(ctx: MappingContext, block: BlockHeader) {
+  const settingsDefer = ctx.store.defer(Settings, network.name);
+  let currentEpochId: string | undefined;
+
   return async () => {
     const settings = await ctx.store.get(Settings, network.name);
     const epochLength = settings?.epochLength;

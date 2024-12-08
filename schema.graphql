@@ -55,6 +55,20 @@ type Transfer @entity {
   amount: BigInt!
 }
 
+type Contracts {
+  router: String
+  networkController: String
+  staking: String
+  workerRegistration: String
+  rewardTreasury: String
+  distributedRewardsDistribution: String
+  gatewayRegistry: String
+  rewardCalculation: String
+  softCap: String
+  vestingFactory: String
+  temporaryHoldingFactory: String
+}
+
 type Settings @entity {
   id: ID!
   bondAmount: BigInt
@@ -62,6 +76,9 @@ type Settings @entity {
   epochLength: Int
   minimalWorkerVersion: String
   recommendedWorkerVersion: String
+  lockPeriod: Int
+
+  contracts: Contracts!
 
   currentEpoch: Int
   utilizedStake: BigInt!

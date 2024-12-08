@@ -52,7 +52,7 @@ module.exports = {
                 groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object'],
             },
         ],
-        'eqeqeq': 'error',
+        'eqeqeq': 'off',
         'import/no-named-as-default': 'off',
         'import/no-unresolved': 'off',
         'lines-between-class-members': [

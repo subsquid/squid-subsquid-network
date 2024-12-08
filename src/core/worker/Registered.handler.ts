@@ -5,7 +5,7 @@ import { createHandlerOld } from '../base';
 import { createWorker } from '../helpers/entities';
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids';
 
-import { listenStatusCheck } from './CheckStatus.listener';
+import { listenStatusCheck } from './WorkerStatusApply.listener';
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration';
 import { network } from '~/config/network';

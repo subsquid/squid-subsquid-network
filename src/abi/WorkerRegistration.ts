@@ -3,53 +3,53 @@ import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
-    ExcessiveBondReturned: event("0x54ebfb2891f338e31ae38698df33da34d539ea1aa57fa0a1900a3b9d845d4f54", {"workerId": indexed(p.uint256), "amount": p.uint256}),
-    MetadataUpdated: event("0x459157ba24c7ab9878b165ef465fa6ae2ab42bcd8445f576be378768b0c47309", {"workerId": indexed(p.uint256), "metadata": p.string}),
-    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", {"account": p.address}),
-    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
-    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", {"account": p.address}),
-    WorkerDeregistered: event("0x4a7ca6c9178181481ac5c6e9ed0965213ae489c4aaf53323bd5e1f318a9d77c3", {"workerId": indexed(p.uint256), "account": indexed(p.address), "deregistedAt": p.uint256}),
-    WorkerRegistered: event("0xa7a0c37f13c7accf7ec7771a2531c06e0183a37162a8e036039b241eab784156", {"workerId": indexed(p.uint256), "peerId": p.bytes, "registrar": indexed(p.address), "registeredAt": p.uint256, "metadata": p.string}),
-    WorkerWithdrawn: event("0xb6ee3a0ef8982f0f296a13a075fe56e5fd8c1bc2282a3c5b54f12d514ed7a956", {"workerId": indexed(p.uint256), "account": indexed(p.address)}),
+    ExcessiveBondReturned: event("0x54ebfb2891f338e31ae38698df33da34d539ea1aa57fa0a1900a3b9d845d4f54", "ExcessiveBondReturned(uint256,uint256)", {"workerId": indexed(p.uint256), "amount": p.uint256}),
+    MetadataUpdated: event("0x459157ba24c7ab9878b165ef465fa6ae2ab42bcd8445f576be378768b0c47309", "MetadataUpdated(uint256,string)", {"workerId": indexed(p.uint256), "metadata": p.string}),
+    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", "Paused(address)", {"account": p.address}),
+    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", "RoleAdminChanged(bytes32,bytes32,bytes32)", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
+    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", "RoleGranted(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", "RoleRevoked(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", "Unpaused(address)", {"account": p.address}),
+    WorkerDeregistered: event("0x4a7ca6c9178181481ac5c6e9ed0965213ae489c4aaf53323bd5e1f318a9d77c3", "WorkerDeregistered(uint256,address,uint256)", {"workerId": indexed(p.uint256), "account": indexed(p.address), "deregistedAt": p.uint256}),
+    WorkerRegistered: event("0xa7a0c37f13c7accf7ec7771a2531c06e0183a37162a8e036039b241eab784156", "WorkerRegistered(uint256,bytes,address,uint256,string)", {"workerId": indexed(p.uint256), "peerId": p.bytes, "registrar": indexed(p.address), "registeredAt": p.uint256, "metadata": p.string}),
+    WorkerWithdrawn: event("0xb6ee3a0ef8982f0f296a13a075fe56e5fd8c1bc2282a3c5b54f12d514ed7a956", "WorkerWithdrawn(uint256,address)", {"workerId": indexed(p.uint256), "account": indexed(p.address)}),
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
-    SQD: viewFun("0x6aa54679", {}, p.address),
-    bondAmount: viewFun("0x80f323a7", {}, p.uint256),
-    deregister: fun("0xb4d0a564", {"peerId": p.bytes}, ),
-    epochLength: viewFun("0x57d775f8", {}, p.uint128),
-    getActiveWorkerCount: viewFun("0x3e556827", {}, p.uint256),
-    getActiveWorkerIds: viewFun("0xc0a0d6cf", {}, p.array(p.uint256)),
-    getActiveWorkers: viewFun("0x393bc3d9", {}, p.array(p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}))),
-    getAllWorkersCount: viewFun("0xf905aaf6", {}, p.uint256),
-    getMetadata: viewFun("0x75734be8", {"peerId": p.bytes}, p.string),
-    getOwnedWorkers: viewFun("0x75b80f11", {"owner": p.address}, p.array(p.uint256)),
-    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
-    getWorker: viewFun("0xa39dbdb9", {"workerId": p.uint256}, p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string})),
-    grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    isWorkerActive: viewFun("0xb036482f", {"workerId": p.uint256}, p.bool),
-    lockPeriod: viewFun("0x3fd8b02f", {}, p.uint128),
-    nextEpoch: viewFun("0xaea0e78b", {}, p.uint128),
-    nextWorkerId: viewFun("0xc84a4922", {}, p.uint256),
-    pause: fun("0x8456cb59", {}, ),
-    paused: viewFun("0x5c975abb", {}, p.bool),
-    "register(bytes)": fun("0x82fbdc9c", {"peerId": p.bytes}, ),
-    "register(bytes,string)": fun("0x92255fbf", {"peerId": p.bytes, "metadata": p.string}, ),
-    renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
-    returnExcessiveBond: fun("0xe4e33692", {"peerId": p.bytes}, ),
-    revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    router: viewFun("0xf887ea40", {}, p.address),
-    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
-    unpause: fun("0x3f4ba83a", {}, ),
-    updateMetadata: fun("0xddc651c3", {"peerId": p.bytes, "metadata": p.string}, ),
-    withdraw: fun("0x0968f264", {"peerId": p.bytes}, ),
-    workerIds: viewFun("0x7a39cb2b", {"peerId": p.bytes}, p.uint256),
-    workers: viewFun("0xf1a22dc2", {"_0": p.uint256}, {"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", "DEFAULT_ADMIN_ROLE()", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", "PAUSER_ROLE()", {}, p.bytes32),
+    SQD: viewFun("0x6aa54679", "SQD()", {}, p.address),
+    bondAmount: viewFun("0x80f323a7", "bondAmount()", {}, p.uint256),
+    deregister: fun("0xb4d0a564", "deregister(bytes)", {"peerId": p.bytes}, ),
+    epochLength: viewFun("0x57d775f8", "epochLength()", {}, p.uint128),
+    getActiveWorkerCount: viewFun("0x3e556827", "getActiveWorkerCount()", {}, p.uint256),
+    getActiveWorkerIds: viewFun("0xc0a0d6cf", "getActiveWorkerIds()", {}, p.array(p.uint256)),
+    getActiveWorkers: viewFun("0x393bc3d9", "getActiveWorkers()", {}, p.array(p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}))),
+    getAllWorkersCount: viewFun("0xf905aaf6", "getAllWorkersCount()", {}, p.uint256),
+    getMetadata: viewFun("0x75734be8", "getMetadata(bytes)", {"peerId": p.bytes}, p.string),
+    getOwnedWorkers: viewFun("0x75b80f11", "getOwnedWorkers(address)", {"owner": p.address}, p.array(p.uint256)),
+    getRoleAdmin: viewFun("0x248a9ca3", "getRoleAdmin(bytes32)", {"role": p.bytes32}, p.bytes32),
+    getWorker: viewFun("0xa39dbdb9", "getWorker(uint256)", {"workerId": p.uint256}, p.struct({"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string})),
+    grantRole: fun("0x2f2ff15d", "grantRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    hasRole: viewFun("0x91d14854", "hasRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, p.bool),
+    isWorkerActive: viewFun("0xb036482f", "isWorkerActive(uint256)", {"workerId": p.uint256}, p.bool),
+    lockPeriod: viewFun("0x3fd8b02f", "lockPeriod()", {}, p.uint128),
+    nextEpoch: viewFun("0xaea0e78b", "nextEpoch()", {}, p.uint128),
+    nextWorkerId: viewFun("0xc84a4922", "nextWorkerId()", {}, p.uint256),
+    pause: fun("0x8456cb59", "pause()", {}, ),
+    paused: viewFun("0x5c975abb", "paused()", {}, p.bool),
+    'register(bytes)': fun("0x82fbdc9c", "register(bytes)", {"peerId": p.bytes}, ),
+    'register(bytes,string)': fun("0x92255fbf", "register(bytes,string)", {"peerId": p.bytes, "metadata": p.string}, ),
+    renounceRole: fun("0x36568abe", "renounceRole(bytes32,address)", {"role": p.bytes32, "callerConfirmation": p.address}, ),
+    returnExcessiveBond: fun("0xe4e33692", "returnExcessiveBond(bytes)", {"peerId": p.bytes}, ),
+    revokeRole: fun("0xd547741f", "revokeRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    router: viewFun("0xf887ea40", "router()", {}, p.address),
+    supportsInterface: viewFun("0x01ffc9a7", "supportsInterface(bytes4)", {"interfaceId": p.bytes4}, p.bool),
+    unpause: fun("0x3f4ba83a", "unpause()", {}, ),
+    updateMetadata: fun("0xddc651c3", "updateMetadata(bytes,string)", {"peerId": p.bytes, "metadata": p.string}, ),
+    withdraw: fun("0x0968f264", "withdraw(bytes)", {"peerId": p.bytes}, ),
+    workerIds: viewFun("0x7a39cb2b", "workerIds(bytes)", {"peerId": p.bytes}, p.uint256),
+    workers: viewFun("0xf1a22dc2", "workers(uint256)", {"_0": p.uint256}, {"creator": p.address, "peerId": p.bytes, "bond": p.uint256, "registeredAt": p.uint128, "deregisteredAt": p.uint128, "metadata": p.string}),
 }
 
 export class Contract extends ContractBase {
@@ -226,11 +226,11 @@ export type PauseReturn = FunctionReturn<typeof functions.pause>
 export type PausedParams = FunctionArguments<typeof functions.paused>
 export type PausedReturn = FunctionReturn<typeof functions.paused>
 
-export type RegisterParams_0 = FunctionArguments<typeof functions["register(bytes)"]>
-export type RegisterReturn_0 = FunctionReturn<typeof functions["register(bytes)"]>
+export type RegisterParams_0 = FunctionArguments<typeof functions['register(bytes)']>
+export type RegisterReturn_0 = FunctionReturn<typeof functions['register(bytes)']>
 
-export type RegisterParams_1 = FunctionArguments<typeof functions["register(bytes,string)"]>
-export type RegisterReturn_1 = FunctionReturn<typeof functions["register(bytes,string)"]>
+export type RegisterParams_1 = FunctionArguments<typeof functions['register(bytes,string)']>
+export type RegisterReturn_1 = FunctionReturn<typeof functions['register(bytes,string)']>
 
 export type RenounceRoleParams = FunctionArguments<typeof functions.renounceRole>
 export type RenounceRoleReturn = FunctionReturn<typeof functions.renounceRole>

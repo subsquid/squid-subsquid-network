@@ -7,7 +7,7 @@ import { Multicall } from '~/abi/multicall';
 import * as SoftCap from '~/abi/SoftCap';
 import { network } from '~/config/network';
 import { BlockHeader } from '~/config/processor';
-import { Statistics, Worker, WorkerStatus } from '~/model';
+import { Settings, Worker, WorkerStatus } from '~/model';
 
 let INIT_CAPS = false;
 
@@ -65,7 +65,7 @@ async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, all = f
 // }
 
 export async function recalculateWorkerAprs(ctx: MappingContext) {
-  const statistics = await ctx.store.getOrFail(Statistics, network.name);
+  const settings = await ctx.store.getOrFail(Settings, network.name);
 
   const workers = await ctx.store.find(Worker, {
     where: { status: WorkerStatus.ACTIVE },
@@ -77,8 +77,8 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
     0n,
   );
 
-  statistics.baseApr = baseApr.toNumber();
-  statistics.utilizedStake = utilizedStake;
+  settings.baseApr = baseApr.toNumber();
+  settings.utilizedStake = utilizedStake;
 
   for (const worker of workers) {
     const supplyRatio =
@@ -110,5 +110,5 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
   }
 
   await ctx.store.upsert(workers);
-  await ctx.store.upsert(statistics);
+  await ctx.store.upsert(settings);
 }

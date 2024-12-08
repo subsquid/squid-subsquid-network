@@ -3,30 +3,30 @@ import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
-    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", {"account": p.address}),
-    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
-    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", {"account": p.address}),
-    VestingCreated: event("0xba477ae50ac3a59d5a6eadd2b0775d90074a7d6bc7a737f2ae874e66dab607f1", {"vesting": indexed(p.address), "beneficiary": indexed(p.address), "startTimestamp": p.uint64, "durationSeconds": p.uint64, "expectedTotalAmount": p.uint256}),
+    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", "Paused(address)", {"account": p.address}),
+    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", "RoleAdminChanged(bytes32,bytes32,bytes32)", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
+    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", "RoleGranted(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", "RoleRevoked(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", "Unpaused(address)", {"account": p.address}),
+    VestingCreated: event("0xba477ae50ac3a59d5a6eadd2b0775d90074a7d6bc7a737f2ae874e66dab607f1", "VestingCreated(address,address,uint64,uint64,uint256)", {"vesting": indexed(p.address), "beneficiary": indexed(p.address), "startTimestamp": p.uint64, "durationSeconds": p.uint64, "expectedTotalAmount": p.uint256}),
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
-    VESTING_CREATOR_ROLE: viewFun("0xe9a7fb54", {}, p.bytes32),
-    createVesting: fun("0xc623c479", {"beneficiaryAddress": p.address, "startTimestamp": p.uint64, "durationSeconds": p.uint64, "immediateReleaseBIP": p.uint256, "expectedTotalAmount": p.uint256}, p.address),
-    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
-    grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    pause: fun("0x8456cb59", {}, ),
-    paused: viewFun("0x5c975abb", {}, p.bool),
-    renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
-    revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    router: viewFun("0xf887ea40", {}, p.address),
-    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
-    token: viewFun("0xfc0c546a", {}, p.address),
-    unpause: fun("0x3f4ba83a", {}, ),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", "DEFAULT_ADMIN_ROLE()", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", "PAUSER_ROLE()", {}, p.bytes32),
+    VESTING_CREATOR_ROLE: viewFun("0xe9a7fb54", "VESTING_CREATOR_ROLE()", {}, p.bytes32),
+    createVesting: fun("0xc623c479", "createVesting(address,uint64,uint64,uint256,uint256)", {"beneficiaryAddress": p.address, "startTimestamp": p.uint64, "durationSeconds": p.uint64, "immediateReleaseBIP": p.uint256, "expectedTotalAmount": p.uint256}, p.address),
+    getRoleAdmin: viewFun("0x248a9ca3", "getRoleAdmin(bytes32)", {"role": p.bytes32}, p.bytes32),
+    grantRole: fun("0x2f2ff15d", "grantRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    hasRole: viewFun("0x91d14854", "hasRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, p.bool),
+    pause: fun("0x8456cb59", "pause()", {}, ),
+    paused: viewFun("0x5c975abb", "paused()", {}, p.bool),
+    renounceRole: fun("0x36568abe", "renounceRole(bytes32,address)", {"role": p.bytes32, "callerConfirmation": p.address}, ),
+    revokeRole: fun("0xd547741f", "revokeRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    router: viewFun("0xf887ea40", "router()", {}, p.address),
+    supportsInterface: viewFun("0x01ffc9a7", "supportsInterface(bytes4)", {"interfaceId": p.bytes4}, p.bool),
+    token: viewFun("0xfc0c546a", "token()", {}, p.address),
+    unpause: fun("0x3f4ba83a", "unpause()", {}, ),
 }
 
 export class Contract extends ContractBase {

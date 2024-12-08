@@ -2,7 +2,11 @@ import { isContract, isLog } from '../../item';
 import { createHandler } from '../base';
 import { createGatewayOperatorId } from '../helpers/ids';
 
-import { listenGatewayStakeUnlock } from './CheckStakeStatus.listener';
+import { INT32_MAX } from './Staked.handler';
+import {
+  addToGatewayStakeUnlockQueue,
+  removeFromGatewayStakeUnlockQueue,
+} from './StakeUnlock.queue';
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry';
 import { network } from '~/config/network';
@@ -20,11 +24,10 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
   const log = item.value;
 
   let gatewayOperator: string, lockEnd: number | null, autoExtension: boolean;
-
   if (GatewayRegistry.events.AutoextensionEnabled.is(log)) {
     const data = GatewayRegistry.events.AutoextensionEnabled.decode(log);
     gatewayOperator = data.gatewayOperator;
-    lockEnd = null;
+    lockEnd = INT32_MAX;
     autoExtension = true;
   } else {
     const data = GatewayRegistry.events.AutoextensionDisabled.decode(log);
@@ -46,6 +49,14 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(stake);
 
-    listenGatewayStakeUnlock(ctx, stake.id);
+    if (lockEnd) {
+      addToGatewayStakeUnlockQueue(ctx, stake.id);
+      ctx.log.info(`stake(${stake.id}) auto-extension enabled`);
+    } else {
+      removeFromGatewayStakeUnlockQueue(ctx, stake.id);
+      ctx.log.info(
+        `stake(${stake.id}) auto-extension disabled [${(stake.lockStart, stake.lockEnd)}]`,
+      );
+    }
   };
 });
