@@ -1,5 +1,5 @@
 import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
+import { createHandlerOld } from '../base';
 import { createAccount } from '../helpers/entities';
 import { createAccountId } from '../helpers/ids';
 
@@ -8,7 +8,7 @@ import { network } from '~/config/network';
 import { Account, Transfer, AccountTransfer, TransferDirection, AccountType } from '~/model';
 import { toHumanSQD } from '~/utils/misc';
 
-export const handleTransfer = createHandler({
+export const handleTransfer = createHandlerOld({
   filter(_, item): item is LogItem {
     return (
       isContract(item, network.contracts.SQD) && isLog(item) && SQD.events.Transfer.is(item.value)
@@ -23,7 +23,7 @@ export const handleTransfer = createHandler({
     const toId = createAccountId(event.to);
     const toDeferred = ctx.store.defer(Account, toId);
 
-    ctx.queue.add(async () => {
+    return async () => {
       const from = await fromDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`);
         return createAccount(id, { type: AccountType.USER });
@@ -68,6 +68,6 @@ export const handleTransfer = createHandler({
       ctx.log.info(
         `account(${from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${to.id})`,
       );
-    });
+    };
   },
 });

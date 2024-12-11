@@ -1,89 +1,85 @@
-import assert from 'assert';
+import assert from 'assert'
 
-import { BigInteger, DateTime } from '@subsquid/graphql-server';
-import { defaults, isNil, omitBy } from 'lodash';
-import { Field, ObjectType, Query, Resolver } from 'type-graphql';
-import { EntityManager } from 'typeorm';
+import { BigInteger, DateTime } from '@subsquid/graphql-server'
+import { Field, ObjectType, Query, Resolver } from 'type-graphql'
+import { EntityManager } from 'typeorm'
 
 @ObjectType()
 export class AprSnapshot {
   @Field(() => DateTime, { nullable: false })
-  timestamp!: Date;
+  timestamp!: Date
 
   @Field(() => Number, { nullable: false })
-  stakerApr!: number;
+  stakerApr!: number
 
   @Field(() => Number, { nullable: false })
-  workerApr!: number;
+  workerApr!: number
 
   constructor({ timestamp, ...props }: AprSnapshot) {
-    this.timestamp = new Date(timestamp);
-    Object.assign(this, props);
+    this.timestamp = new Date(timestamp)
+    Object.assign(this, props)
   }
 }
 
 @ObjectType()
 export class NetworkStats {
   @Field(() => Number, { nullable: false })
-  workerApr!: number;
+  workerApr!: number
 
   @Field(() => Number, { nullable: false })
-  stakerApr!: number;
+  stakerApr!: number
 
   @Field(() => BigInteger, { nullable: false })
-  storedData!: bigint;
+  storedData!: bigint
 
   @Field(() => BigInteger, { nullable: false })
-  queries24Hours!: bigint;
+  queries24Hours!: bigint
 
   @Field(() => BigInteger, { nullable: false })
-  queries90Days!: bigint;
+  queries90Days!: bigint
 
   @Field(() => BigInteger, { nullable: false })
-  servedData24Hours!: bigint;
+  servedData24Hours!: bigint
 
   @Field(() => BigInteger, { nullable: false })
-  servedData90Days!: bigint;
+  servedData90Days!: bigint
 
   @Field(() => Number, { nullable: false })
-  workersCount!: number;
+  workersCount!: number
 
   @Field(() => Number, { nullable: false })
-  onlineWorkersCount!: number;
+  onlineWorkersCount!: number
 
   @Field(() => BigInteger, { nullable: false })
-  totalBond!: bigint;
+  totalBond!: bigint
 
   @Field(() => BigInteger, { nullable: false })
-  totalDelegation!: bigint;
+  totalDelegation!: bigint
 
   @Field(() => Number, { nullable: false })
-  lastBlock!: number;
+  lastBlock!: number
 
   @Field(() => DateTime, { nullable: false })
-  lastBlockTimestamp!: Date;
+  lastBlockTimestamp!: Date
 
   @Field(() => Number, { nullable: false })
-  blockTime!: number;
+  blockTime!: number
 
   @Field(() => Number, { nullable: false })
-  lastBlockL1!: number;
+  lastBlockL1!: number
 
   @Field(() => DateTime, { nullable: false, defaultValue: new Date(0) })
-  lastBlockTimestampL1!: Date;
+  lastBlockTimestampL1!: Date
 
   @Field(() => Number, { nullable: false })
-  blockTimeL1!: number;
+  blockTimeL1!: number
 
   @Field(() => [AprSnapshot], { nullable: false })
-  aprs!: AprSnapshot[];
+  aprs!: AprSnapshot[]
 
   constructor({ aprs, ...props }: Partial<NetworkStats>) {
-    this.aprs = aprs?.map((apr) => new AprSnapshot(apr)) || [];
-    Object.assign(
-      this,
-      omitBy(props, (v) => isNil(v)),
-    );
+    this.aprs = aprs?.map((apr) => new AprSnapshot(apr)) || []
+    Object.assign(this, props)
   }
 }
 
@@ -93,7 +89,7 @@ export class NetworkSummaryResolver {
 
   @Query(() => NetworkStats)
   async networkStats(): Promise<NetworkStats> {
-    const manager = await this.tx();
+    const manager = await this.tx()
 
     return await manager
       .query(
@@ -136,8 +132,8 @@ export class NetworkSummaryResolver {
         `,
       )
       .then((r) => {
-        assert(r.length === 1);
-        return new NetworkStats(r[0]);
-      });
+        assert(r.length === 1)
+        return new NetworkStats(r[0])
+      })
   }
 }

@@ -1,6 +1,6 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
-import {GatewayOperator} from "./gatewayOperator.model"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BooleanColumn as BooleanColumn_, OneToMany as OneToMany_, BigIntColumn as BigIntColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {Account} from "./account.model"
+import {Gateway} from "./gateway.model"
 
 @Entity_()
 export class GatewayStake {
@@ -11,16 +11,19 @@ export class GatewayStake {
     @PrimaryColumn_()
     id!: string
 
-    @IntColumn_({nullable: false})
-    index!: number
-
-    @Index_()
-    @ManyToOne_(() => GatewayOperator, {nullable: true})
-    operator!: GatewayOperator
-
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
     owner!: Account
+
+    @Index_()
+    @ManyToOne_(() => Account, {nullable: true})
+    realOwner!: Account
+
+    @BooleanColumn_({nullable: false})
+    autoExtension!: boolean
+
+    @OneToMany_(() => Gateway, e => e.stake)
+    gateways!: Gateway[]
 
     @BigIntColumn_({nullable: false})
     amount!: bigint
@@ -28,12 +31,15 @@ export class GatewayStake {
     @BigIntColumn_({nullable: false})
     computationUnits!: bigint
 
+    @BigIntColumn_({nullable: true})
+    computationUnitsPending!: bigint | undefined | null
+
     @BooleanColumn_({nullable: false})
     locked!: boolean
 
-    @IntColumn_({nullable: false})
-    lockStart!: number
+    @IntColumn_({nullable: true})
+    lockStart!: number | undefined | null
 
-    @IntColumn_({nullable: false})
-    lockEnd!: number
+    @IntColumn_({nullable: true})
+    lockEnd!: number | undefined | null
 }

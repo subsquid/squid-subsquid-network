@@ -3,10 +3,10 @@ import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const functions = {
-    cap: viewFun("0xff2ad8e4", {"x": p.uint256}, p.uint256),
-    capedStake: viewFun("0xebe88e2e", {"workerId": p.uint256}, p.uint256),
-    capedStakeAfterDelegation: viewFun("0x7385ddcb", {"workerId": p.uint256, "delegationAmount": p.int256}, p.uint256),
-    router: viewFun("0xf887ea40", {}, p.address),
+    cap: viewFun("0xff2ad8e4", "cap(uint256)", {"x": p.uint256}, p.uint256),
+    capedStake: viewFun("0xebe88e2e", "capedStake(uint256)", {"workerId": p.uint256}, p.uint256),
+    capedStakeAfterDelegation: viewFun("0x7385ddcb", "capedStakeAfterDelegation(uint256,int256)", {"workerId": p.uint256, "delegationAmount": p.int256}, p.uint256),
+    router: viewFun("0xf887ea40", "router()", {}, p.address),
 }
 
 export class Contract extends ContractBase {

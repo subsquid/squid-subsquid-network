@@ -3,85 +3,85 @@ import { event, fun, viewFun, indexed, ContractBase } from '@subsquid/evm-abi'
 import type { EventParams as EParams, FunctionArguments, FunctionReturn } from '@subsquid/evm-abi'
 
 export const events = {
-    AllocatedCUs: event("0xa27699da150f8443c51cda13c28a1cbfb78ee3b4055de58197e770999fc23fbd", {"gateway": indexed(p.address), "peerId": p.bytes, "workerIds": p.array(p.uint256), "shares": p.array(p.uint256)}),
-    AutoextensionDisabled: event("0x17679fc77cdf7f6b7d2af4cb30497f3e81088fde6fdb20ca48d31372bc2af006", {"gatewayOperator": indexed(p.address), "lockEnd": p.uint128}),
-    AutoextensionEnabled: event("0xeff5f78e20f1cd92a537c3cdbaeaea11ad293aace5d7262ed93f2f33b42a828f", {"gatewayOperator": indexed(p.address)}),
-    AverageBlockTimeChanged: event("0x46a9c997a4d81c1f992b7ec20e34dfc97c0c67a86dc24f9ff1525718690bead3", {"newBlockTime": p.uint256}),
-    DefaultStrategyChanged: event("0x84e184ce3e506721b995db9e77ad7527e97c83dd04bf98f5830508602bf837ad", {"strategy": indexed(p.address)}),
-    GatewayAddressChanged: event("0x39cabfa8731da74e931aee9746250190051269d4d0c37ec9fb8276a32b1f6601", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "newAddress": p.address}),
-    Initialized: event("0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2", {"version": p.uint64}),
-    ManaChanged: event("0xd48c454cdec818a86733db9fd6353a7b80d423e6a189ecac47703f9b5fa0801b", {"newCuPerSQD": p.uint256}),
-    MaxGatewaysPerClusterChanged: event("0xf092d674fd06aab53c483be96eb202422ad493b452660e05adfe7f02aca08c1f", {"newAmount": p.uint256}),
-    MetadataChanged: event("0x512a85d60acb1212e9e49cec8fc20daed3ed43977be6a8db77faf2c859e79e7f", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "metadata": p.string}),
-    MinStakeChanged: event("0x4d36185d86b6e1aefe7e3c72bbcf2329ea433a9dc2655a34739abe83a7ce74a0", {"newAmount": p.uint256}),
-    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", {"account": p.address}),
-    Registered: event("0xb9c7babb56df9f2da4a30811a6c778e4e68af88b72712d56cf62c5516e20e199", {"gatewayOperator": indexed(p.address), "id": indexed(p.bytes32), "peerId": p.bytes}),
-    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
-    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
-    Staked: event("0x85362f63fb0e3050a216decb3a7297e2aaff6cbf5b22583c073118d7efc8a47b", {"gatewayOperator": indexed(p.address), "amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "computationUnits": p.uint256}),
-    StrategyAllowed: event("0x4e8e4980b101f6a8ebe870c7cf3767fb92422ef0c95a65b5cd750f9fce3c26e0", {"strategy": indexed(p.address), "isAllowed": p.bool}),
-    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", {"account": p.address}),
-    Unregistered: event("0xa133cd95a0c9cb4f8272f86cd3bb48ba2bf54f982e60bba1618e1286925eddec", {"gatewayOperator": indexed(p.address), "peerId": p.bytes}),
-    Unstaked: event("0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75", {"gatewayOperator": indexed(p.address), "amount": p.uint256}),
-    UsedStrategyChanged: event("0xe31c0bedb29ec4df4a7c3d8d8c0e4ad6bf3648906837d5400d61a94410c5e5bb", {"gatewayOperator": indexed(p.address), "strategy": p.address}),
+    AllocatedCUs: event("0xa27699da150f8443c51cda13c28a1cbfb78ee3b4055de58197e770999fc23fbd", "AllocatedCUs(address,bytes,uint256[],uint256[])", {"gateway": indexed(p.address), "peerId": p.bytes, "workerIds": p.array(p.uint256), "shares": p.array(p.uint256)}),
+    AutoextensionDisabled: event("0x17679fc77cdf7f6b7d2af4cb30497f3e81088fde6fdb20ca48d31372bc2af006", "AutoextensionDisabled(address,uint128)", {"gatewayOperator": indexed(p.address), "lockEnd": p.uint128}),
+    AutoextensionEnabled: event("0xeff5f78e20f1cd92a537c3cdbaeaea11ad293aace5d7262ed93f2f33b42a828f", "AutoextensionEnabled(address)", {"gatewayOperator": indexed(p.address)}),
+    AverageBlockTimeChanged: event("0x46a9c997a4d81c1f992b7ec20e34dfc97c0c67a86dc24f9ff1525718690bead3", "AverageBlockTimeChanged(uint256)", {"newBlockTime": p.uint256}),
+    DefaultStrategyChanged: event("0x84e184ce3e506721b995db9e77ad7527e97c83dd04bf98f5830508602bf837ad", "DefaultStrategyChanged(address)", {"strategy": indexed(p.address)}),
+    GatewayAddressChanged: event("0x39cabfa8731da74e931aee9746250190051269d4d0c37ec9fb8276a32b1f6601", "GatewayAddressChanged(address,bytes,address)", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "newAddress": p.address}),
+    Initialized: event("0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2", "Initialized(uint64)", {"version": p.uint64}),
+    ManaChanged: event("0xd48c454cdec818a86733db9fd6353a7b80d423e6a189ecac47703f9b5fa0801b", "ManaChanged(uint256)", {"newCuPerSQD": p.uint256}),
+    MaxGatewaysPerClusterChanged: event("0xf092d674fd06aab53c483be96eb202422ad493b452660e05adfe7f02aca08c1f", "MaxGatewaysPerClusterChanged(uint256)", {"newAmount": p.uint256}),
+    MetadataChanged: event("0x512a85d60acb1212e9e49cec8fc20daed3ed43977be6a8db77faf2c859e79e7f", "MetadataChanged(address,bytes,string)", {"gatewayOperator": indexed(p.address), "peerId": p.bytes, "metadata": p.string}),
+    MinStakeChanged: event("0x4d36185d86b6e1aefe7e3c72bbcf2329ea433a9dc2655a34739abe83a7ce74a0", "MinStakeChanged(uint256)", {"newAmount": p.uint256}),
+    Paused: event("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258", "Paused(address)", {"account": p.address}),
+    Registered: event("0xb9c7babb56df9f2da4a30811a6c778e4e68af88b72712d56cf62c5516e20e199", "Registered(address,bytes32,bytes)", {"gatewayOperator": indexed(p.address), "id": indexed(p.bytes32), "peerId": p.bytes}),
+    RoleAdminChanged: event("0xbd79b86ffe0ab8e8776151514217cd7cacd52c909f66475c3af44e129f0b00ff", "RoleAdminChanged(bytes32,bytes32,bytes32)", {"role": indexed(p.bytes32), "previousAdminRole": indexed(p.bytes32), "newAdminRole": indexed(p.bytes32)}),
+    RoleGranted: event("0x2f8788117e7eff1d82e926ec794901d17c78024a50270940304540a733656f0d", "RoleGranted(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    RoleRevoked: event("0xf6391f5c32d9c69d2a47ea670b442974b53935d1edc7fd64eb21e047a839171b", "RoleRevoked(bytes32,address,address)", {"role": indexed(p.bytes32), "account": indexed(p.address), "sender": indexed(p.address)}),
+    Staked: event("0x85362f63fb0e3050a216decb3a7297e2aaff6cbf5b22583c073118d7efc8a47b", "Staked(address,uint256,uint128,uint128,uint256)", {"gatewayOperator": indexed(p.address), "amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "computationUnits": p.uint256}),
+    StrategyAllowed: event("0x4e8e4980b101f6a8ebe870c7cf3767fb92422ef0c95a65b5cd750f9fce3c26e0", "StrategyAllowed(address,bool)", {"strategy": indexed(p.address), "isAllowed": p.bool}),
+    Unpaused: event("0x5db9ee0a495bf2e6ff9c91a7834c1ba4fdd244a5e8aa4e537bd38aeae4b073aa", "Unpaused(address)", {"account": p.address}),
+    Unregistered: event("0xa133cd95a0c9cb4f8272f86cd3bb48ba2bf54f982e60bba1618e1286925eddec", "Unregistered(address,bytes)", {"gatewayOperator": indexed(p.address), "peerId": p.bytes}),
+    Unstaked: event("0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75", "Unstaked(address,uint256)", {"gatewayOperator": indexed(p.address), "amount": p.uint256}),
+    UsedStrategyChanged: event("0xe31c0bedb29ec4df4a7c3d8d8c0e4ad6bf3648906837d5400d61a94410c5e5bb", "UsedStrategyChanged(address,address)", {"gatewayOperator": indexed(p.address), "strategy": p.address}),
 }
 
 export const functions = {
-    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", {}, p.bytes32),
-    PAUSER_ROLE: viewFun("0xe63ab1e9", {}, p.bytes32),
-    addStake: fun("0xeb4f16b5", {"amount": p.uint256}, ),
-    allocateComputationUnits: fun("0xb785a2e6", {"workerIds": p.array(p.uint256), "cus": p.array(p.uint256)}, ),
-    averageBlockTime: viewFun("0x233dedf1", {}, p.uint256),
-    canUnstake: viewFun("0x85f4498b", {"operator": p.address}, p.bool),
-    computationUnitsAmount: viewFun("0x1c0fa1c8", {"amount": p.uint256, "durationBlocks": p.uint256}, p.uint256),
-    computationUnitsAvailable: viewFun("0x44d4bea8", {"peerId": p.bytes}, p.uint256),
-    defaultStrategy: viewFun("0xfac5bb9b", {}, p.address),
-    disableAutoExtension: fun("0xe6c7f21b", {}, ),
-    enableAutoExtension: fun("0x13f117f2", {}, ),
-    gatewayByAddress: viewFun("0x429773fb", {"_0": p.address}, p.bytes32),
-    getActiveGateways: viewFun("0x01a99356", {"pageNumber": p.uint256, "perPage": p.uint256}, p.array(p.bytes)),
-    getActiveGatewaysCount: viewFun("0xd87113e5", {}, p.uint256),
-    getCluster: viewFun("0x585a6a6d", {"peerId": p.bytes}, p.array(p.bytes)),
-    getGateway: viewFun("0xdcefedaf", {"peerId": p.bytes}, p.struct({"operator": p.address, "ownAddress": p.address, "peerId": p.bytes, "metadata": p.string})),
-    getMetadata: viewFun("0x75734be8", {"peerId": p.bytes}, p.string),
-    getMyGateways: viewFun("0x2c17a07f", {"operator": p.address}, p.array(p.bytes)),
-    getRoleAdmin: viewFun("0x248a9ca3", {"role": p.bytes32}, p.bytes32),
-    getStake: viewFun("0x7a766460", {"operator": p.address}, p.struct({"amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "duration": p.uint128, "autoExtension": p.bool, "oldCUs": p.uint256})),
-    getUsedStrategy: viewFun("0x94f3c725", {"peerId": p.bytes}, p.address),
-    grantRole: fun("0x2f2ff15d", {"role": p.bytes32, "account": p.address}, ),
-    hasRole: viewFun("0x91d14854", {"role": p.bytes32, "account": p.address}, p.bool),
-    initialize: fun("0x485cc955", {"_token": p.address, "_router": p.address}, ),
-    isStrategyAllowed: viewFun("0x67c1def9", {"strategy": p.address}, p.bool),
-    mana: viewFun("0xbdb001a7", {}, p.uint256),
-    maxGatewaysPerCluster: viewFun("0xbc9c0e62", {}, p.uint256),
-    minStake: viewFun("0x375b3c0a", {}, p.uint256),
-    pause: fun("0x8456cb59", {}, ),
-    paused: viewFun("0x5c975abb", {}, p.bool),
-    "register(bytes)": fun("0x82fbdc9c", {"peerId": p.bytes}, ),
-    "register(bytes,string,address)": fun("0x876ab349", {"peerId": p.bytes, "metadata": p.string, "gatewayAddress": p.address}, ),
-    "register(bytes,string)": fun("0x92255fbf", {"peerId": p.bytes, "metadata": p.string}, ),
-    "register(bytes[],string[],address[])": fun("0xb1a7e279", {"peerId": p.array(p.bytes), "metadata": p.array(p.string), "gatewayAddress": p.array(p.address)}, ),
-    renounceRole: fun("0x36568abe", {"role": p.bytes32, "callerConfirmation": p.address}, ),
-    revokeRole: fun("0xd547741f", {"role": p.bytes32, "account": p.address}, ),
-    router: viewFun("0xf887ea40", {}, p.address),
-    setAverageBlockTime: fun("0x3736d853", {"_newAverageBlockTime": p.uint256}, ),
-    setGatewayAddress: fun("0xdacfab0d", {"peerId": p.bytes, "newAddress": p.address}, ),
-    setIsStrategyAllowed: fun("0x017a02c3", {"strategy": p.address, "isAllowed": p.bool, "isDefault": p.bool}, ),
-    setMana: fun("0x0def8b8a", {"_newMana": p.uint256}, ),
-    setMaxGatewaysPerCluster: fun("0x3abcf38c", {"_maxGatewaysPerCluster": p.uint256}, ),
-    setMetadata: fun("0x0fe9fb66", {"peerId": p.bytes, "metadata": p.string}, ),
-    setMinStake: fun("0x8c80fd90", {"_minStake": p.uint256}, ),
-    "stake(uint256,uint128)": fun("0x7acfc9e2", {"amount": p.uint256, "durationBlocks": p.uint128}, ),
-    "stake(uint256,uint128,bool)": fun("0xe3fa31ed", {"amount": p.uint256, "durationBlocks": p.uint128, "withAutoExtension": p.bool}, ),
-    staked: viewFun("0x98807d84", {"operator": p.address}, p.uint256),
-    supportsInterface: viewFun("0x01ffc9a7", {"interfaceId": p.bytes4}, p.bool),
-    token: viewFun("0xfc0c546a", {}, p.address),
-    unpause: fun("0x3f4ba83a", {}, ),
-    "unregister(bytes)": fun("0x27d6c032", {"peerId": p.bytes}, ),
-    "unregister(bytes[])": fun("0xf586857a", {"peerId": p.array(p.bytes)}, ),
-    unstake: fun("0x2def6620", {}, ),
-    useStrategy: fun("0xb8050a5d", {"strategy": p.address}, ),
+    DEFAULT_ADMIN_ROLE: viewFun("0xa217fddf", "DEFAULT_ADMIN_ROLE()", {}, p.bytes32),
+    PAUSER_ROLE: viewFun("0xe63ab1e9", "PAUSER_ROLE()", {}, p.bytes32),
+    addStake: fun("0xeb4f16b5", "addStake(uint256)", {"amount": p.uint256}, ),
+    allocateComputationUnits: fun("0xb785a2e6", "allocateComputationUnits(uint256[],uint256[])", {"workerIds": p.array(p.uint256), "cus": p.array(p.uint256)}, ),
+    averageBlockTime: viewFun("0x233dedf1", "averageBlockTime()", {}, p.uint256),
+    canUnstake: viewFun("0x85f4498b", "canUnstake(address)", {"operator": p.address}, p.bool),
+    computationUnitsAmount: viewFun("0x1c0fa1c8", "computationUnitsAmount(uint256,uint256)", {"amount": p.uint256, "durationBlocks": p.uint256}, p.uint256),
+    computationUnitsAvailable: viewFun("0x44d4bea8", "computationUnitsAvailable(bytes)", {"peerId": p.bytes}, p.uint256),
+    defaultStrategy: viewFun("0xfac5bb9b", "defaultStrategy()", {}, p.address),
+    disableAutoExtension: fun("0xe6c7f21b", "disableAutoExtension()", {}, ),
+    enableAutoExtension: fun("0x13f117f2", "enableAutoExtension()", {}, ),
+    gatewayByAddress: viewFun("0x429773fb", "gatewayByAddress(address)", {"_0": p.address}, p.bytes32),
+    getActiveGateways: viewFun("0x01a99356", "getActiveGateways(uint256,uint256)", {"pageNumber": p.uint256, "perPage": p.uint256}, p.array(p.bytes)),
+    getActiveGatewaysCount: viewFun("0xd87113e5", "getActiveGatewaysCount()", {}, p.uint256),
+    getCluster: viewFun("0x585a6a6d", "getCluster(bytes)", {"peerId": p.bytes}, p.array(p.bytes)),
+    getGateway: viewFun("0xdcefedaf", "getGateway(bytes)", {"peerId": p.bytes}, p.struct({"operator": p.address, "ownAddress": p.address, "peerId": p.bytes, "metadata": p.string})),
+    getMetadata: viewFun("0x75734be8", "getMetadata(bytes)", {"peerId": p.bytes}, p.string),
+    getMyGateways: viewFun("0x2c17a07f", "getMyGateways(address)", {"operator": p.address}, p.array(p.bytes)),
+    getRoleAdmin: viewFun("0x248a9ca3", "getRoleAdmin(bytes32)", {"role": p.bytes32}, p.bytes32),
+    getStake: viewFun("0x7a766460", "getStake(address)", {"operator": p.address}, p.struct({"amount": p.uint256, "lockStart": p.uint128, "lockEnd": p.uint128, "duration": p.uint128, "autoExtension": p.bool, "oldCUs": p.uint256})),
+    getUsedStrategy: viewFun("0x94f3c725", "getUsedStrategy(bytes)", {"peerId": p.bytes}, p.address),
+    grantRole: fun("0x2f2ff15d", "grantRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    hasRole: viewFun("0x91d14854", "hasRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, p.bool),
+    initialize: fun("0x485cc955", "initialize(address,address)", {"_token": p.address, "_router": p.address}, ),
+    isStrategyAllowed: viewFun("0x67c1def9", "isStrategyAllowed(address)", {"strategy": p.address}, p.bool),
+    mana: viewFun("0xbdb001a7", "mana()", {}, p.uint256),
+    maxGatewaysPerCluster: viewFun("0xbc9c0e62", "maxGatewaysPerCluster()", {}, p.uint256),
+    minStake: viewFun("0x375b3c0a", "minStake()", {}, p.uint256),
+    pause: fun("0x8456cb59", "pause()", {}, ),
+    paused: viewFun("0x5c975abb", "paused()", {}, p.bool),
+    'register(bytes)': fun("0x82fbdc9c", "register(bytes)", {"peerId": p.bytes}, ),
+    'register(bytes,string,address)': fun("0x876ab349", "register(bytes,string,address)", {"peerId": p.bytes, "metadata": p.string, "gatewayAddress": p.address}, ),
+    'register(bytes,string)': fun("0x92255fbf", "register(bytes,string)", {"peerId": p.bytes, "metadata": p.string}, ),
+    'register(bytes[],string[],address[])': fun("0xb1a7e279", "register(bytes[],string[],address[])", {"peerId": p.array(p.bytes), "metadata": p.array(p.string), "gatewayAddress": p.array(p.address)}, ),
+    renounceRole: fun("0x36568abe", "renounceRole(bytes32,address)", {"role": p.bytes32, "callerConfirmation": p.address}, ),
+    revokeRole: fun("0xd547741f", "revokeRole(bytes32,address)", {"role": p.bytes32, "account": p.address}, ),
+    router: viewFun("0xf887ea40", "router()", {}, p.address),
+    setAverageBlockTime: fun("0x3736d853", "setAverageBlockTime(uint256)", {"_newAverageBlockTime": p.uint256}, ),
+    setGatewayAddress: fun("0xdacfab0d", "setGatewayAddress(bytes,address)", {"peerId": p.bytes, "newAddress": p.address}, ),
+    setIsStrategyAllowed: fun("0x017a02c3", "setIsStrategyAllowed(address,bool,bool)", {"strategy": p.address, "isAllowed": p.bool, "isDefault": p.bool}, ),
+    setMana: fun("0x0def8b8a", "setMana(uint256)", {"_newMana": p.uint256}, ),
+    setMaxGatewaysPerCluster: fun("0x3abcf38c", "setMaxGatewaysPerCluster(uint256)", {"_maxGatewaysPerCluster": p.uint256}, ),
+    setMetadata: fun("0x0fe9fb66", "setMetadata(bytes,string)", {"peerId": p.bytes, "metadata": p.string}, ),
+    setMinStake: fun("0x8c80fd90", "setMinStake(uint256)", {"_minStake": p.uint256}, ),
+    'stake(uint256,uint128)': fun("0x7acfc9e2", "stake(uint256,uint128)", {"amount": p.uint256, "durationBlocks": p.uint128}, ),
+    'stake(uint256,uint128,bool)': fun("0xe3fa31ed", "stake(uint256,uint128,bool)", {"amount": p.uint256, "durationBlocks": p.uint128, "withAutoExtension": p.bool}, ),
+    staked: viewFun("0x98807d84", "staked(address)", {"operator": p.address}, p.uint256),
+    supportsInterface: viewFun("0x01ffc9a7", "supportsInterface(bytes4)", {"interfaceId": p.bytes4}, p.bool),
+    token: viewFun("0xfc0c546a", "token()", {}, p.address),
+    unpause: fun("0x3f4ba83a", "unpause()", {}, ),
+    'unregister(bytes)': fun("0x27d6c032", "unregister(bytes)", {"peerId": p.bytes}, ),
+    'unregister(bytes[])': fun("0xf586857a", "unregister(bytes[])", {"peerId": p.array(p.bytes)}, ),
+    unstake: fun("0x2def6620", "unstake()", {}, ),
+    useStrategy: fun("0xb8050a5d", "useStrategy(address)", {"strategy": p.address}, ),
 }
 
 export class Contract extends ContractBase {
@@ -310,17 +310,17 @@ export type PauseReturn = FunctionReturn<typeof functions.pause>
 export type PausedParams = FunctionArguments<typeof functions.paused>
 export type PausedReturn = FunctionReturn<typeof functions.paused>
 
-export type RegisterParams_0 = FunctionArguments<typeof functions["register(bytes)"]>
-export type RegisterReturn_0 = FunctionReturn<typeof functions["register(bytes)"]>
+export type RegisterParams_0 = FunctionArguments<typeof functions['register(bytes)']>
+export type RegisterReturn_0 = FunctionReturn<typeof functions['register(bytes)']>
 
-export type RegisterParams_1 = FunctionArguments<typeof functions["register(bytes,string,address)"]>
-export type RegisterReturn_1 = FunctionReturn<typeof functions["register(bytes,string,address)"]>
+export type RegisterParams_1 = FunctionArguments<typeof functions['register(bytes,string,address)']>
+export type RegisterReturn_1 = FunctionReturn<typeof functions['register(bytes,string,address)']>
 
-export type RegisterParams_2 = FunctionArguments<typeof functions["register(bytes,string)"]>
-export type RegisterReturn_2 = FunctionReturn<typeof functions["register(bytes,string)"]>
+export type RegisterParams_2 = FunctionArguments<typeof functions['register(bytes,string)']>
+export type RegisterReturn_2 = FunctionReturn<typeof functions['register(bytes,string)']>
 
-export type RegisterParams_3 = FunctionArguments<typeof functions["register(bytes[],string[],address[])"]>
-export type RegisterReturn_3 = FunctionReturn<typeof functions["register(bytes[],string[],address[])"]>
+export type RegisterParams_3 = FunctionArguments<typeof functions['register(bytes[],string[],address[])']>
+export type RegisterReturn_3 = FunctionReturn<typeof functions['register(bytes[],string[],address[])']>
 
 export type RenounceRoleParams = FunctionArguments<typeof functions.renounceRole>
 export type RenounceRoleReturn = FunctionReturn<typeof functions.renounceRole>
@@ -352,11 +352,11 @@ export type SetMetadataReturn = FunctionReturn<typeof functions.setMetadata>
 export type SetMinStakeParams = FunctionArguments<typeof functions.setMinStake>
 export type SetMinStakeReturn = FunctionReturn<typeof functions.setMinStake>
 
-export type StakeParams_0 = FunctionArguments<typeof functions["stake(uint256,uint128)"]>
-export type StakeReturn_0 = FunctionReturn<typeof functions["stake(uint256,uint128)"]>
+export type StakeParams_0 = FunctionArguments<typeof functions['stake(uint256,uint128)']>
+export type StakeReturn_0 = FunctionReturn<typeof functions['stake(uint256,uint128)']>
 
-export type StakeParams_1 = FunctionArguments<typeof functions["stake(uint256,uint128,bool)"]>
-export type StakeReturn_1 = FunctionReturn<typeof functions["stake(uint256,uint128,bool)"]>
+export type StakeParams_1 = FunctionArguments<typeof functions['stake(uint256,uint128,bool)']>
+export type StakeReturn_1 = FunctionReturn<typeof functions['stake(uint256,uint128,bool)']>
 
 export type StakedParams = FunctionArguments<typeof functions.staked>
 export type StakedReturn = FunctionReturn<typeof functions.staked>
@@ -370,11 +370,11 @@ export type TokenReturn = FunctionReturn<typeof functions.token>
 export type UnpauseParams = FunctionArguments<typeof functions.unpause>
 export type UnpauseReturn = FunctionReturn<typeof functions.unpause>
 
-export type UnregisterParams_0 = FunctionArguments<typeof functions["unregister(bytes)"]>
-export type UnregisterReturn_0 = FunctionReturn<typeof functions["unregister(bytes)"]>
+export type UnregisterParams_0 = FunctionArguments<typeof functions['unregister(bytes)']>
+export type UnregisterReturn_0 = FunctionReturn<typeof functions['unregister(bytes)']>
 
-export type UnregisterParams_1 = FunctionArguments<typeof functions["unregister(bytes[])"]>
-export type UnregisterReturn_1 = FunctionReturn<typeof functions["unregister(bytes[])"]>
+export type UnregisterParams_1 = FunctionArguments<typeof functions['unregister(bytes[])']>
+export type UnregisterReturn_1 = FunctionReturn<typeof functions['unregister(bytes[])']>
 
 export type UnstakeParams = FunctionArguments<typeof functions.unstake>
 export type UnstakeReturn = FunctionReturn<typeof functions.unstake>

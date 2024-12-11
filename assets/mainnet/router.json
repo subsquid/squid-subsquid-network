@@ -1,0 +1,66 @@
+{
+  "height": 282624497,
+  "hash": "0xb7f7e4dd51c73489c510304da38a8c8653c2222a38031da5eb80bc4153773131",
+  "top": [],
+  "networkController": [
+    {
+      "address": "0x4cf58097d790b193d22ed633bf8b15c9bc4f0da7",
+      "range": {
+        "from": 0,
+        "to": 225252420
+      }
+    },
+    {
+      "address": "0xd03b4ea30a6fdb5d785ed1b5ed4a0909ebd5768b",
+      "range": {
+        "from": 225252421,
+        "to": 225355956
+      }
+    },
+    {
+      "address": "0x159550d2589cff1ff604af715130642256b88847",
+      "range": {
+        "from": 225355957,
+        "to": 276791659
+      }
+    },
+    {
+      "address": "0xf5462ef65ca8a9cca789c912bc8ada80b582d68d",
+      "range": {
+        "from": 276791660
+      }
+    }
+  ],
+  "rewardCalculation": [
+    {
+      "address": "0xd3d2c185a30484641c07b60e7d952d7b85516eb5",
+      "range": {
+        "from": 0
+      }
+    }
+  ],
+  "rewardTreasury": [
+    {
+      "address": "0x237abf43bc51fd5c50d0d598a1a4c26e56a8a2a0",
+      "range": {
+        "from": 0
+      }
+    }
+  ],
+  "workerRegistration": [
+    {
+      "address": "0x36e2b147db67e76ab67a4d07c293670ebefcae4e",
+      "range": {
+        "from": 0
+      }
+    }
+  ],
+  "staking": [
+    {
+      "address": "0xb31a0d39d2c69ed4b28d96e12cbf52c5f9ac9a51",
+      "range": {
+        "from": 0
+      }
+    }
+  ]
+}
