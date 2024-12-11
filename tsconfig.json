@@ -3,7 +3,8 @@
     "module": "commonjs",
     "target": "es2020",
     "outDir": "lib",
-    // "rootDir": "src",
+    "rootDir": "src",
+    "baseUrl": ".",
     "strict": true,
     "declaration": false,
     "sourceMap": true,
@@ -23,6 +24,6 @@
       "~/config/*": ["./src/config/*"]
     }
   },
-  "include": ["src", "tools"],
+  "include": ["src"],
   "exclude": ["node_modules"]
 }

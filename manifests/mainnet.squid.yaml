@@ -10,34 +10,31 @@ deploy:
     NETWORK: mainnet
     RPC_ENDPOINT: ${{ secrets.ARBITRUM_RPC_URL }}
     PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_one.http }}
-    STAKING_CONTRACT_ADDRESS: "0xb31a0d39d2c69ed4b28d96e12cbf52c5f9ac9a51"
-    WORKER_REGISTRY_CONTRACT_ADDRESS: "0x36e2b147db67e76ab67a4d07c293670ebefcae4e"
-    SQD_CONTRACT_ADDRESS: "0x1337420dED5ADb9980CFc35f8f2B054ea86f8aB1"
-    NETWORK_CONTROLLER_CONTRACT_ADDRESS: "0x159550d2589CfF1Ff604AF715130642256B88847;225285723"
-    OLD_NETWORK_CONTROLLER_CONTRACT_ADDRESS: "0x4cf58097d790b193d22ed633bf8b15c9bc4f0da7"
-    REWARD_TREASURY_CONTRACT_ADDRESS: "0x237abf43bc51fd5c50d0d598a1a4c26e56a8a2a0"
-    REWARDS_DISTRIBUTION_ADDRESS: "0x4de282bD18aE4987B3070F4D5eF8c80756362AEa"
-    MULTICALL_3_CONTRACT_ADDRESS: "0xca11bde05977b3631167028862be2a173976ca11"
-    VESTING_FACTORY_CONTRACT_ADDRESS: "0x1f8f83cd76baeca1cb5c064ad59203c82b4e4ece"
-    GATEWAY_REGISTRY_CONTRACT_ADDRESS: "0x8a90a1ce5fa8cf71de9e6f76b7d3c0b72feb8c4b"
-    TEMPORARY_HOLDING_FACTORY_CONTRACT_ADDRESS: "0x14926ebf05a904b8e2e2bf05c10ecca9a54d8d0d"
-    SOFT_CAP_CONTRACT_ADDRESS: "0x0eb27b1cbba04698dd7ce0f2364584d33a616545"
-    RANGE_FROM: 194_120_655
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
     SCHEDULER_API_URL: https://scheduler.mainnet.subsquid.io
     REWARDS_MONITOR_API_URL: https://rewards-monitor.mainnet.subsquid.io
   processor:
     cmd:
-      - sqd
-      - process:prod
+      - node
+      - lib/main.js
   api:
     cmd:
-      - sqd
-      - serve:prod
+      - npx
+      - squid-graphql-server
+      - --dumb-cache
+      - in-memory
+      - --dumb-cache-ttl
+      - "1000"
+      - --dumb-cache-size
+      - "100"
+      - --dumb-cache-max-age
+      - "1000"
+      - --no-squid-status
   init:
     cmd:
-      - sqd
-      - migration:apply
+      - npx
+      - squid-typeorm-migration
+      - apply
 scale:
   dedicated: true
   addons:

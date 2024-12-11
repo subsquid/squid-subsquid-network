@@ -29,7 +29,7 @@ import {
   processWorkerStatusApplyQueue,
 } from '~/core/worker/WorkerStatusApply.queue'
 import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
-import { last, toNextEpochStart } from '~/utils/misc'
+import { last, toEpochStart, toNextEpochStart } from '~/utils/misc'
 import { Task } from '~/utils/queue'
 
 processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
@@ -50,7 +50,9 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
     tasks.push(async () => {
       await ctx.store.insert(createBlock(block.header))
 
-      await checkForNewEpoch(ctx, block.header)
+      if (block.header.height >= 208420393) {
+        await checkForNewEpoch(ctx, block.header)
+      }
 
       await processWorkerUnlockQueue(ctx, block.header)
       await processWorkerStatusApplyQueue(ctx, block.header)
@@ -116,7 +118,9 @@ async function init(ctx: MappingContext, block: BlockHeader) {
 
 let blocksPassed = Infinity
 async function complete(ctx: MappingContext, block: BlockHeader) {
-  await updateWorkersCap(ctx, block)
+  if (ctx.isHead) {
+    await updateWorkersCap(ctx, block)
+  }
 
   if (blocksPassed > 1000) {
     const limit = 50_000
@@ -150,7 +154,7 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
   }
 
   const nextEpochStart =
-    currentEpoch == null ? toNextEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
+    currentEpoch == null ? toEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
   if (block.l1BlockNumber < nextEpochStart) return
 
   if (currentEpoch) {

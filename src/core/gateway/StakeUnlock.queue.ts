@@ -1,68 +1,68 @@
-import assert from 'assert';
+import assert from 'assert'
 
-import { MappingContext } from '../../types';
+import { MappingContext } from '../../types'
 
-import { GatewayStake, Queue } from '~/model';
+import { GatewayStake, Queue } from '~/model'
 
-export const STAKE_UNLOCK_QUEUE = 'stake-unlock';
+export const STAKE_UNLOCK_QUEUE = 'stake-unlock'
 
 export type StakeUnlockTask = {
-  id: string;
-};
+  id: string
+}
 
 export async function ensureGatewayStakeUnlockQueue(ctx: MappingContext) {
   const queue = await ctx.store.getOrInsert(
     Queue<StakeUnlockTask>,
     STAKE_UNLOCK_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
-  );
+  )
 
   for (const task of queue.tasks) {
-    ctx.store.defer(GatewayStake, task.id);
+    ctx.store.defer(GatewayStake, task.id)
   }
 }
 
 export async function addToGatewayStakeUnlockQueue(ctx: MappingContext, id: string) {
-  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE);
+  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE)
 
-  if (queue.tasks.some((task) => task.id === id)) return;
-  queue.tasks.push({ id });
+  if (queue.tasks.some((task) => task.id === id)) return
+  queue.tasks.push({ id })
 
-  await ctx.store.upsert(queue);
+  await ctx.store.upsert(queue)
 
-  ctx.store.defer(GatewayStake, id);
+  ctx.store.defer(GatewayStake, id)
 }
 
 export async function removeFromGatewayStakeUnlockQueue(ctx: MappingContext, id: string) {
-  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE);
+  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE)
 
-  queue.tasks = queue.tasks.filter((task) => task.id !== id);
+  queue.tasks = queue.tasks.filter((task) => task.id !== id)
 
-  await ctx.store.upsert(queue);
+  await ctx.store.upsert(queue)
 }
 
 export async function processGatewayStakeUnlockQueue(
   ctx: MappingContext,
   block: { l1BlockNumber: number },
 ) {
-  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE);
+  const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE)
 
-  const tasks: StakeUnlockTask[] = [];
+  const tasks: StakeUnlockTask[] = []
   for (const task of queue.tasks) {
-    const stake = await ctx.store.getOrFail(GatewayStake, task.id);
+    const stake = await ctx.store.getOrFail(GatewayStake, task.id)
 
-    assert(stake.locked, `stake(${stake.id}) already unlocked`);
+    assert(stake.locked, `stake(${stake.id}) already unlocked`)
     if (stake.lockEnd && stake.lockEnd > block.l1BlockNumber) {
-      tasks.push(task);
-      continue;
+      tasks.push(task)
+      continue
     }
 
-    stake.locked = false;
-    await ctx.store.upsert(stake);
+    stake.locked = false
+    await ctx.store.upsert(stake)
 
-    ctx.log.info(`stake(${stake.id}) unlocked`);
+    ctx.log.info(`stake(${stake.id}) unlocked`)
   }
 
-  queue.tasks = tasks;
-  await ctx.store.upsert(queue);
+  queue.tasks = tasks
+  await ctx.store.upsert(queue)
 }

@@ -32,19 +32,18 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
   const log = item.value
   const event = RewardsDistribution.events.Distributed.decode(log)
 
-  const recipientIds = event.recipients.map((r) => createWorkerId(r))
-
   return async () => {
-    if (recipientIds.length === 0) {
-      ctx.log.info(`nothing to reward`)
-      return
-    }
+    const recipientIds = event.recipients.map((r) => createWorkerId(r))
+    // if (recipientIds.length === 0) {
+    //   ctx.log.info(`nothing to reward`)
+    //   return
+    // }
 
     // since certain block distribution intervals became to overlap,
     // but it is not reflected in the event interval due to contract limitation
     const normalizedFromBlockNumber =
-      (network.name === 'arbitrum' && log.block.height >= 250398109) ||
-      (network.name === 'arbitrum-sepolia' && log.block.height >= 77573325)
+      (network.name === 'mainnet' && log.block.height >= 250398109) ||
+      (network.name === 'tethys' && log.block.height >= 77573325)
         ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
         : event.fromBlock
 
@@ -166,22 +165,22 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
         })
         delegationRewardsCount += count
       }
-
-      await ctx.store.insert(
-        new Commitment({
-          id: createCommitmentId(event.fromBlock, event.toBlock),
-          from: fromBlock?.timestamp,
-          fromBlock: Number(normalizedFromBlockNumber),
-          to: toBlock?.timestamp,
-          toBlock: Number(event.toBlock),
-          recipients: Object.values(payouts).map((p) => new CommitmentRecipient(p)),
-        }),
-      )
-
-      ctx.log.info(
-        `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,
-      )
     }
+
+    await ctx.store.insert(
+      new Commitment({
+        id: createCommitmentId(event.fromBlock, event.toBlock),
+        from: fromBlock?.timestamp,
+        fromBlock: Number(normalizedFromBlockNumber),
+        to: toBlock?.timestamp,
+        toBlock: Number(event.toBlock),
+        recipients: Object.values(payouts).map((p) => new CommitmentRecipient(p)),
+      }),
+    )
+
+    ctx.log.info(
+      `rewarded ${recipientIds.length} workers and ${delegationRewardsCount} delegations`,
+    )
   }
 })
 

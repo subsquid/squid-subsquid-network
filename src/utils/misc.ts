@@ -77,7 +77,11 @@ export function normalizeAddress(address: string) {
 }
 
 export function toNextEpochStart(block: number, length: number) {
-  return Math.floor(block / length + 1) * length
+  return toEpochStart(block, length) + length
+}
+
+export function toEpochStart(block: number, length: number) {
+  return Math.floor(block / length) * length
 }
 
 export type Awaitable<T> = T | Promise<T>

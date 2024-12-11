@@ -29,6 +29,7 @@ export const processor = new EvmBatchProcessor()
   .setRpcDataIngestionSettings({
     newHeadTimeout: 30_000,
   })
+  .setFinalityConfirmation(10)
   .setFields({
     block: {
       timestamp: true,
@@ -41,9 +42,13 @@ export const processor = new EvmBatchProcessor()
     },
   })
   .includeAllBlocks()
+  .setBlockRange(network.range)
 
 if (process.env.PORTAL_ENDPOINT) {
-  processor.setGateway(process.env.PORTAL_ENDPOINT)
+  processor.setPortal({
+    url: assertNotNull(process.env.PORTAL_ENDPOINT),
+    bufferThreshold: 20 * 1024 * 1024,
+  })
 }
 
 processor

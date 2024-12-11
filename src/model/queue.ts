@@ -2,17 +2,17 @@ import {
   Entity as Entity_,
   PrimaryColumn as PrimaryColumn_,
   JSONColumn as JSONColumn_,
-} from '@subsquid/typeorm-store';
+} from '@subsquid/typeorm-store'
 
 @Entity_()
 export class Queue<T = unknown> {
   constructor(props?: Partial<Queue<T>>) {
-    Object.assign(this, props);
+    Object.assign(this, props)
   }
 
   @PrimaryColumn_()
-  id!: string;
+  id!: string
 
-  @JSONColumn_({ array: true })
-  tasks!: T[];
+  @JSONColumn_({})
+  tasks!: T[]
 }

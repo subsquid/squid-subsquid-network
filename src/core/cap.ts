@@ -30,7 +30,7 @@ export async function ensureWorkerCapQueue(ctx: MappingContext, block: BlockHead
     ctx.store.defer(Worker, task.id)
   }
 
-  if (!INIT_CAPS) {
+  if (!INIT_CAPS && ctx.isHead) {
     await updateWorkersCap(ctx, block, true)
 
     INIT_CAPS = true
@@ -49,6 +49,8 @@ export async function addToWorkerCapQueue(ctx: MappingContext, id: string) {
 }
 
 export async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, all = false) {
+  if (block.height < network.contracts.SoftCap.range.from) return
+
   const queue = await ctx.store.getOrFail(Queue<WorkerUnlockTask>, WORKER_CAP_QUEUE)
 
   const multicall = new Multicall(ctx, block, network.contracts.Multicall3.address)

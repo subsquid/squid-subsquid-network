@@ -14,7 +14,7 @@ import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc'
 
 export const handleWorkerRegistered = createHandler((ctx, item) => {
   if (!isLog(item)) return
-  if (!WorkerRegistry.events.WorkerDeregistered.is(item.value)) return
+  if (!WorkerRegistry.events.WorkerRegistered.is(item.value)) return
 
   const log = item.value
   const event = WorkerRegistry.events.WorkerRegistered.decode(log)

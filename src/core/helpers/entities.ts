@@ -1,6 +1,6 @@
-import { assertNotNull } from '@subsquid/evm-processor';
+import { assertNotNull } from '@subsquid/evm-processor'
 
-import { BlockHeader as _Block } from '~/config/processor';
+import { BlockHeader as _Block } from '~/config/processor'
 import {
   Account,
   AccountType,
@@ -12,8 +12,8 @@ import {
   Settings,
   Worker,
   WorkerStatus,
-} from '~/model';
-import { WorkerMetadata } from '~/utils/misc';
+} from '~/model'
+import { WorkerMetadata } from '~/utils/misc'
 
 export function createAccount(id: string, opts?: { owner?: Account; type?: AccountType }) {
   return new Account({
@@ -22,7 +22,7 @@ export function createAccount(id: string, opts?: { owner?: Account; type?: Accou
     claimableDelegationCount: 0,
     type: AccountType.USER,
     ...opts,
-  });
+  })
 }
 
 export function createSettings(id: string) {
@@ -30,7 +30,7 @@ export function createSettings(id: string) {
     id,
     utilizedStake: 0n,
     baseApr: 0,
-  });
+  })
 }
 
 export function createDelegation(
@@ -44,7 +44,7 @@ export function createDelegation(
     claimedReward: 0n,
     ...opts,
     realOwner: realOwner ? realOwner : opts.owner,
-  });
+  })
 }
 
 // export function createCommitment(
@@ -79,19 +79,19 @@ export function createDelegation(
 // }
 
 export function createBlock(block: _Block) {
-  const { timestamp, ...props } = block;
+  const { timestamp, ...props } = block
   return new Block({
     timestamp: new Date(timestamp),
     ...props,
-  });
+  })
 }
 
 export function unwrapAccount(account: Account) {
   switch (account.type) {
     case AccountType.USER:
-      return account;
+      return account
     case AccountType.VESTING:
-      return assertNotNull(account.owner, 'vesting account must have an owner');
+      return assertNotNull(account.owner, 'vesting account must have an owner')
   }
 }
 export function createWorker(
@@ -103,11 +103,11 @@ export function createWorker(
     peerId,
     createdAt,
   }: {
-    owner: Account;
-    realOwner: Account;
-    metadata: WorkerMetadata;
-    peerId: string;
-    createdAt: Date;
+    owner: Account
+    realOwner: Account
+    metadata: WorkerMetadata
+    peerId: string
+    createdAt: Date
   },
 ) {
   const worker = new Worker({
@@ -128,11 +128,11 @@ export function createWorker(
     lockStart: null,
     lockEnd: null,
     ...metadata,
-  });
+  })
 
-  resetWorkerStats(worker);
+  resetWorkerStats(worker)
 
-  return worker;
+  return worker
 }
 
 export function resetWorkerStats(worker: Worker) {
@@ -152,7 +152,7 @@ export function resetWorkerStats(worker: Worker) {
     version: null,
     apr: null,
     stakerApr: null,
-  } satisfies Partial<Worker>);
+  } satisfies Partial<Worker>)
 }
 
 export function createGatewayStake(
@@ -161,8 +161,8 @@ export function createGatewayStake(
     owner,
     realOwner,
   }: {
-    owner: Account;
-    realOwner: Account;
+    owner: Account
+    realOwner: Account
   },
 ) {
   return new GatewayStake({
@@ -173,5 +173,5 @@ export function createGatewayStake(
     amount: 0n,
     computationUnits: 0n,
     locked: false,
-  });
+  })
 }

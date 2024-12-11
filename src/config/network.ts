@@ -9,7 +9,7 @@ export type ContractConfig = {
 }
 
 export type NetworkConfig = {
-  name: string
+  name: 'mainnet' | 'tethys'
   contracts: {
     SQD: ContractConfig
     Router: ContractConfig
@@ -63,7 +63,7 @@ function getNetworkConfig(): NetworkConfig {
           },
           SoftCap: {
             address: '0x0eb27b1cbba04698dd7ce0f2364584d33a616545',
-            range: { from: 0 },
+            range: { from: 223460171 },
           },
           VestingFactory: {
             address: '0x1f8f83cd76baeca1cb5c064ad59203c82b4e4ece',
@@ -85,7 +85,7 @@ function getNetworkConfig(): NetworkConfig {
       }
     case 'tethys':
       return {
-        name: 'testnet',
+        name: 'tethys',
         contracts: {
           SQD: {
             address: '0x24f9C46d86c064a6FA2a568F918fe62fC6917B3c',
@@ -109,7 +109,7 @@ function getNetworkConfig(): NetworkConfig {
           },
           SoftCap: {
             address: '0x52f31c9c019f840a9c0e74f66acc95455b254bea',
-            range: { from: 0 },
+            range: { from: 33215714 },
           },
           VestingFactory: {
             address: '0x0ed5fb811167de1928322a0fa30ed7f3c8c370ca',
