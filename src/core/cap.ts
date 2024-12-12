@@ -65,20 +65,20 @@ async function updateWorkersCap(ctx: MappingContext, block: Block, all = false) 
 // }
 
 export async function recalculateWorkerAprs(ctx: MappingContext) {
-  const statistics = await ctx.store.getOrFail(Statistics, network.name);
+  const settings = await ctx.store.getOrFail(Statistics, network.name);
 
   const workers = await ctx.store.find(Worker, {
     where: { status: WorkerStatus.ACTIVE },
   });
 
-  const baseApr = BigDecimal(0.2);
+  const baseApr = BigDecimal(settings.baseApr);
   const utilizedStake = workers.reduce(
     (r, w) => (w.liveness ? r + w.bond + w.capedDelegation : r),
     0n,
   );
 
-  statistics.baseApr = baseApr.toNumber();
-  statistics.utilizedStake = utilizedStake;
+  // settings.baseApr = baseApr.toNumber()
+  settings.utilizedStake = utilizedStake;
 
   for (const worker of workers) {
     const supplyRatio =
@@ -110,5 +110,5 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
   }
 
   await ctx.store.upsert(workers);
-  await ctx.store.upsert(statistics);
+  await ctx.store.upsert(settings);
 }

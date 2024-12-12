@@ -8,7 +8,15 @@ import { Events, MappingContext } from '../types';
 import { recalculateWorkerAprs } from './cap';
 
 import { network } from '~/config/network';
-import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings, Block } from '~/model';
+import {
+  WorkerStatus,
+  Worker,
+  Commitment,
+  WorkerDayUptime,
+  Settings,
+  Block,
+  Statistics,
+} from '~/model';
 import { joinUrl, toPercent } from '~/utils/misc';
 import { DAY_MS, HOUR_MS, MINUTE_MS, toStartOfDay, toStartOfInterval } from '~/utils/time';
 
@@ -301,12 +309,26 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
             : 5 * MINUTE_MS;
           return;
         }
+      }
+
+      let rewardStats: { workers: RewardStat[] };
+      try {
+        rewardStats = await client.get(
+          joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${endBlock.l1BlockNumber}`),
+        );
+      } catch (e) {
+        if (e instanceof HttpError || e instanceof HttpTimeoutError) {
+          ctx.log.warn(e);
+          lastRewardMetricsUpdateOffset = lastRewardMetricsUpdateOffset
+            ? Math.min(lastRewardMetricsUpdateOffset * 2, metricsUpdateInterval)
+            : 5 * MINUTE_MS;
+          return;
+        }
 
         throw e;
       }
-      const { workers: data } = res;
 
-      const workersStats = keyBy(data, (w) => w.id);
+      const workersStats = keyBy(rewardStats.workers, (w) => w.id);
       const activeWorkers = await ctx.store.find(Worker, {
         where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
       });
@@ -320,6 +342,28 @@ export function listenRewardMetricsUpdate(ctx: MappingContext) {
       }
 
       await ctx.store.upsert(activeWorkers);
+
+      const settings = await ctx.store.getOrFail(Statistics, network.name);
+
+      let currentApy: { apy: number };
+      try {
+        currentApy = await client.get(
+          joinUrl(monitorUrl, `/currentApy/${startBlock.l1BlockNumber}`),
+        );
+      } catch (e) {
+        if (e instanceof HttpError || e instanceof HttpTimeoutError) {
+          ctx.log.warn(e);
+          lastRewardMetricsUpdateOffset = lastRewardMetricsUpdateOffset
+            ? Math.min(lastRewardMetricsUpdateOffset * 2, metricsUpdateInterval)
+            : 5 * MINUTE_MS;
+          return;
+        }
+
+        throw e;
+      }
+
+      settings.baseApr = currentApy.apy / 10000;
+      await ctx.store.upsert(settings);
 
       lastRewardMetricsUpdateTimestamp = snapshotTimestamp;
       lastRewardMetricsUpdateOffset = 0;
