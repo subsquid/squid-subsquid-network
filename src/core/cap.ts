@@ -97,13 +97,13 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
     where: { status: WorkerStatus.ACTIVE },
   })
 
-  const baseApr = BigDecimal(0.2)
+  const baseApr = BigDecimal(settings.baseApr)
   const utilizedStake = workers.reduce(
     (r, w) => (w.liveness ? r + w.bond + w.capedDelegation : r),
     0n,
   )
 
-  settings.baseApr = baseApr.toNumber()
+  // settings.baseApr = baseApr.toNumber()
   settings.utilizedStake = utilizedStake
 
   for (const worker of workers) {

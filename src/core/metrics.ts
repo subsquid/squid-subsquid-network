@@ -309,12 +309,31 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
 
     await ctx.store.upsert(activeWorkers)
 
+    const settings = await ctx.store.getOrFail(Settings, network.name)
+
+    let currentApy: { apy: number }
+    try {
+      currentApy = await client.get(joinUrl(monitorUrl, `/currentApy/${startBlock.l1BlockNumber}`))
+    } catch (e) {
+      if (e instanceof HttpError || e instanceof HttpTimeoutError) {
+        ctx.log.warn(e)
+        lastRewardMetricsUpdateOffset = lastRewardMetricsUpdateOffset
+          ? Math.min(lastRewardMetricsUpdateOffset * 2, metricsUpdateInterval)
+          : 5 * MINUTE_MS
+        return
+      }
+
+      throw e
+    }
+
+    settings.baseApr = currentApy.apy / 10000
+    await ctx.store.upsert(settings)
+
     lastRewardMetricsUpdateTimestamp = snapshotTimestamp
     lastRewardMetricsUpdateOffset = 0
 
-    await recalculateWorkerAprs(ctx)
-
     ctx.log.info(`workers reward stats of ${activeWorkers.length} updated`)
+    await recalculateWorkerAprs(ctx)
   }
 }
 
