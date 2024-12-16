@@ -25,4 +25,11 @@ export function addRewardTreasuryQuery(processor: EvmBatchProcessor) {
       topic0: [RewardTreasury.events.Claimed.topic],
     })
   }
+
+  processor.addLog({
+    range: {
+      from: metadata.height + 1,
+    },
+    topic0: [RewardTreasury.events.Claimed.topic],
+  })
 }

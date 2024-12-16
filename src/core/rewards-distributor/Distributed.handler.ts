@@ -174,7 +174,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
         fromBlock: Number(normalizedFromBlockNumber),
         to: toBlock?.timestamp,
         toBlock: Number(event.toBlock),
-        recipients: Object.values(payouts).map((p) => new CommitmentRecipient(p)),
+        recipients: [...payouts.values()].map((p) => new CommitmentRecipient(p)),
       }),
     )
 

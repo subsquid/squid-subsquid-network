@@ -34,7 +34,10 @@ export async function addToWorkerStatusApplyQueue(ctx: MappingContext, id: strin
 
   await ctx.store.upsert(queue)
 
-  ctx.store.defer(Worker, id)
+  ctx.store.defer(WorkerStatusChange, {
+    id,
+    relations: { worker: true },
+  })
 }
 
 export async function removeFromWorkerStatusApplyQueue(ctx: MappingContext, id: string) {

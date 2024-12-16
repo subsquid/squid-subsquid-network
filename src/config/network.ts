@@ -27,6 +27,7 @@ export type NetworkConfig = {
     workerRegistration: string
     staking: string
   }
+  epochsStart: number
   range: {
     from: number
     to?: number
@@ -82,6 +83,7 @@ function getNetworkConfig(): NetworkConfig {
           staking: '0xb31a0d39d2c69ed4b28d96e12cbf52c5f9ac9a51',
         },
         range: { from: 194_120_655 },
+        epochsStart: 208420393,
       }
     case 'tethys':
       return {
@@ -128,6 +130,7 @@ function getNetworkConfig(): NetworkConfig {
           staking: '0x347e326b8b4ea27c87d5ca291e708cdec6d65eb5',
         },
         range: { from: 6_000_000 },
+        epochsStart: 57_869_108,
       }
     default:
       throw new Error(`Unknown network: ${name}`)

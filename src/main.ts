@@ -47,24 +47,27 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
   for (const block of ctx.blocks) {
     const items = sortItems(block)
 
-    tasks.push(async () => {
-      await ctx.store.insert(createBlock(block.header))
+    tasks.push(
+      withBlockContext(
+        async () => {
+          await ctx.store.insert(createBlock(block.header))
 
-      if (block.header.height >= 208420393) {
-        await checkForNewEpoch(ctx, block.header)
-      }
+          await checkForNewEpoch(ctx, block.header)
 
-      await processWorkerUnlockQueue(ctx, block.header)
-      await processWorkerStatusApplyQueue(ctx, block.header)
-      await processDelegationUnlockQueue(ctx, block.header)
-      await processGatewayStakeApplyQueue(ctx, block.header)
-      await processGatewayStakeUnlockQueue(ctx, block.header)
-    })
+          await processWorkerUnlockQueue(ctx, block.header)
+          await processWorkerStatusApplyQueue(ctx, block.header)
+          await processDelegationUnlockQueue(ctx, block.header)
+          await processGatewayStakeApplyQueue(ctx, block.header)
+          await processGatewayStakeUnlockQueue(ctx, block.header)
+        },
+        { block: block.header },
+      ),
+    )
 
     for (const item of items) {
       for (const handler of handlers) {
         const task = handler(ctx, item)
-        if (task) tasks.push(task)
+        if (task) tasks.push(withBlockContext(task, item.value))
       }
     }
   }
@@ -144,6 +147,8 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
 }
 
 async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
+  if (block.height < network.epochsStart) return
+
   const settings = await ctx.store.getOrFail(Settings, network.name)
   const epochLength = settings?.epochLength
   if (epochLength == null) return
@@ -153,9 +158,9 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
     currentEpoch = await ctx.store.getOrFail(Epoch, createEpochId(settings.currentEpoch))
   }
 
-  const nextEpochStart =
+  const epochStart =
     currentEpoch == null ? toEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
-  if (block.l1BlockNumber < nextEpochStart) return
+  if (block.l1BlockNumber < epochStart) return
 
   if (currentEpoch) {
     currentEpoch.status = EpochStatus.ENDED
@@ -169,12 +174,35 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
   currentEpoch = new Epoch({
     id: createEpochId(newEpochNumber),
     number: newEpochNumber,
-    start: nextEpochStart,
-    end: nextEpochStart + epochLength - 1,
+    start: epochStart,
+    end: epochStart + epochLength - 1,
     status: EpochStatus.STARTED,
   })
   await ctx.store.insert(currentEpoch)
 
   settings.currentEpoch = currentEpoch.number
   await ctx.store.upsert(settings)
+}
+
+function withBlockContext<T>(fn: () => T, ctx: { block: { height: number; hash: string } }) {
+  return () => {
+    try {
+      return fn()
+    } catch (err: any) {
+      throw addErrorContext(err, {
+        blockHeight: ctx.block.height,
+        blockHash: ctx.block.hash,
+      })
+    }
+  }
+}
+
+function addErrorContext<T extends Error>(err: T, ctx: any): T {
+  const e = err as any
+  for (const key in ctx) {
+    if (e[key] == null) {
+      e[key] = ctx[key]
+    }
+  }
+  return err
 }

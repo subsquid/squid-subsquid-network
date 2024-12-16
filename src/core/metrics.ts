@@ -300,7 +300,7 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
     })
 
     for (const worker of activeWorkers) {
-      const data = workersStats.get(worker.id)
+      const data = workersStats.get(worker.peerId)
 
       worker.trafficWeight = data?.traffic.trafficWeight ?? null
       worker.dTenure = data?.liveness.tenure ?? null
