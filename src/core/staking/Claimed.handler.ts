@@ -38,7 +38,7 @@ export const handleClaimed = createHandlerOld({
       const account = await accountDeferred.getOrFail()
 
       let delegations: Delegation[]
-      if (account.claimableDelegationCount > delegationsDeferred.length) {
+      if (account.claimableDelegationCount > delegationsDeferred.length || ctx.isHead) {
         delegations = await ctx.store.find(Delegation, {
           where: {
             owner: account,
