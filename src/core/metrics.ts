@@ -275,11 +275,15 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       ctx.log.warn(`unable to fetch rewards starts: start block not found`)
       return
     }
+    const confirmationOffset = 150
 
     let res: { workers: RewardStat[] }
     try {
       res = await client.get(
-        joinUrl(monitorUrl, `/rewards/${startBlock.l1BlockNumber}/${endBlock.l1BlockNumber}`),
+        joinUrl(
+          monitorUrl,
+          `/rewards/${startBlock.l1BlockNumber - confirmationOffset}/${endBlock.l1BlockNumber - confirmationOffset}`,
+        ),
       )
     } catch (e) {
       if (e instanceof HttpError || e instanceof HttpTimeoutError) {
@@ -313,7 +317,9 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
 
     let currentApy: { apy: number }
     try {
-      currentApy = await client.get(joinUrl(monitorUrl, `/currentApy/${startBlock.l1BlockNumber}`))
+      currentApy = await client.get(
+        joinUrl(monitorUrl, `/currentApy/${startBlock.l1BlockNumber - confirmationOffset}`),
+      )
     } catch (e) {
       if (e instanceof HttpError || e instanceof HttpTimeoutError) {
         ctx.log.warn(e)
