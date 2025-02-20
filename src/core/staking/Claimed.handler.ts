@@ -1,5 +1,6 @@
 import { isLog, LogItem } from '../../item'
 import { createHandlerOld } from '../base'
+import { createAccount } from '../helpers/entities'
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
 
 import * as Staking from '~/abi/Staking'
@@ -35,7 +36,7 @@ export const handleClaimed = createHandlerOld({
       const settings = await settingsDeferred.getOrFail()
       if (settings.contracts.staking !== log.address) return
 
-      const account = await accountDeferred.getOrFail()
+      const account = await accountDeferred.getOrInsert((id) => createAccount(id))
 
       let delegations: Delegation[]
       if (account.claimableDelegationCount > delegationsDeferred.length || ctx.isHead) {
