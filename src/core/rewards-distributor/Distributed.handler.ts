@@ -41,14 +41,13 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
 
     // since certain block distribution intervals became to overlap,
     // but it is not reflected in the event interval due to contract limitation
-    const normalizedFromBlockNumber =
-      (network.name === 'mainnet' && log.block.height >= 250398109) ||
-      (network.name === 'tethys' && log.block.height >= 77573325)
-        ? event.toBlock + 1n - (event.toBlock - event.fromBlock + 1n) * 2n
-        : event.fromBlock
+    const normalizedInterval = getNormalizedInteval({
+      fromBlock: Number(event.fromBlock),
+      toBlock: Number(event.toBlock),
+    })
 
     let fromBlock = await ctx.store.findOne(Block, {
-      where: { l1BlockNumber: LessThanOrEqual(Number(normalizedFromBlockNumber)) },
+      where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.fromBlock) },
       order: { height: 'DESC' },
     })
     if (!fromBlock) {
@@ -57,7 +56,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
     }
 
     let toBlock = await ctx.store.findOne(Block, {
-      where: { l1BlockNumber: LessThanOrEqual(Number(event.toBlock)) },
+      where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.toBlock) },
       order: { height: 'DESC' },
     })
     if (!toBlock) {
@@ -171,9 +170,9 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
       new Commitment({
         id: createCommitmentId(event.fromBlock, event.toBlock),
         from: fromBlock?.timestamp,
-        fromBlock: Number(normalizedFromBlockNumber),
+        fromBlock: normalizedInterval.fromBlock,
         to: toBlock?.timestamp,
-        toBlock: Number(event.toBlock),
+        toBlock: normalizedInterval.toBlock,
         recipients: [...payouts.values()].map((p) => new CommitmentRecipient(p)),
       }),
     )
@@ -231,4 +230,31 @@ async function distributeReward(
   }
 
   return delegations.length
+}
+
+function getNormalizedInteval(event: { fromBlock: number; toBlock: number }) {
+  let multiplier = 1
+  switch (network.name) {
+    case 'mainnet': {
+      if (event.fromBlock >= 21864988) {
+        multiplier = 4
+      } else if (event.fromBlock >= 20677588) {
+        multiplier = 2
+      }
+      break
+    }
+    case 'tethys': {
+      if (event.fromBlock >= 7636918) {
+        multiplier = 4
+      } else if (event.fromBlock >= 6637998) {
+        multiplier = 2
+      }
+      break
+    }
+  }
+
+  return {
+    fromBlock: event.toBlock + 1 - (event.toBlock - event.fromBlock + 1) * multiplier,
+    toBlock: event.toBlock,
+  }
 }
