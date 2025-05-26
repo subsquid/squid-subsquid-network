@@ -12,7 +12,7 @@ pnpm -C ${contracts_dir} build
 
 aliases=( [DistributedRewardsDistribution]=DistributedRewardDistribution [SubsquidVesting]=Vesting )
 
-for contract in "WorkerRegistration" "SQD" "Staking" "NetworkController" "RewardTreasury" "VestingFactory" "DistributedRewardsDistribution" "GatewayRegistry" "SubsquidVesting" "TemporaryHoldingFactory" "SoftCap"; do
+for contract in "WorkerRegistration" "SQD" "Staking" "NetworkController" "RewardTreasury" "VestingFactory" "DistributedRewardsDistribution" "GatewayRegistry" "SubsquidVesting" "TemporaryHoldingFactory" "SoftCap" "Router"; do
     folder=${aliases[$contract]:-$contract}
     cat "${contracts_dir}/packages/contracts/artifacts/$folder.sol/$contract.json" | jq -r .abi > "./abi/$contract.json";
 done;

@@ -8,6 +8,16 @@
         "internalType": "uint128"
       },
       {
+        "name": "_firstEpochBlock",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "_epochCheckpoint",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
         "name": "_bondAmount",
         "type": "uint256",
         "internalType": "uint256"

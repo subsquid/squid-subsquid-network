@@ -26,9 +26,8 @@ type Account @entity {
 
   claims: [Claim!] @derivedFrom(field: "account")
 
-  gatewayOperator: GatewayOperator @derivedFrom(field: "account")
-  gateways: [Gateway!] @derivedFrom(field: "owner")
-  gatewayStakes: [GatewayStake!] @derivedFrom(field: "owner")
+  gatewayStakes: [GatewayStake!] @derivedFrom(field: "realOwner")
+  gateways: [Gateway!] @derivedFrom(field: "realOwner")
 }
 
 enum TransferDirection {
@@ -56,6 +55,20 @@ type Transfer @entity {
   amount: BigInt!
 }
 
+type Contracts {
+  router: String
+  networkController: String
+  staking: String
+  workerRegistration: String
+  rewardTreasury: String
+  distributedRewardsDistribution: String
+  gatewayRegistry: String
+  rewardCalculation: String
+  softCap: String
+  vestingFactory: String
+  temporaryHoldingFactory: String
+}
+
 type Settings @entity {
   id: ID!
   bondAmount: BigInt
@@ -63,6 +76,13 @@ type Settings @entity {
   epochLength: Int
   minimalWorkerVersion: String
   recommendedWorkerVersion: String
+  lockPeriod: Int
+
+  contracts: Contracts!
+
+  currentEpoch: Int
+  utilizedStake: BigInt!
+  baseApr: Float!
 }
 
 enum ClaimType {
@@ -263,8 +283,10 @@ type Gateway @entity {
 
   createdAt: DateTime!
 
-  operator: GatewayOperator
-  owner: Account
+  owner: Account!
+  realOwner: Account!
+
+  stake: GatewayStake!
 
   status: GatewayStatus!
   statusHistory: [GatewayStatusChange!]! @derivedFrom(field: "gateway")
@@ -286,43 +308,21 @@ type GatewayStatusChange @entity {
 type GatewayStake @entity {
   id: ID!
 
-  index: Int!
-
-  operator: GatewayOperator!
   owner: Account!
-
-  amount: BigInt!
-  computationUnits: BigInt!
-
-  locked: Boolean!
-  lockStart: Int!
-  lockEnd: Int!
-}
-
-type GatewayOperator @entity {
-  id: ID!
-
-  account: Account! @unique
+  realOwner: Account!
 
   autoExtension: Boolean!
 
-  gateways: [Gateway!]! @derivedFrom(field: "operator")
-  stake: GatewayStake
-  pendingStake: GatewayStake
-}
+  gateways: [Gateway!]! @derivedFrom(field: "stake")
 
-type Statistics @entity {
-  id: ID!
-  currentEpoch: Int
-  lastSnapshotTimestamp: DateTime!
-  blockTime: Int!
-  lastBlock: Int!
-  lastBlockTimestamp: DateTime!
-  blockTimeL1: Int!
-  lastBlockL1: Int!
-  lastBlockTimestampL1: DateTime!
-  utilizedStake: BigInt!
-  baseApr: Float!
+  amount: BigInt!
+
+  computationUnits: BigInt!
+  computationUnitsPending: BigInt
+
+  locked: Boolean!
+  lockStart: Int
+  lockEnd: Int
 }
 
 enum EpochStatus {

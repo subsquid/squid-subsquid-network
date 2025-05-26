@@ -52,7 +52,7 @@ module.exports = {
                 groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object'],
             },
         ],
-        'eqeqeq': 'error',
+        'eqeqeq': 'off',
         'import/no-named-as-default': 'off',
         'import/no-unresolved': 'off',
         'lines-between-class-members': [
@@ -67,6 +67,7 @@ module.exports = {
         'no-negated-condition': 'off',
         'prettier/prettier': ['error', { printWidth: 100, endOfLine: "auto" }],
         // 'quotes': ['warn', 'single', { 'avoidEscape': true }],
+        'semi': 'off',
     },
 };
 

@@ -1,86 +1,88 @@
-import assert from 'assert';
+import assert from 'assert'
 
-import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
-import { createDelegation } from '../helpers/entities';
-import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids';
+import { isContract, isLog } from '../../item'
+import { createHandler } from '../base'
+import { addToWorkerCapQueue } from '../cap'
+import { createDelegation } from '../helpers/entities'
+import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
 
-import { listenDelegationUnlock } from './CheckDelegationUnlock.listener';
+import { addToDelegationUnlockQueue } from './CheckDelegationUnlock.listener'
 
-import * as Staking from '~/abi/Staking';
-import { network } from '~/config/network';
-import { Worker, Account, Delegation, Settings } from '~/model';
-import { toHumanSQD, toNextEpochStart } from '~/utils/misc';
+import * as Staking from '~/abi/Staking'
+import { network } from '~/config/network'
+import { Worker, Account, Delegation, Settings } from '~/model'
+import { toHumanSQD, toNextEpochStart } from '~/utils/misc'
 
-export const handleDeposited = createHandler({
-  filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.Staking) &&
-      isLog(item) &&
-      Staking.events.Deposited.is(item.value)
-    );
-  },
-  handle(ctx, { value: log }) {
-    const {
-      worker: workerIndex,
-      staker: stakerAccount,
-      amount,
-    } = Staking.events.Deposited.decode(log);
+export const handleDeposited = createHandler((ctx, item) => {
+  if (!isLog(item)) return
+  if (!Staking.events.Deposited.is(item.value)) return
 
-    const workerId = createWorkerId(workerIndex);
-    const workerDeferred = ctx.store.defer(Worker, workerId);
+  const log = item.value
+  const {
+    worker: workerIndex,
+    staker: stakerAccount,
+    amount,
+  } = Staking.events.Deposited.decode(log)
 
-    const accountId = createAccountId(stakerAccount);
-    const accountDeferred = ctx.store.defer(Account, {
-      id: accountId,
-      relations: { owner: true },
-    });
+  const workerId = createWorkerId(workerIndex)
+  const workerDeferred = ctx.store.defer(Worker, workerId)
 
-    const delegationId = createDelegationId(workerId, accountId);
-    const delegationDeferred = ctx.store.defer(Delegation, {
-      id: delegationId,
-      relations: { worker: true, realOwner: true },
-    });
+  const accountId = createAccountId(stakerAccount)
+  const accountDeferred = ctx.store.defer(Account, {
+    id: accountId,
+    relations: { owner: true },
+  })
 
-    ctx.queue.add(async () => {
-      const settings = await ctx.store.getOrFail(Settings, network.name);
+  const delegationId = createDelegationId(workerId, accountId)
+  const delegationDeferred = ctx.store.defer(Delegation, {
+    id: delegationId,
+    relations: { worker: true, realOwner: true },
+  })
 
-      const delegation = await delegationDeferred.getOrInsert(async (id) => {
-        const worker = await workerDeferred.getOrFail();
-        const owner = await accountDeferred.getOrFail();
+  const settingsDeferred = ctx.store.defer(Settings, network.name)
 
-        ctx.log.info(`created delegation(${id})`);
+  return async () => {
+    const settings = await settingsDeferred.getOrFail()
+    if (settings.contracts.staking !== log.address) return
 
-        return createDelegation(id, {
-          owner,
-          realOwner: owner.owner || undefined,
-          worker,
-        });
-      });
+    const delegation = await delegationDeferred.getOrInsert(async (id) => {
+      const worker = await workerDeferred.getOrFail()
+      const owner = await accountDeferred.getOrFail()
 
-      delegation.deposit += amount;
-      if (settings.epochLength) {
-        delegation.locked = true;
-        delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength);
-        delegation.lockEnd = delegation.lockStart + settings.epochLength;
+      ctx.log.info(`created delegation(${id})`)
 
-        listenDelegationUnlock(ctx, delegation.id);
-      }
-      await ctx.store.upsert(delegation);
+      return createDelegation(id, {
+        owner,
+        realOwner: owner.owner || undefined,
+        worker,
+      })
+    })
 
-      const worker = delegation.worker;
-      assert(worker.id === workerId);
-      if (delegation.deposit === amount) {
-        worker.delegationCount += 1;
-      }
-      worker.totalDelegation += amount;
-      await ctx.store.upsert(worker);
+    delegation.deposit += amount
+    if (settings.epochLength) {
+      delegation.locked = true
+      delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength)
+      delegation.lockEnd = delegation.lockStart + (settings.lockPeriod ?? settings.epochLength)
+      addToDelegationUnlockQueue(ctx, delegation.id)
+    } else {
+      delegation.locked = false
+      delegation.lockStart = log.block.l1BlockNumber
+      delegation.lockEnd = log.block.l1BlockNumber
+    }
+    await ctx.store.upsert(delegation)
 
-      ctx.delegatedWorkers.add(worker.id);
+    const worker = delegation.worker
+    assert(worker.id === workerId)
+    if (delegation.deposit === amount) {
+      worker.delegationCount += 1
+    }
+    worker.totalDelegation += amount
+    await ctx.store.upsert(worker)
 
-      ctx.log.info(
-        `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
-      );
-    });
-  },
-});
+    await addToWorkerCapQueue(ctx, worker.id)
+
+    ctx.log.info(
+      `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
+    )
+  }
+})

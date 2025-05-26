@@ -1,42 +1,38 @@
-import { isContract, isLog, LogItem } from '../../item';
-import { createHandler } from '../base';
-import { createGatewayOperatorId } from '../helpers/ids';
+import { isContract, isLog } from '../../item'
+import { createHandler } from '../base'
+import { createGatewayOperatorId } from '../helpers/ids'
 
-import * as GatewayRegistry from '~/abi/GatewayRegistry';
-import { network } from '~/config/network';
-import { GatewayOperator } from '~/model';
-import { toHumanSQD } from '~/utils/misc';
+import * as GatewayRegistry from '~/abi/GatewayRegistry'
+import { network } from '~/config/network'
+import { GatewayStake } from '~/model'
+import { toHumanSQD } from '~/utils/misc'
 
-export const handleUnstaked = createHandler({
-  filter(_, item): item is LogItem {
-    return (
-      isContract(item, network.contracts.GatewayRegistry) &&
-      isLog(item) &&
-      GatewayRegistry.events.Unstaked.is(item.value)
-    );
-  },
-  handle(ctx, { value: log }) {
-    const event = GatewayRegistry.events.Unstaked.decode(log);
+export const handleUnstaked = createHandler((ctx, item) => {
+  if (!isContract(item, network.contracts.GatewayRegistry)) return
+  if (!isLog(item)) return
+  if (!GatewayRegistry.events.Unstaked.is(item.value)) return
 
-    const operatorId = createGatewayOperatorId(event.gatewayOperator);
-    const operatorDeferred = ctx.store.defer(GatewayOperator, {
-      id: operatorId,
-      relations: { account: { owner: true }, stake: true },
-    });
+  const log = item.value
+  const event = GatewayRegistry.events.Unstaked.decode(log)
 
-    ctx.queue.add(async () => {
-      const operator = await operatorDeferred.getOrFail();
-      const account = operator.account;
+  const stakeId = createGatewayOperatorId(event.gatewayOperator)
+  const stakeDeferred = ctx.store.defer(GatewayStake, {
+    id: stakeId,
+    relations: { owner: true },
+  })
 
-      if (operator.stake) {
-        const stake = operator.stake;
+  return async () => {
+    const stake = await stakeDeferred.getOrFail()
+    const account = stake.owner
 
-        operator.stake = null;
-        await ctx.store.upsert(operator);
-        await ctx.store.remove(stake);
+    stake.amount = 0n
+    stake.computationUnits = 0n
+    stake.lockStart = null
+    stake.lockEnd = null
+    stake.computationUnitsPending = null
 
-        ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(stake.amount)}`);
-      }
-    });
-  },
-});
+    await ctx.store.upsert(stake)
+
+    ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)}`)
+  }
+})

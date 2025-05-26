@@ -1,13 +1,12 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_, OneToOne as OneToOne_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {AccountType} from "./_accountType"
 import {AccountTransfer} from "./accountTransfer.model"
 import {Transfer} from "./transfer.model"
 import {Worker} from "./worker.model"
 import {Delegation} from "./delegation.model"
 import {Claim} from "./claim.model"
-import {GatewayOperator} from "./gatewayOperator.model"
-import {Gateway} from "./gateway.model"
 import {GatewayStake} from "./gatewayStake.model"
+import {Gateway} from "./gateway.model"
 
 @Entity_()
 export class Account {
@@ -58,12 +57,9 @@ export class Account {
     @OneToMany_(() => Claim, e => e.account)
     claims!: Claim[]
 
-    @OneToOne_(() => GatewayOperator, e => e.account)
-    gatewayOperator!: GatewayOperator | undefined | null
-
-    @OneToMany_(() => Gateway, e => e.owner)
-    gateways!: Gateway[]
-
-    @OneToMany_(() => GatewayStake, e => e.owner)
+    @OneToMany_(() => GatewayStake, e => e.realOwner)
     gatewayStakes!: GatewayStake[]
+
+    @OneToMany_(() => Gateway, e => e.realOwner)
+    gateways!: Gateway[]
 }
