@@ -1,7 +1,0 @@
-node_modules
-.yarn
-build
-dist
-src/abi
-src/model/generated
-db/migrations

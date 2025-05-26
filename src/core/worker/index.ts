@@ -1,8 +1,8 @@
-import { handleWorkerDeregistered } from './Deregistered.handler';
-import { handleExcessiveBondReturned } from './ExcessiveBondReturned.handler';
-import { handleMetadataUpdated } from './MetadataUpdated.handler';
-import { handleWorkerRegistered } from './Registered.handler';
-import { handleWorkerWithdrawn } from './Withdrawn.handler';
+import { handleWorkerDeregistered } from './Deregistered.handler'
+import { handleExcessiveBondReturned } from './ExcessiveBondReturned.handler'
+import { handleMetadataUpdated } from './MetadataUpdated.handler'
+import { handleWorkerRegistered } from './Registered.handler'
+import { handleWorkerWithdrawn } from './Withdrawn.handler'
 
 export const handlers = [
   handleWorkerDeregistered,
@@ -10,4 +10,4 @@ export const handlers = [
   handleMetadataUpdated,
   handleWorkerRegistered,
   handleWorkerWithdrawn,
-];
+]

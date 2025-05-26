@@ -148,7 +148,8 @@ type WorkerDayUptime {
 type Worker
   @entity
   @index(fields: ["id", "createdAt", "status"])
-  @index(fields: ["id", "realOwner"]) {
+  @index(fields: ["id", "realOwner"])
+{
   id: ID!
 
   peerId: String! @index

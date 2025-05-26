@@ -1,17 +1,17 @@
-import { DateTime } from '@subsquid/graphql-server';
-import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql';
-import { EntityManager } from 'typeorm';
+import { DateTime } from '@subsquid/graphql-server'
+import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
+import { EntityManager } from 'typeorm'
 
 @ObjectType()
 export class WorkerSnapshotDay {
   @Field(() => DateTime, { nullable: false })
-  timestamp!: Date;
+  timestamp!: Date
 
   @Field(() => Number, { nullable: false })
-  uptime!: number;
+  uptime!: number
 
   constructor(props: Partial<WorkerSnapshotDay>) {
-    Object.assign(this, props);
+    Object.assign(this, props)
   }
 }
 
@@ -25,7 +25,7 @@ export class DaysUptimeResolver {
     @Arg('from') from: Date,
     @Arg('to', { nullable: true }) to?: Date,
   ): Promise<number> {
-    const manager = await this.tx();
+    const manager = await this.tx()
 
     const raw = await manager.query(
       `
@@ -49,7 +49,7 @@ export class DaysUptimeResolver {
         "timestamp"
       `,
       [workerId, from, to || new Date()],
-    );
-    return raw.map((d: any) => new WorkerSnapshotDay(d));
+    )
+    return raw.map((d: any) => new WorkerSnapshotDay(d))
   }
 }

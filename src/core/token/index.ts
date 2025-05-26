@@ -1,3 +1,3 @@
-import { handleTransfer } from './Transfer.handler';
+import { handleTransfer } from './Transfer.handler'
 
-export const handlers = [handleTransfer];
+export const handlers = [handleTransfer]

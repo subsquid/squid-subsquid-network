@@ -1,6 +1,8 @@
 /node_modules
 /lib
 /builds
+/tools/*.js
+/tools/*.js.map
 
 /**Versions.json
 

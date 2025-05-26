@@ -1,18 +1,18 @@
-import assert from 'assert';
+import assert from 'assert'
 
-import { Field, ObjectType, Query, Resolver } from 'type-graphql';
-import { EntityManager } from 'typeorm';
+import { Field, ObjectType, Query, Resolver } from 'type-graphql'
+import { EntityManager } from 'typeorm'
 
 @ObjectType()
 export class SquidStatus {
   @Field(() => Number, { nullable: false })
-  height!: number;
+  height!: number
 
   @Field(() => Number, { nullable: false })
-  finalizedHeight!: number;
+  finalizedHeight!: number
 
   constructor(props: Partial<SquidStatus>) {
-    Object.assign(this, props);
+    Object.assign(this, props)
   }
 }
 
@@ -22,7 +22,7 @@ export class SquidStatusResolver {
 
   @Query(() => SquidStatus)
   async squidStatus(): Promise<SquidStatus> {
-    const manager = await this.tx();
+    const manager = await this.tx()
 
     return await manager
       .query(
@@ -39,10 +39,10 @@ export class SquidStatusResolver {
         `,
       )
       .then((r) => {
-        assert(r.length === 1);
-        const height = parseInt(r[0].height);
-        const finalizedHeight = parseInt(r[0].finalizedHeight);
-        return new SquidStatus({ height, finalizedHeight });
-      });
+        assert(r.length === 1)
+        const height = parseInt(r[0].height)
+        const finalizedHeight = parseInt(r[0].finalizedHeight)
+        return new SquidStatus({ height, finalizedHeight })
+      })
   }
 }

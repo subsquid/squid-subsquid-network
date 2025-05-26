@@ -1,18 +1,18 @@
-import { Awaitable } from './misc';
+import { Awaitable } from './misc'
 
-export type Task = () => Awaitable<void>;
+export type Task = () => Awaitable<void>
 
 export class TaskQueue {
-  private tasks: Task[] = [];
+  private tasks: Task[] = []
 
   add<T>(fn: Task): void {
-    this.tasks.push(fn);
+    this.tasks.push(fn)
   }
 
   async run(): Promise<void> {
     while (this.tasks.length > 0) {
-      const task = this.tasks.shift()!;
-      await task();
+      const task = this.tasks.shift()!
+      await task()
     }
   }
 }
