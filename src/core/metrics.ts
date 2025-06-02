@@ -33,7 +33,7 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
   const statsUrl = process.env.NETWORK_STATS_URL
   if (!statsUrl) return
 
-  const schedulerUrl = process.env.SCHEDULER_API_URL
+  const schedulerUrl = process.env.SCHEDULER_URL
   const settingsDefer = ctx.store.defer(Settings, network.name)
 
   if (
@@ -58,26 +58,30 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
     })
 
     try {
-      const jailInfo: {
-        peer_id: string
-        jailed: boolean
-        jail_reason: string | null
-      }[] = schedulerUrl ? await client.get(joinUrl(schedulerUrl, 'workers/jail_info')) : []
-      const jailedWorkers = jailInfo.reduce(
-        (r, w) => r.set(w.peer_id, w),
-        new Map<string, { jailed: boolean; jail_reason: string | null }>(),
-      )
+      const schedulerStatus: {
+        config: {
+          recommended_worker_versions: string
+          supported_worker_versions: string
+        }
+        workers: {
+          peer_id: string
+          status: string
+        }[]
+      } = schedulerUrl ? await client.get(joinUrl(schedulerUrl, 'status.json')) : {} as any
+      const jailedWorkers = schedulerStatus.workers
+        .filter((w) => w.status !== 'online')
+        .reduce((r, w) => r.set(w.peer_id, w), new Map<string, { status: string }>())
 
       for (const worker of activeWorkers) {
         const data = onlineWorkers.get(worker.peerId)
         const jailData = jailedWorkers.get(worker.peerId)
 
-        worker.online = !!data
+        worker.online = !!data && !jailData
         worker.dialOk = null
         worker.storedData = data ? BigInt(data.storedBytes) : null
         worker.version = data ? data.version : worker.version
-        worker.jailed = jailData ? jailData.jailed : null
-        worker.jailReason = jailData ? jailData.jail_reason : null
+        worker.jailed = !!jailData
+        worker.jailReason = jailData ? jailData.status : null
       }
 
       await ctx.store.upsert(activeWorkers)
@@ -85,12 +89,7 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
       lastOnlineUpdateTimestamp = snapshotTimestamp
       lastOnlineUpdateOffset = 0
 
-      const config = schedulerUrl
-        ? await client.get<{
-            recommended_worker_versions?: string
-            supported_worker_versions?: string
-          }>(joinUrl(schedulerUrl, '/config'))
-        : undefined
+      const config = schedulerStatus.config
       if (config) {
         const {
           recommended_worker_versions: recommendedWorkerVersion,
