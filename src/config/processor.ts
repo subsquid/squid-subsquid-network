@@ -47,7 +47,7 @@ export const processor = new EvmBatchProcessor()
 if (process.env.PORTAL_ENDPOINT) {
   processor.setPortal({
     url: assertNotNull(process.env.PORTAL_ENDPOINT),
-    bufferThreshold: 20 * 1024 * 1024,
+    minBytes: 20 * 1024 * 1024,
   })
 }
 

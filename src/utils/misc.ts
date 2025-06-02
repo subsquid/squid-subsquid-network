@@ -1,5 +1,4 @@
 import { BigDecimal } from '@subsquid/big-decimal'
-import { Logger } from '@subsquid/logger'
 import bs58 from 'bs58'
 
 export function parsePeerId(peerId: string) {
@@ -13,7 +12,7 @@ export type WorkerMetadata = {
   email?: string | null
 }
 
-export function parseWorkerMetadata(ctx: { log: Logger }, rawMetadata: string): WorkerMetadata {
+export function parseWorkerMetadata(ctx: { log: any }, rawMetadata: string): WorkerMetadata {
   const metadata: WorkerMetadata = {
     name: null,
     website: null,
@@ -44,7 +43,7 @@ export type GatewayMetadata = {
   endpointUrl: string | null
 }
 
-export function parseGatewayMetadata(ctx: { log: Logger }, rawMetadata: string): GatewayMetadata {
+export function parseGatewayMetadata(ctx: { log: any }, rawMetadata: string): GatewayMetadata {
   const metadata: GatewayMetadata = {
     name: null,
     website: null,
