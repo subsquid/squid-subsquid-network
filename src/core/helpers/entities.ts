@@ -91,9 +91,11 @@ export function unwrapAccount(account: Account) {
     case AccountType.USER:
       return account
     case AccountType.VESTING:
+    case AccountType.TEMPORARY_HOLDING:
       return assertNotNull(account.owner, 'vesting account must have an owner')
   }
 }
+
 export function createWorker(
   id: string,
   {

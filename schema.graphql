@@ -1,6 +1,7 @@
 enum AccountType {
   USER
   VESTING
+  TEMPORARY_HOLDING
 }
 
 type Account @entity {

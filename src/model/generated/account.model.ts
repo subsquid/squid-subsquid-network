@@ -17,7 +17,7 @@ export class Account {
     @PrimaryColumn_()
     id!: string
 
-    @Column_("varchar", {length: 7, nullable: false})
+    @Column_("varchar", {length: 17, nullable: false})
     type!: AccountType
 
     @BigIntColumn_({nullable: false})

@@ -1,21 +1,19 @@
-import { isContract, isLog, LogItem } from '../../item'
+import { isLog } from '../../item'
 import { createHandler } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
 import * as TemporaryHoldingFactory from '~/abi/TemporaryHoldingFactory'
-import * as VestingFactory from '~/abi/VestingFactory'
 import { network } from '~/config/network'
-import { Log } from '~/config/processor'
 import { Account, AccountType } from '~/model'
 
-export const handleVestingCreated = createHandler((ctx, item) => {
+export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
   if (!isLog(item)) return
-  if (item.address !== network.contracts.VestingFactory.address) return
-  if (!VestingFactory.events.VestingCreated.is(item.value)) return
+  if (item.address !== network.contracts.TemporaryHoldingFactory.address) return
+  if (!TemporaryHoldingFactory.events.TemporaryHoldingCreated.is(item.value)) return
 
-  const { vesting: vestingAddress, beneficiary: beneficiaryAddress } =
-    VestingFactory.events.VestingCreated.decode(item.value)
+  const { vesting: vestingAddress, beneficiaryAddress } =
+    TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(item.value)
 
   const ownerDeferred = ctx.store.defer(Account, createAccountId(beneficiaryAddress))
   const vestingDeferred = ctx.store.defer(Account, {
@@ -30,16 +28,16 @@ export const handleVestingCreated = createHandler((ctx, item) => {
     })
     const vesting = await vestingDeferred.getOrInsert((id) => {
       ctx.log.info(`created account(${id})`)
-      return createAccount(id, { type: AccountType.VESTING, owner })
+      return createAccount(id, { type: AccountType.TEMPORARY_HOLDING, owner })
     })
 
-    if (vesting.type !== AccountType.VESTING || vesting.owner?.id !== owner.id) {
-      vesting.type = AccountType.VESTING
+    if (vesting.type !== AccountType.TEMPORARY_HOLDING || vesting.owner?.id !== owner.id) {
+      vesting.type = AccountType.TEMPORARY_HOLDING
       vesting.owner = owner
 
       await ctx.store.upsert(vesting)
     }
 
-    ctx.log.info(`created vesting(${vesting.id}) for account(${owner.id})`)
+    ctx.log.info(`created temporary_holding(${vesting.id}) for account(${owner.id})`)
   }
 })
