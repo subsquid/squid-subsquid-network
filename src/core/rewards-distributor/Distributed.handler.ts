@@ -147,6 +147,8 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
           worker,
           amount: payout.workerReward,
           stakersReward: payout.stakerReward,
+          apr: payout.workerApr,
+          stakerApr: payout.stakerApr,
         })
 
         await ctx.store.insert(reward)
@@ -161,6 +163,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
           workerId: worker.id,
           rewardsPerShare,
           offset: delegationRewardsCount,
+          apr: payout.stakerApr,
         })
         delegationRewardsCount += count
       }
@@ -189,10 +192,12 @@ async function distributeReward(
   {
     workerId,
     rewardsPerShare,
+    apr,
     offset,
   }: {
     workerId: string
     rewardsPerShare: bigint
+    apr: number
     offset: number
   },
 ) {
@@ -224,6 +229,7 @@ async function distributeReward(
       timestamp: new Date(log.block.timestamp),
       delegation,
       amount,
+      apr,
     })
 
     await ctx.store.insert(reward)

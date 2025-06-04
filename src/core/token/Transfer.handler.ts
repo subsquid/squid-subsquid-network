@@ -1,3 +1,4 @@
+import { Context } from 'node:vm'
 import { isContract, isLog, LogItem } from '../../item'
 import { createHandlerOld } from '../base'
 import { createAccount } from '../helpers/entities'
@@ -5,8 +6,20 @@ import { createAccountId } from '../helpers/ids'
 
 import * as SQD from '~/abi/SQD'
 import { network } from '~/config/network'
-import { Account, Transfer, AccountTransfer, TransferDirection, AccountType } from '~/model'
+import {
+  Account,
+  Transfer,
+  AccountTransfer,
+  TransferDirection,
+  AccountType,
+  TransferType,
+  Worker,
+  Delegation,
+  GatewayStake,
+} from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { Log } from '~/config/processor'
+import { MappingContext } from 'src/types'
 
 export const handleTransfer = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -18,56 +31,92 @@ export const handleTransfer = createHandlerOld({
     const event = SQD.events.Transfer.decode(log)
 
     const fromId = createAccountId(event.from)
-    const fromDeferred = ctx.store.defer(Account, fromId)
+    const from = ctx.store.defer(Account, fromId)
 
     const toId = createAccountId(event.to)
-    const toDeferred = ctx.store.defer(Account, toId)
+    const to = ctx.store.defer(Account, toId)
+
+    ctx.store.defer(Transfer, { id: log.id, relations: { from: true, to: true } })
 
     return async () => {
-      const from = await fromDeferred.getOrInsert((id) => {
-        ctx.log.info(`created account(${id})`)
-        return createAccount(id, { type: AccountType.USER })
-      })
-      const to = await toDeferred.getOrInsert((id) => {
-        ctx.log.info(`created account(${id})`)
-        return createAccount(id, { type: AccountType.USER })
-      })
+      const transfer = await saveTransfer(ctx, { log, event })
+      if (!transfer) return
 
-      if (from !== to) {
+      const { from, to } = transfer
+
+      if (from.id !== to.id) {
         from.balance -= event.value
         to.balance += event.value
 
         await ctx.store.upsert([from, to])
       }
 
-      const transfer = new Transfer({
-        id: log.id,
-        from: from,
-        to: to,
-        blockNumber: log.block.height,
-        amount: event.value,
-        timestamp: new Date(log.block.timestamp),
-      })
-      await ctx.store.insert(transfer)
-
       await ctx.store.insert([
         new AccountTransfer({
           id: `${transfer.id}-from`,
           direction: TransferDirection.FROM,
-          account: from,
+          account: transfer.from,
           transfer,
         }),
         new AccountTransfer({
           id: `${transfer.id}-to`,
           direction: TransferDirection.TO,
-          account: to,
+          account: transfer.to,
           transfer,
         }),
       ])
 
       ctx.log.info(
-        `account(${from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${to.id})`,
+        `account(${transfer.from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${transfer.to.id})`,
       )
     }
   },
 })
+
+export async function saveTransfer(
+  ctx: MappingContext,
+  { log, event }: { log: Log; event: SQD.TransferEventArgs },
+  extra?: {
+    type?: TransferType
+    worker?: Worker
+    delegation?: Delegation
+    gatewayStake?: GatewayStake
+    vesting?: Account
+  },
+) {
+  if (event.value === 0n) {
+    return
+  }
+
+  let transfer = await ctx.store.get(Transfer, { id: log.id, relations: { from: true, to: true } })
+  if (!extra && transfer) {
+    return transfer
+  }
+
+  const from = await ctx.store.getOrInsert(Account, event.from, (id) => {
+    ctx.log.info(`created account(${id})`)
+    return createAccount(id, { type: AccountType.USER })
+  })
+  const to = await ctx.store.getOrInsert(Account, event.to, (id) => {
+    ctx.log.info(`created account(${id})`)
+    return createAccount(id, { type: AccountType.USER })
+  })
+
+  transfer = new Transfer({
+    id: log.id,
+    from,
+    to,
+    blockNumber: log.block.height,
+    amount: event.value,
+    timestamp: new Date(log.block.timestamp),
+    txHash: log.transactionHash,
+    type: extra?.type ?? TransferType.TRANSFER,
+    worker: extra?.worker,
+    delegation: extra?.delegation,
+    gatewayStake: extra?.gatewayStake,
+    vesting: extra?.vesting,
+  })
+  await ctx.store.upsert(transfer)
+
+  return transfer
+}

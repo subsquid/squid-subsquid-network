@@ -4,8 +4,10 @@ import { createGatewayOperatorId } from '../helpers/ids'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
-import { GatewayStake } from '~/model'
+import { GatewayStake, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { saveTransfer } from '../token/Transfer.handler'
+import { findTransfer } from '../helpers/misc'
 
 export const handleUnstaked = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.GatewayRegistry)) return
@@ -32,6 +34,18 @@ export const handleUnstaked = createHandler((ctx, item) => {
     stake.computationUnitsPending = null
 
     await ctx.store.upsert(stake)
+
+    const transfer = findTransfer(log.transaction?.logs ?? [], {
+      from: network.contracts.GatewayRegistry.address,
+      to: account.id,
+    })
+    if (!transfer) {
+      throw new Error(`transfer not found for account(${account.id})`)
+    }
+    await saveTransfer(ctx, transfer, {
+      type: TransferType.WITHDRAW,
+      gatewayStake: stake,
+    })
 
     ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)}`)
   }

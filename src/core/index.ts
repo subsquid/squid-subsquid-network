@@ -7,6 +7,7 @@ import * as Token from './token'
 import * as TemporaryHolding from './temporary-holding'
 import * as Vesting from './vesting'
 import * as Worker from './worker'
+import * as RewardsTreasury from './reward-treasury'
 
 export const handlers = [
   ...NetworkController.handlers,
@@ -18,4 +19,5 @@ export const handlers = [
   ...Gateway.handlers,
   ...Router.handlers,
   ...TemporaryHolding.handlers,
+  ...RewardsTreasury.handlers,
 ]

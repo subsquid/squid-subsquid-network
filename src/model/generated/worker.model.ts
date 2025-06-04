@@ -4,7 +4,6 @@ import {Account} from "./account.model"
 import {WorkerStatus} from "./_workerStatus"
 import {WorkerStatusChange} from "./workerStatusChange.model"
 import {WorkerReward} from "./workerReward.model"
-import {Claim} from "./claim.model"
 import {Delegation} from "./delegation.model"
 import {WorkerDayUptime} from "./_workerDayUptime"
 import {WorkerSnapshot} from "./workerSnapshot.model"
@@ -76,9 +75,6 @@ export class Worker {
 
     @BigIntColumn_({nullable: false})
     claimedReward!: bigint
-
-    @OneToMany_(() => Claim, e => e.worker)
-    claims!: Claim[]
 
     @FloatColumn_({nullable: true})
     apr!: number | undefined | null

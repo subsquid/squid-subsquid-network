@@ -90,7 +90,7 @@ function getNetworkConfig(): NetworkConfig {
         name: 'tethys',
         contracts: {
           SQD: {
-            address: '0x24f9C46d86c064a6FA2a568F918fe62fC6917B3c',
+            address: '0x24f9c46d86c064a6fa2a568f918fe62fc6917b3c',
             range: { from: 0 },
           },
           Router: {
@@ -118,7 +118,7 @@ function getNetworkConfig(): NetworkConfig {
             range: { from: 0 },
           },
           TemporaryHoldingFactory: {
-            address: '0x5eb3C647A423bfB100765Cbf0201B5748bbe7BD7',
+            address: '0x5eb3c647a423bfb100765cbf0201b5748bbe7bd7',
             range: { from: 0 },
           },
         },

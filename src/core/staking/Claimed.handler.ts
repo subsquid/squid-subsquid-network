@@ -5,8 +5,10 @@ import { createAccountId, createDelegationId, createWorkerId } from '../helpers/
 
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
-import { Account, Claim, ClaimType, Delegation, Settings } from '~/model'
+import { Account, Delegation, Settings, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleClaimed = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -64,21 +66,10 @@ export const handleClaimed = createHandlerOld({
         await ctx.store.upsert(delegation)
 
         const claimer = delegation.realOwner
-        const claim = new Claim({
-          id: `${log.id}-${String(i).padStart(5, '0')}`,
-          blockNumber: log.block.height,
-          timestamp: new Date(log.block.timestamp),
-          type: ClaimType.DELEGATION,
-          account: claimer,
-          delegation,
-          amount,
-        })
 
         ctx.log.info(
-          `account(${claimer.id}) claimed ${toHumanSQD(claim.amount)} from delegation(${delegation.id})`,
+          `account(${claimer.id}) claimed ${toHumanSQD(amount)} from delegation(${delegation.id})`,
         )
-
-        await ctx.store.insert(claim)
       }
 
       account.claimableDelegationCount = 0

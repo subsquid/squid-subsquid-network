@@ -49,7 +49,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
       worker.lockEnd = Number(deregistedAt)
     }
     await ctx.store.upsert(worker)
-    addToWorkerUnlockQueue(ctx, worker.id)
+    await addToWorkerUnlockQueue(ctx, worker.id)
 
     const pendingStatusChange = new WorkerStatusChange({
       id: createWorkerStatusId(workerId, deregistedAt),
@@ -59,7 +59,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
       pending: true,
     })
     await ctx.store.insert(pendingStatusChange)
-    addToWorkerStatusApplyQueue(ctx, pendingStatusChange.id)
+    await addToWorkerStatusApplyQueue(ctx, pendingStatusChange.id)
 
     ctx.log.info(`account(${worker.realOwner.id}) deregistered worker(${worker.id})`)
   }

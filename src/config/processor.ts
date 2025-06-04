@@ -15,6 +15,7 @@ import { addRouterQuery } from './queries/router'
 import { addStakingQuery } from './queries/staking'
 import { addVestingsQuery } from './queries/vestings'
 import { addWorkersRegistryQuery } from './queries/workersRegistry'
+import { addRewardTreasuryQuery } from './queries/rewardTreasury'
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution'
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
@@ -39,23 +40,32 @@ export const processor = new EvmBatchProcessor()
       address: true,
       topics: true,
       data: true,
+      transactionHash: true,
     },
   })
   .includeAllBlocks()
   .setBlockRange(network.range)
 
-if (process.env.PORTAL_ENDPOINT) {
-  processor.setPortal({
-    url: assertNotNull(process.env.PORTAL_ENDPOINT),
-    minBytes: 20 * 1024 * 1024,
-  })
-}
+//if (process.env.PORTAL_ENDPOINT) {
+//  processor.setPortal({
+//    url: assertNotNull(process.env.PORTAL_ENDPOINT),
+//    minBytes: 20 * 1024 * 1024,
+//  })
+//}
+
+processor.setGateway({
+  url:
+    network.name === 'mainnet'
+      ? 'https://v2.archive.subsquid.io/network/arbitrum-one'
+      : 'https://v2.archive.subsquid.io/network/arbitrum-sepolia',
+})
 
 processor
   .addLog({
     address: [network.contracts.SQD.address],
     range: network.contracts.SQD.range,
     topic0: [SQD.events.Transfer.topic],
+    transaction: true,
   })
   .addLog({
     address: [network.contracts.TemporaryHoldingFactory.address],
@@ -89,6 +99,7 @@ addWorkersRegistryQuery(processor)
 addNetworkControllerQuery(processor)
 addStakingQuery(processor)
 addRouterQuery(processor)
+addRewardTreasuryQuery(processor)
 
 export type Fields = EvmBatchProcessorFields<typeof processor>
 export type BlockData = _BlockData<Fields>

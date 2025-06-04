@@ -39,4 +39,19 @@ export function addVestingsQuery(processor: EvmBatchProcessor) {
         },
       })
   }
+
+  processor.addLog({
+    address: vestings.addresses,
+    topic0: [Vesting.events.ERC20Released.topic],
+    range: {
+      from: 0,
+      to: vestings.height,
+    },
+  })
+  processor.addLog({
+    topic0: [Vesting.events.ERC20Released.topic],
+    range: {
+      from: vestings.height ?? 0,
+    },
+  })
 }

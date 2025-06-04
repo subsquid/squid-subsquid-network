@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 
 @Entity_()
@@ -24,6 +24,12 @@ export class WorkerReward {
     @BigIntColumn_({nullable: false})
     amount!: bigint
 
+    @FloatColumn_({nullable: false})
+    apr!: number
+
     @BigIntColumn_({nullable: false})
     stakersReward!: bigint
+
+    @FloatColumn_({nullable: false})
+    stakerApr!: number
 }

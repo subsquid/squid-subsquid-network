@@ -1,16 +1,26 @@
-import { assertNotNull } from '@subsquid/evm-processor'
+import { assertNotNull, Log } from '@subsquid/evm-processor'
 
 import { isLog } from '../../item'
 import { createHandler } from '../base'
-import { createWorker } from '../helpers/entities'
+import { createAccount, createWorker } from '../helpers/entities'
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
+import * as SQD from '~/abi/SQD'
 import { network } from '~/config/network'
-import { Account, Settings, WorkerStatus, WorkerStatusChange } from '~/model'
+import {
+  Account,
+  Settings,
+  Transfer,
+  TransferType,
+  WorkerStatus,
+  WorkerStatusChange,
+} from '~/model'
 import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleWorkerRegistered = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -74,7 +84,19 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       pending: true,
     })
     await ctx.store.insert(pendingStatus)
-    addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
+    await addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
+
+    const transfer = findTransfer(log.getTransaction().logs, {
+      from: ownerId,
+      to: settings.contracts.workerRegistration,
+    })
+    if (!transfer) {
+      throw new Error(`transfer not found for worker(${worker.id})`)
+    }
+    await saveTransfer(ctx, transfer, {
+      type: TransferType.DEPOSIT,
+      worker,
+    })
 
     ctx.log.info(`account(${worker.realOwner.id}) registered worker(${worker.id})`)
     ctx.log.info(

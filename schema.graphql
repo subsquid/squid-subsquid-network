@@ -25,8 +25,6 @@ type Account @entity {
 
   claimableDelegationCount: Int!
 
-  claims: [Claim!] @derivedFrom(field: "account")
-
   gatewayStakes: [GatewayStake!] @derivedFrom(field: "realOwner")
   gateways: [Gateway!] @derivedFrom(field: "realOwner")
 }
@@ -44,16 +42,32 @@ type AccountTransfer @entity {
   transfer: Transfer!
 }
 
+enum TransferType {
+  TRANSFER
+  DEPOSIT
+  WITHDRAW
+  CLAIM
+  RELEASE
+}
+
 type Transfer @entity {
   id: ID!
 
   blockNumber: Int!
   timestamp: DateTime! @index
+  txHash: String! @index
+
+  type: TransferType!
 
   from: Account!
   to: Account!
 
   amount: BigInt!
+
+  delegation: Delegation
+  worker: Worker
+  gatewayStake: GatewayStake
+  vesting: Account
 }
 
 type Contracts {
@@ -84,27 +98,6 @@ type Settings @entity {
   currentEpoch: Int
   utilizedStake: BigInt!
   baseApr: Float!
-}
-
-enum ClaimType {
-  WORKER
-  DELEGATION
-}
-
-type Claim @entity {
-  id: ID!
-
-  blockNumber: Int!
-  timestamp: DateTime! @index
-
-  type: ClaimType!
-
-  worker: Worker
-  delegation: Delegation
-  "worker.realOwner or delegation.realOwner"
-  account: Account!
-
-  amount: BigInt!
 }
 
 type Commitment @entity {
@@ -175,7 +168,6 @@ type Worker
   claimableReward: BigInt!
   rewards: [WorkerReward!] @derivedFrom(field: "worker")
   claimedReward: BigInt!
-  claims: [Claim!] @derivedFrom(field: "worker")
 
   apr: Float
   stakerApr: Float
@@ -233,7 +225,9 @@ type WorkerReward @entity {
   worker: Worker!
 
   amount: BigInt!
+  apr: Float!
   stakersReward: BigInt!
+  stakerApr: Float!
 }
 
 type WorkerSnapshot @entity {
@@ -252,6 +246,9 @@ type Delegation @entity @index(fields: ["id", "realOwner"]) {
   realOwner: Account!
   worker: Worker!
 
+  status: DelegationStatus!
+  statusHistory: [DelegationStatusChange!]! @derivedFrom(field: "delegation")
+
   deposit: BigInt!
   locked: Boolean
   lockStart: Int
@@ -260,7 +257,20 @@ type Delegation @entity @index(fields: ["id", "realOwner"]) {
   claimableReward: BigInt!
   rewards: [DelegationReward!] @derivedFrom(field: "delegation")
   claimedReward: BigInt!
-  claims: [Claim!] @derivedFrom(field: "delegation")
+}
+
+enum DelegationStatus {
+  ACTIVE
+  WITHDRAWN
+  UNKNOWN
+}
+
+type DelegationStatusChange @entity {
+  delegation: Delegation!
+  status: DelegationStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+  pending: Boolean!
 }
 
 type DelegationReward @entity {
@@ -272,6 +282,7 @@ type DelegationReward @entity {
   delegation: Delegation!
 
   amount: BigInt!
+  apr: Float!
 }
 
 enum GatewayStatus {

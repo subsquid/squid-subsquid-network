@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: subsquid-network-testnet
-version: 5
+slot: v6
 description: Subsquid network indexer
 build:
 deploy:
@@ -9,7 +9,7 @@ deploy:
   env:
     NETWORK: tethys
     RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
-    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_sepolia.http }}
+    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_sepolia.http}}
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/testnet
     SCHEDULER_URL: https://metadata.sqd-datasets.io/scheduler/tethys
     REWARDS_MONITOR_API_URL: https://rewards-monitor.testnet.subsquid.io

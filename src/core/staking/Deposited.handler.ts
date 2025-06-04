@@ -4,14 +4,29 @@ import { isContract, isLog } from '../../item'
 import { createHandler } from '../base'
 import { addToWorkerCapQueue } from '../cap'
 import { createDelegation } from '../helpers/entities'
-import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
+import {
+  createAccountId,
+  createDelegationId,
+  createDelegationStatusChangeId,
+  createWorkerId,
+} from '../helpers/ids'
 
 import { addToDelegationUnlockQueue } from './CheckDelegationUnlock.listener'
 
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
-import { Worker, Account, Delegation, Settings } from '~/model'
+import {
+  Worker,
+  Account,
+  Delegation,
+  Settings,
+  TransferType,
+  DelegationStatus,
+  DelegationStatusChange,
+} from '~/model'
 import { toHumanSQD, toNextEpochStart } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleDeposited = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -63,12 +78,27 @@ export const handleDeposited = createHandler((ctx, item) => {
       delegation.locked = true
       delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength)
       delegation.lockEnd = delegation.lockStart + (settings.lockPeriod ?? settings.epochLength)
-      addToDelegationUnlockQueue(ctx, delegation.id)
+      await addToDelegationUnlockQueue(ctx, delegation.id)
     } else {
       delegation.locked = false
       delegation.lockStart = log.block.l1BlockNumber
       delegation.lockEnd = log.block.l1BlockNumber
     }
+
+    if (delegation.status !== DelegationStatus.ACTIVE) {
+      delegation.status = DelegationStatus.ACTIVE
+      await ctx.store.insert(
+        new DelegationStatusChange({
+          id: createDelegationStatusChangeId(delegation.id, log.block.height),
+          delegation,
+          status: DelegationStatus.ACTIVE,
+          timestamp: new Date(log.block.timestamp),
+          blockNumber: log.block.height,
+          pending: false,
+        }),
+      )
+    }
+
     await ctx.store.upsert(delegation)
 
     const worker = delegation.worker
@@ -80,6 +110,18 @@ export const handleDeposited = createHandler((ctx, item) => {
     await ctx.store.upsert(worker)
 
     await addToWorkerCapQueue(ctx, worker.id)
+
+    const transfer = findTransfer(log.transaction?.logs ?? [], {
+      from: accountId,
+      to: settings.contracts.staking,
+    })
+    if (!transfer) {
+      throw new Error(`transfer not found for delegation(${delegation.id})`)
+    }
+    await saveTransfer(ctx, transfer, {
+      type: TransferType.DEPOSIT,
+      delegation,
+    })
 
     ctx.log.info(
       `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
