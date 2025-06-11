@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {TransferDirection} from "./_transferDirection"
 import {Account} from "./account.model"
 import {Transfer} from "./transfer.model"
@@ -22,4 +22,7 @@ export class AccountTransfer {
     @Index_()
     @ManyToOne_(() => Transfer, {nullable: true})
     transfer!: Transfer
+
+    @BigIntColumn_({nullable: false})
+    balance!: bigint
 }

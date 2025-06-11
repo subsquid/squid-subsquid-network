@@ -154,3 +154,15 @@ export function toHumanSQD(value: bigint) {
 export function last<T>(array: T[]): T | undefined {
   return array[array.length - 1]
 }
+
+export function stopwatch() {
+  let start = process.hrtime.bigint()
+  return {
+    get: () => {
+      const t = process.hrtime.bigint()
+      const res = (t - start) / 1000000n
+      start = t
+      return res
+    },
+  }
+}

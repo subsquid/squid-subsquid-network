@@ -12,7 +12,7 @@
     "lint": "biome --fix --unsafe"
   },
   "dependencies": {
-    "@belopash/typeorm-store": "^1.5.0",
+    "@belopash/typeorm-store": "^1.6.0-rc.17",
     "@subsquid/archive-registry": "^3.3.2",
     "@subsquid/big-decimal": "^1.0.0",
     "@subsquid/evm-processor": "1.28.0-portal-api.b241d7",

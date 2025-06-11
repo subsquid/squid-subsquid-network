@@ -35,13 +35,19 @@ export const handleVestingTransfered = createHandlerOld({
 
       await ctx.store.upsert(vesting)
 
-      const workers = await ctx.store.findBy(Worker, { owner: { id: vesting.id } }, false)
+      const workers = await ctx.store.find(Worker, {
+        where: { owner: { id: vesting.id } },
+        cacheEntities: false,
+      })
       for (const worker of workers) {
         worker.realOwner = owner
       }
       await ctx.store.upsert(workers)
 
-      const delegations = await ctx.store.findBy(Delegation, { owner: { id: vesting.id } }, false)
+      const delegations = await ctx.store.find(Delegation, {
+        where: { worker: { owner: { id: vesting.id } } },
+        cacheEntities: false,
+      })
       for (const delegation of delegations) {
         delegation.realOwner = owner
       }

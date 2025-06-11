@@ -8,8 +8,8 @@ deploy:
     postgres:
   env:
     NETWORK: tethys
-    RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
-    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_sepolia.http}}
+    RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia.arbitrum.io/rpc' }}
+    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_sepolia.http || 'https://portal.sqd.dev/datasets/arbitrum-sepolia'}}
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/testnet
     SCHEDULER_URL: https://metadata.sqd-datasets.io/scheduler/tethys
     REWARDS_MONITOR_API_URL: https://rewards-monitor.testnet.subsquid.io

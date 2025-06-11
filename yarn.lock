@@ -170,19 +170,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@belopash/typeorm-store@npm:^1.5.0":
-  version: 1.5.0
-  resolution: "@belopash/typeorm-store@npm:1.5.0"
+"@belopash/typeorm-store@npm:^1.6.0-rc.17":
+  version: 1.6.0-rc.17
+  resolution: "@belopash/typeorm-store@npm:1.6.0-rc.17"
   dependencies:
-    "@subsquid/logger": "npm:^1.3.3"
     "@subsquid/util-internal": "npm:^3.2.0"
     async-mutex: "npm:^0.5.0"
+    fast-copy: "npm:^3.0.2"
   peerDependencies:
+    "@subsquid/logger": ^1
     "@subsquid/typeorm-config": ^4
     "@subsquid/typeorm-store": ^1
     pg: ^8.11.3
-    typeorm: ^0.3.16
-  checksum: 10c0/4cdf8afe415da4a1f9fcae08b972865228aa825e992a3ad35687665cae1b51a947a837c909fd9070def5daab1723ebccb8076a2215982f8fc2c147cd2272a213
+    typeorm: ^0.3.20
+  checksum: 10c0/5ed50f7046fc662f3555ab34994e39348f766afdffb78daa2daff679749e2d3294a6a92459c775bad777bde7b07b3b9e965ad783faf48ccd44441d315eb78a9c
   languageName: node
   linkType: hard
 
@@ -1329,11 +1330,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:*":
-  version: 22.15.29
-  resolution: "@types/node@npm:22.15.29"
+  version: 22.15.30
+  resolution: "@types/node@npm:22.15.30"
   dependencies:
     undici-types: "npm:~6.21.0"
-  checksum: 10c0/602cc88c6150780cd9b5b44604754e0ce13983ae876a538861d6ecfb1511dff289e5576fffd26c841cde2142418d4bb76e2a72a382b81c04557ccb17cff29e1d
+  checksum: 10c0/ca330ac0e7fd502686d6df115fcc606aba46fd334220f749bbba2f639accdadcb23f7900603ceccdc8240be736739cad5c0b87c0fa92c9255a4dff245f07d664
   languageName: node
   linkType: hard
 
@@ -1345,11 +1346,11 @@ __metadata:
   linkType: hard
 
 "@types/node@npm:^20.11.28":
-  version: 20.17.57
-  resolution: "@types/node@npm:20.17.57"
+  version: 20.19.0
+  resolution: "@types/node@npm:20.19.0"
   dependencies:
-    undici-types: "npm:~6.19.2"
-  checksum: 10c0/c04f3b6c4f335ad50bd3af62cd9e64a86c355cb6b363cb0e618511db4c6801c8539781c3786076eca6f56e999d6c7fc4748e43393a107aad57e65e3ffd1f73bf
+    undici-types: "npm:~6.21.0"
+  checksum: 10c0/11979f5c4c626555351352fe1b30846700ca018747272a7ff425f883f102805b7f07737d5b7fa3c6deb0ddaeb94e367bb9a633a3d1e1d5c517de9a6283c6f21c
   languageName: node
   linkType: hard
 
@@ -2412,6 +2413,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fast-copy@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "fast-copy@npm:3.0.2"
+  checksum: 10c0/02e8b9fd03c8c024d2987760ce126456a0e17470850b51e11a1c3254eed6832e4733ded2d93316c82bc0b36aeb991ad1ff48d1ba95effe7add7c3ab8d8eb554a
+  languageName: node
+  linkType: hard
+
 "fast-glob@npm:^3.2.9":
   version: 3.3.3
   resolution: "fast-glob@npm:3.3.3"
@@ -2754,7 +2762,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "gravatar-squid@workspace:."
   dependencies:
-    "@belopash/typeorm-store": "npm:^1.5.0"
+    "@belopash/typeorm-store": "npm:^1.6.0-rc.17"
     "@biomejs/biome": "npm:^1.9.4"
     "@subsquid/archive-registry": "npm:^3.3.2"
     "@subsquid/big-decimal": "npm:^1.0.0"
@@ -3250,9 +3258,9 @@ __metadata:
   linkType: hard
 
 "libphonenumber-js@npm:^1.11.1":
-  version: 1.12.8
-  resolution: "libphonenumber-js@npm:1.12.8"
-  checksum: 10c0/9c60d0f7b7b1c5bd85973fb80b8f7d7bbaf57fab2ca89b4f3712ad2e65ac7df8a3f52746a94104fffb618da4109f26fee07fc3225ac65dd17058b0d5d178cb47
+  version: 1.12.9
+  resolution: "libphonenumber-js@npm:1.12.9"
+  checksum: 10c0/77fb86802cdf339f472e6a65394603fec0dabe76faca8b5efb4ebcfada2c11a7b39b6773de400e8ec6528354d4b49317797673b14e921117cadbe6b76f01613d
   languageName: node
   linkType: hard
 
@@ -4662,13 +4670,6 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10c0/db2ad2a16ca829f50427eeb1da155e7a45e598eec7b086d8b4e8ba44e5a235f758e606d681c66992230d3fc3b8995865e5fd0b22a2c95486d0b3200f83072ec9
-  languageName: node
-  linkType: hard
-
-"undici-types@npm:~6.19.2":
-  version: 6.19.8
-  resolution: "undici-types@npm:6.19.8"
-  checksum: 10c0/078afa5990fba110f6824823ace86073b4638f1d5112ee26e790155f481f2a868cc3e0615505b6f4282bdf74a3d8caad715fd809e870c2bb0704e3ea6082f344
   languageName: node
   linkType: hard
 

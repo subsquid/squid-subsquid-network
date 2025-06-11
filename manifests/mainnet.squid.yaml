@@ -8,8 +8,8 @@ deploy:
     postgres:
   env:
     NETWORK: mainnet
-    RPC_ENDPOINT: ${{ secrets.ARBITRUM_RPC_URL }}
-    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_one.http }}
+    RPC_ENDPOINT: ${{ secrets.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc' }}
+    PORTAL_ENDPOINT: ${{ addons.portal.arbitrum_one.http || 'https://portal.sqd.dev/datasets/arbitrum-one'}}
     NETWORK_STATS_URL: https://pub-ac22b56b00cc44dca890819ccb2e5a6b.r2.dev/mainnet
     SCHEDULER_URL: https://metadata.sqd-datasets.io/scheduler/mainnet
     REWARDS_MONITOR_API_URL: https://rewards-monitor.mainnet.subsquid.io

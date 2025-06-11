@@ -38,6 +38,7 @@ export const handleDeposited = createHandler((ctx, item) => {
     staker: stakerAccount,
     amount,
   } = Staking.events.Deposited.decode(log)
+  if (amount === 0n) return
 
   const workerId = createWorkerId(workerIndex)
   const workerDeferred = ctx.store.defer(Worker, workerId)

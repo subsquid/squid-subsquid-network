@@ -51,7 +51,9 @@ export const handleClaimed = createHandlerOld({
           },
         })
       } else {
-        delegations = await Promise.all(delegationsDeferred.map((d) => d.getOrFail()))
+        delegations = await Promise.all(delegationsDeferred.map((d) => d.get())).then((ds) =>
+          ds.filter((d): d is Delegation => d != null),
+        )
       }
 
       for (let i = 0; i < delegations.length; i++) {

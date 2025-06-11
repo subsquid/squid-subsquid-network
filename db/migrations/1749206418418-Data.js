@@ -1,5 +1,5 @@
-module.exports = class Data1749035304042 {
-    name = 'Data1749035304042'
+module.exports = class Data1749206418418 {
+    name = 'Data1749206418418'
 
     async up(db) {
         await db.query(`CREATE TABLE "worker_status_change" ("id" character varying NOT NULL, "status" character varying(13) NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE, "block_number" integer NOT NULL, "pending" boolean NOT NULL, "worker_id" character varying, CONSTRAINT "PK_174b401e6a49e199eea906b80e9" PRIMARY KEY ("id"))`)
@@ -46,7 +46,7 @@ module.exports = class Data1749035304042 {
         await db.query(`CREATE INDEX "IDX_c01c16aa30a8f62c6726350645" ON "transfer" ("worker_id") `)
         await db.query(`CREATE INDEX "IDX_d53aa78bdf21697e2105fb3fbe" ON "transfer" ("gateway_stake_id") `)
         await db.query(`CREATE INDEX "IDX_b62e1549fb545499452aeb36ec" ON "transfer" ("vesting_id") `)
-        await db.query(`CREATE TABLE "account_transfer" ("id" character varying NOT NULL, "direction" character varying(4) NOT NULL, "account_id" character varying, "transfer_id" character varying, CONSTRAINT "PK_3b959a286b97fc83be6cec239a9" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE TABLE "account_transfer" ("id" character varying NOT NULL, "direction" character varying(4) NOT NULL, "balance" numeric NOT NULL, "account_id" character varying, "transfer_id" character varying, CONSTRAINT "PK_3b959a286b97fc83be6cec239a9" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_d5240d17696e229585da974641" ON "account_transfer" ("account_id") `)
         await db.query(`CREATE INDEX "IDX_2c2313461bd6c19983900ef539" ON "account_transfer" ("transfer_id") `)
         await db.query(`CREATE TABLE "account" ("id" character varying NOT NULL, "type" character varying(17) NOT NULL, "balance" numeric NOT NULL, "claimable_delegation_count" integer NOT NULL, "owner_id" character varying, CONSTRAINT "PK_54115ee388cdb6d86bb4bf5b2ea" PRIMARY KEY ("id"))`)

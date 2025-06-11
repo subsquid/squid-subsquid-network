@@ -35,6 +35,7 @@ import { Task } from '~/utils/queue'
 processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
   const tasks: Task[] = []
 
+  ctx.store.defer(Settings, network.name)
   tasks.push(() => init(ctx, ctx.blocks[0].header))
 
   // listenRewardsDistributed(ctx)
@@ -127,18 +128,26 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
 
   if (blocksPassed > 1000) {
     const limit = 50_000
-    const offset = 0
+    let offset = 0
+    const ids: string[] = []
+
     while (true) {
       const batch = await ctx.store.find(Block, {
         where: { l1BlockNumber: LessThanOrEqual(block.l1BlockNumber - 50_000) },
         order: { l1BlockNumber: 'ASC' },
         skip: offset,
         take: limit,
-        cache: false,
+        cacheEntities: false,
       })
 
-      await ctx.store.remove(batch)
+      ids.push(...batch.map(block => block.id))
+
       if (batch.length < limit) break
+      offset += limit
+    }
+
+    if (ids.length > 0) {
+      await ctx.store.remove(Block, ids)
     }
 
     blocksPassed = 0

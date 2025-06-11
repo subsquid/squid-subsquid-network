@@ -57,12 +57,14 @@ export const handleTransfer = createHandlerOld({
           direction: TransferDirection.FROM,
           account: transfer.from,
           transfer,
+          balance: from.balance,
         }),
         new AccountTransfer({
           id: `${transfer.id}-to`,
           direction: TransferDirection.TO,
           account: transfer.to,
           transfer,
+          balance: to.balance,
         }),
       ])
 
@@ -93,30 +95,40 @@ export async function saveTransfer(
     return transfer
   }
 
-  const from = await ctx.store.getOrInsert(Account, event.from, (id) => {
-    ctx.log.info(`created account(${id})`)
-    return createAccount(id, { type: AccountType.USER })
-  })
-  const to = await ctx.store.getOrInsert(Account, event.to, (id) => {
-    ctx.log.info(`created account(${id})`)
-    return createAccount(id, { type: AccountType.USER })
-  })
+  if (transfer) {
+    transfer = new Transfer({
+      ...transfer,
+      ...extra,
+    })
 
-  transfer = new Transfer({
-    id: log.id,
-    from,
-    to,
-    blockNumber: log.block.height,
-    amount: event.value,
-    timestamp: new Date(log.block.timestamp),
-    txHash: log.transactionHash,
-    type: extra?.type ?? TransferType.TRANSFER,
-    worker: extra?.worker,
-    delegation: extra?.delegation,
-    gatewayStake: extra?.gatewayStake,
-    vesting: extra?.vesting,
-  })
-  await ctx.store.upsert(transfer)
+    await ctx.store.upsert(transfer)
+  } else {
+    const from = await ctx.store.getOrInsert(Account, event.from, (id) => {
+      ctx.log.info(`created account(${id})`)
+      return createAccount(id, { type: AccountType.USER })
+    })
+    const to = await ctx.store.getOrInsert(Account, event.to, (id) => {
+      ctx.log.info(`created account(${id})`)
+      return createAccount(id, { type: AccountType.USER })
+    })
+
+    transfer = new Transfer({
+      id: log.id,
+      from,
+      to,
+      blockNumber: log.block.height,
+      amount: event.value,
+      timestamp: new Date(log.block.timestamp),
+      txHash: log.transactionHash,
+      type: extra?.type ?? TransferType.TRANSFER,
+      worker: extra?.worker,
+      delegation: extra?.delegation,
+      gatewayStake: extra?.gatewayStake,
+      vesting: extra?.vesting,
+    })
+
+    await ctx.store.insert(transfer)
+  }
 
   return transfer
 }
