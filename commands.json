@@ -72,7 +72,7 @@
     },
     "serve": {
       "description": "Start the GraphQL API server",
-      "cmd": ["squid-graphql-server"]
+      "cmd": ["squid-graphql-server", "--no-squid-status"]
     },
     "serve:prod": {
       "description": "Start the GraphQL API server with caching and limits",

@@ -239,6 +239,18 @@ type WorkerSnapshot @entity {
   epoch: Epoch!
 }
 
+type WorkerMetrics @entity {
+  id: ID!
+  worker: Worker!
+  timestamp: DateTime!
+  uptime: Float!
+  pings: Int!
+  storedData: BigInt!
+  queries: Int!
+  servedData: BigInt!
+  scannedData: BigInt!
+}
+
 type Delegation @entity @index(fields: ["id", "realOwner"]) {
   id: ID!
 

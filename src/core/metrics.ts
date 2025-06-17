@@ -1,15 +1,25 @@
 import { BlockHeader } from '@subsquid/evm-processor'
 import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client'
-import { In, MoreThanOrEqual } from 'typeorm'
+import { In, MoreThanOrEqual, Not } from 'typeorm'
+import { Transform } from 'node:stream'
 
 import { Events, MappingContext } from '../types'
 
 import { recalculateWorkerAprs } from './cap'
 
 import { network } from '~/config/network'
-import { WorkerStatus, Worker, Commitment, WorkerDayUptime, Settings, Block } from '~/model'
+import {
+  WorkerStatus,
+  Worker,
+  Commitment,
+  WorkerDayUptime,
+  Settings,
+  Block,
+  WorkerMetrics,
+} from '~/model'
 import { joinUrl, toPercent } from '~/utils/misc'
-import { DAY_MS, MINUTE_MS, toStartOfDay, toStartOfInterval } from '~/utils/time'
+import { DAY_MS, MINUTE_MS, toStartOfInterval } from '~/utils/time'
+import { startOfDay, compareAsc } from 'date-fns'
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,
@@ -40,77 +50,113 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
     block.timestamp - onlineUpdateInterval >=
     lastOnlineUpdateTimestamp + lastOnlineUpdateOffset
   ) {
-    const { timestamp, data }: { timestamp: string; data: WorkerOnline[] } = await client
-      .get(joinUrl(statsUrl, '/workers/online.json'))
+    const onlineStatus: { timestamp: string } | undefined = await client
+      .get(joinUrl(statsUrl, '/workers/online/status'))
       .then((r) => JSON.parse(r))
+      .catch((e) => {
+        ctx.log.warn(e)
+        return undefined
+      })
 
-    const snapshotTimestamp = new Date(timestamp).getTime()
+    if (!onlineStatus) return
+
+    const snapshotTimestamp = new Date(onlineStatus.timestamp).getTime()
     if (snapshotTimestamp === lastOnlineUpdateTimestamp) {
       lastOnlineUpdateOffset += MINUTE_MS
       return
     }
 
-    const onlineWorkers = data.reduce((r, w) => r.set(w.peerId, w), new Map<string, WorkerOnline>())
     const activeWorkers = await ctx.store.find(Worker, {
       where: {
         status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]),
       },
+      cacheEntities: false,
     })
+    const activeWorkersMap = new Map(activeWorkers.map((w) => [w.peerId, w]))
 
-    try {
-      const schedulerStatus: {
-        config: {
-          recommended_worker_versions: string
-          supported_worker_versions: string
-        }
-        workers: {
-          peer_id: string
-          status: string
-        }[]
-      } = schedulerUrl ? await client.get(joinUrl(schedulerUrl, 'status.json')) : {} as any
-      const jailedWorkers = schedulerStatus.workers
-        .filter((w) => w.status !== 'online')
-        .reduce((r, w) => r.set(w.peer_id, w), new Map<string, { status: string }>())
+    const workerStats: WorkerOnline[] | undefined = await client
+      .get(joinUrl(statsUrl, '/workers/online/data'))
+      .then((r: Buffer) =>
+        r
+          .toString()
+          .split('\n')
+          .filter((line) => !!line)
+          .map((line) => JSON.parse(line)),
+      )
+      .catch((e) => {
+        ctx.log.warn(e)
+        return undefined
+      })
 
+    if (workerStats) {
       for (const worker of activeWorkers) {
-        const data = onlineWorkers.get(worker.peerId)
-        const jailData = jailedWorkers.get(worker.peerId)
-
-        worker.online = !!data && !jailData
+        worker.online = null
         worker.dialOk = null
-        worker.storedData = data ? BigInt(data.storedBytes) : null
-        worker.version = data ? data.version : worker.version
-        worker.jailed = !!jailData
-        worker.jailReason = jailData ? jailData.status : null
+        worker.storedData = null
+        worker.version = null
+      }
+
+      for (const stats of workerStats) {
+        const worker = activeWorkersMap.get(stats.peerId)
+        if (!worker) continue
+
+        worker.online = true
+        worker.dialOk = null
+        worker.storedData = BigInt(stats.storedBytes)
+        worker.version = stats.version
+      }
+
+      await ctx.store.upsert(activeWorkers)
+    }
+
+    const schedulerStatus:
+      | {
+          config: {
+            recommended_worker_versions: string
+            supported_worker_versions: string
+          }
+          workers: {
+            peer_id: string
+            status: string
+          }[]
+        }
+      | undefined = schedulerUrl
+      ? await client.get(joinUrl(schedulerUrl, 'status.json')).catch(() => undefined)
+      : undefined
+
+    if (schedulerStatus) {
+      for (const worker of activeWorkers.values()) {
+        worker.jailed = null
+        worker.jailReason = null
+      }
+
+      for (const data of schedulerStatus.workers) {
+        const worker = activeWorkersMap.get(data.peer_id)
+        if (!worker) continue
+
+        worker.jailed = data.status !== 'online'
+        worker.jailReason = worker.jailed ? data.status : null
       }
 
       await ctx.store.upsert(activeWorkers)
 
-      lastOnlineUpdateTimestamp = snapshotTimestamp
-      lastOnlineUpdateOffset = 0
+      const {
+        recommended_worker_versions: recommendedWorkerVersion,
+        supported_worker_versions: minimalWorkerVersion,
+      } = schedulerStatus.config
 
-      const config = schedulerStatus.config
-      if (config) {
-        const {
-          recommended_worker_versions: recommendedWorkerVersion,
-          supported_worker_versions: minimalWorkerVersion,
-        } = config
+      const settings = await settingsDefer.getOrFail()
 
-        const settings = await settingsDefer.getOrFail()
+      settings.minimalWorkerVersion = minimalWorkerVersion || null
+      settings.recommendedWorkerVersion = recommendedWorkerVersion || null
 
-        settings.minimalWorkerVersion = minimalWorkerVersion || null
-        settings.recommendedWorkerVersion = recommendedWorkerVersion || null
-
-        await ctx.store.upsert(settings)
-      }
-    } catch (e: any) {
-      ctx.log.warn(e)
+      await ctx.store.upsert(settings)
     }
 
-    await ctx.store.upsert(activeWorkers)
+    lastOnlineUpdateTimestamp = new Date(onlineStatus.timestamp).getTime()
 
     ctx.log.info(
-      `workers online of ${activeWorkers.length} updated. ${data?.length} workers online`,
+      `workers online of ${activeWorkers.length} updated. ${activeWorkers.filter((w) => !!w.online).length} workers online`,
     )
   }
 }
@@ -121,15 +167,14 @@ let lastMetricsUpdateOffset = 0
 
 type WorkerStat = {
   peerId: string
-  uptime24Hours: number
-  responseBytes24Hours: string
-  readChunks24Hours: string
-  queryCount24Hours: string
-  uptime90Days: number
-  responseBytes90Days: string
-  readChunks90Days: string
-  queryCount90Days: string
-  dayUptimes: { date: string; dayUptime: number }[]
+  data: {
+    timestamp: string
+    pings: string
+    storedBytes: string
+    responseBytes: string
+    readChunks: string
+    queries: string
+  }[]
 }
 
 export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHeader) {
@@ -140,11 +185,18 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
     block.timestamp - metricsUpdateInterval >
     lastMetricsUpdateTimestamp + lastMetricsUpdateOffset
   ) {
-    const { timestamp, data }: { timestamp: string; data: WorkerStat[] } = await client
-      .get(joinUrl(statsUrl, '/workers/stats.json'))
+    const statsStatus:
+      | { timestamp: string; chunks: { timestamp: string; name: string }[] }
+      | undefined = await client
+      .get(joinUrl(statsUrl, '/workers/stats/status'))
       .then((r) => JSON.parse(r))
+      .catch((e) => {
+        ctx.log.warn(e)
+        return undefined
+      })
+    if (!statsStatus) return
 
-    const snapshotTimestamp = new Date(timestamp).getTime()
+    const snapshotTimestamp = new Date(statsStatus.timestamp).getTime()
     if (snapshotTimestamp === lastMetricsUpdateTimestamp) {
       lastMetricsUpdateOffset = lastMetricsUpdateOffset
         ? Math.min(lastMetricsUpdateOffset * 2, metricsUpdateInterval)
@@ -152,74 +204,84 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
       return
     }
 
-    const workersStats = data.reduce((r, w) => r.set(w.peerId, w), new Map<string, WorkerStat>())
-    const activeWorkers = await ctx.store.find(Worker, {
-      where: { status: In([WorkerStatus.ACTIVE, WorkerStatus.DEREGISTERING]) },
+    const workers = await ctx.store.find(Worker, {
+      where: {},
+      cacheEntities: false,
     })
+    const workersMap = new Map(workers.map((w) => [w.peerId, w]))
 
-    for (const worker of activeWorkers) {
-      const workerStats = workersStats.get(worker.peerId)
+    const lastProcessedTimestamp = await ctx.store
+      .findOne(WorkerMetrics, { where: {}, order: { timestamp: 'DESC' } })
+      .then((r) => new Date(r?.timestamp ?? 0))
+    ctx.log.info(`last processed timestamp: ${lastProcessedTimestamp.toISOString()}`)
 
-      worker.servedData90Days = workerStats ? BigInt(workerStats.responseBytes90Days) : 0n
-      worker.scannedData90Days = workerStats ? BigInt(workerStats.readChunks90Days) : 0n
-      worker.queries90Days = workerStats ? BigInt(workerStats.queryCount90Days) : 0n
+    const workerMetrics: WorkerMetrics[] = []
+    let complete = true
+    for (const chunk of statsStatus.chunks.sort((a, b) => compareAsc(a.timestamp, b.timestamp))) {
+      if (workerMetrics.length >= 50_000) {
+        complete = false
+        break
+      }
 
-      worker.servedData24Hours = workerStats ? BigInt(workerStats.responseBytes24Hours) : 0n
-      worker.scannedData24Hours = workerStats ? BigInt(workerStats.readChunks24Hours) : 0n
-      worker.queries24Hours = workerStats ? BigInt(workerStats.queryCount24Hours) : 0n
+      if (compareAsc(chunk.timestamp, startOfDay(lastProcessedTimestamp)) < 0) continue
 
-      const createdTimestamp = worker.createdAt.getTime()
-
-      worker.uptime24Hours = workerStats
-        ? toPercent(
-            createdTimestamp > snapshotTimestamp - DAY_MS
-              ? workerStats.uptime24Hours / ((snapshotTimestamp - createdTimestamp) / DAY_MS)
-              : workerStats.uptime24Hours,
-          )
-        : null
-
-      if (workerStats?.dayUptimes) {
-        const dayUptimes = workerStats.dayUptimes.reduce(
-          (r, d) => r.set(new Date(d.date).getTime(), d.dayUptime),
-          new Map<number, number>(),
+      const chunkData: WorkerStat[] | undefined = await client
+        .get(joinUrl(statsUrl, `/workers/stats/${chunk.name}`))
+        .then(
+          (r: Buffer | undefined) =>
+            r
+              ?.toString()
+              .split('\n')
+              .filter((line) => !!line)
+              .map((line) => JSON.parse(line)) ?? [],
         )
+        .catch((e) => {
+          ctx.log.warn(e)
+          return undefined
+        })
+      if (!chunkData) break
 
-        worker.dayUptimes = []
+      if (chunkData.length == 0) {
+        ctx.log.warn(`No data for chunk ${chunk.name}`)
+        continue
+      }
 
-        const from = toStartOfDay(createdTimestamp)
-        const to = toStartOfDay(snapshotTimestamp)
+      for (const stat of chunkData) {
+        const worker = workersMap.get(stat.peerId)
+        if (!worker) continue
 
-        for (let t = from; t <= to; t += DAY_MS) {
-          let uptime = dayUptimes.get(t) ?? 0
+        for (const hour of stat.data) {
+          const hourTimestamp = new Date(hour.timestamp)
 
-          if (t === from) {
-            uptime = uptime / ((t + DAY_MS - createdTimestamp) / DAY_MS)
-          }
+          if (compareAsc(hourTimestamp, lastProcessedTimestamp) < 0) continue
+          if (compareAsc(hourTimestamp, worker.createdAt) < 0) continue
 
-          if (t === to) {
-            uptime = uptime / ((snapshotTimestamp - to - MINUTE_MS) / DAY_MS)
-          }
-
-          worker.dayUptimes.push(
-            new WorkerDayUptime({ timestamp: new Date(t), uptime: toPercent(uptime) }),
+          workerMetrics.push(
+            new WorkerMetrics({
+              id: `${worker.id.padStart(5, '0')}-${Math.floor(hourTimestamp.getTime() / 1000)
+                .toString()
+                .padStart(10, '0')}`,
+              timestamp: hourTimestamp,
+              pings: Number(hour.pings),
+              uptime: toPercent(Number(hour.pings) / 30),
+              storedData: BigInt(hour.storedBytes),
+              servedData: BigInt(hour.responseBytes),
+              scannedData: BigInt(hour.readChunks),
+              queries: Number(hour.queries),
+              worker,
+            }),
           )
         }
-
-        worker.uptime90Days = worker.dayUptimes
-          .slice(-90)
-          .reduce((s, i, _, arr) => s + i.uptime / arr.length, 0)
-      } else {
-        worker.dayUptimes = null
-        worker.uptime90Days = null
       }
     }
 
-    await ctx.store.upsert(activeWorkers)
+    await ctx.store.upsert(workerMetrics)
+    if (!complete) return
 
     lastMetricsUpdateTimestamp = snapshotTimestamp
     lastMetricsUpdateOffset = 0
 
-    ctx.log.info(`workers stats of ${activeWorkers.length} updated`)
+    ctx.log.info(`workers stats of ${workers.length} updated`)
   }
 }
 
@@ -409,4 +471,46 @@ function calculateApr(worker: Worker, commitments: Commitment[]) {
   //     stakerApr: worker.totalDelegation > 0 ? stakerApr.div(interval).toNumber() : null,
   //   };
   // }
+}
+
+class JsonLinesTransform extends Transform {
+  private buffer = ''
+
+  constructor() {
+    super({ objectMode: true })
+  }
+
+  _transform(
+    chunk: any,
+    encoding: BufferEncoding,
+    callback: (error?: Error | null, data?: any) => void,
+  ) {
+    this.buffer += chunk.toString()
+    const lines = this.buffer.split('\n')
+    this.buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      if (!line) continue
+      try {
+        this.push(JSON.parse(line))
+      } catch (e: any) {
+        this.emit('error', new Error(`Failed to parse JSON line: ${line}. Error: ${e.message}`))
+      }
+    }
+    callback()
+  }
+
+  _flush(callback: (error?: Error | null, data?: any) => void) {
+    if (this.buffer) {
+      try {
+        this.push(JSON.parse(this.buffer))
+      } catch (e: any) {
+        this.emit(
+          'error',
+          new Error(`Failed to parse JSON line: ${this.buffer}. Error: ${e.message}`),
+        )
+      }
+    }
+    callback()
+  }
 }
