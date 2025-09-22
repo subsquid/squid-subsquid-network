@@ -36,7 +36,7 @@ export const handleDeposited = createHandler((ctx, item) => {
   const delegationId = createDelegationId(workerId, accountId)
   const delegationDeferred = ctx.store.defer(Delegation, {
     id: delegationId,
-    relations: { worker: true, realOwner: true },
+    relations: { worker: true, owner: true },
   })
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
@@ -53,7 +53,7 @@ export const handleDeposited = createHandler((ctx, item) => {
 
       return createDelegation(id, {
         owner,
-        realOwner: owner.owner || undefined,
+        realOwner: owner.owner || owner,
         worker,
       })
     })
@@ -82,7 +82,7 @@ export const handleDeposited = createHandler((ctx, item) => {
     await addToWorkerCapQueue(ctx, worker.id)
 
     ctx.log.info(
-      `account(${delegation.realOwner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
+      `account(${delegation.owner.id}) delegated ${toHumanSQD(amount)} to worker(${worker.id})`,
     )
   }
 })

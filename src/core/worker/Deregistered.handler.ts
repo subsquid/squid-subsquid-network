@@ -20,7 +20,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
   const workerId = createWorkerId(workerIndex)
   const workerDeferred = ctx.store.defer(Worker, {
     id: workerId,
-    relations: { realOwner: true },
+    relations: { owner: true },
   })
 
   return async () => {
@@ -61,6 +61,6 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
     await ctx.store.insert(pendingStatusChange)
     addToWorkerStatusApplyQueue(ctx, pendingStatusChange.id)
 
-    ctx.log.info(`account(${worker.realOwner.id}) deregistered worker(${worker.id})`)
+    ctx.log.info(`account(${worker.owner.id}) deregistered worker(${worker.id})`)
   }
 })

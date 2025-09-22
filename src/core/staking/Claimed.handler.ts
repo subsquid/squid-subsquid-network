@@ -24,8 +24,7 @@ export const handleClaimed = createHandlerOld({
       ctx.store.defer(Delegation, {
         id,
         relations: {
-          owner: true,
-          realOwner: true,
+          owner: { owner: true },
         },
       }),
     )
@@ -45,7 +44,7 @@ export const handleClaimed = createHandlerOld({
             owner: account,
           },
           relations: {
-            realOwner: true,
+            owner: { owner: true },
           },
         })
       } else {
@@ -63,7 +62,7 @@ export const handleClaimed = createHandlerOld({
 
         await ctx.store.upsert(delegation)
 
-        const claimer = delegation.realOwner
+        const claimer = delegation.owner.owner || delegation.owner
         const claim = new Claim({
           id: `${log.id}-${String(i).padStart(5, '0')}`,
           blockNumber: log.block.height,

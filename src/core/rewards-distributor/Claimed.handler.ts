@@ -28,7 +28,7 @@ export const handleClaimed = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, {
       id: workerId,
-      relations: { owner: true, realOwner: true },
+      relations: { owner: { owner: true } },
     })
 
     return async () => {
@@ -40,7 +40,7 @@ export const handleClaimed = createHandlerOld({
 
       await ctx.store.upsert(worker)
 
-      const account = worker.realOwner
+      const account = worker.owner.owner || worker.owner
       const claim = new Claim({
         id: log.id,
         blockNumber: log.block.height,

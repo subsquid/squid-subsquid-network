@@ -22,12 +22,19 @@ const processor = new EvmBatchProcessor()
     topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
   })
 
-let vestings: string[] = []
+let vestings: TemporaryHoldingData[] = []
+
+type TemporaryHoldingData = {
+  address: string
+  beneficiary: string
+  admin: string
+  unlockTimestamp: number
+}
 
 type Metadata = {
   height: number
   hash: string
-  addresses: string[]
+  data: TemporaryHoldingData[]
 }
 
 let isInit = false
@@ -39,12 +46,10 @@ const db = new Database({
   hooks: {
     async onStateRead(dest) {
       if (await dest.exists(OUTPUT_FILE)) {
-        const { height, hash, addresses }: Metadata = await dest
-          .readFile(OUTPUT_FILE)
-          .then(JSON.parse)
+        const { height, hash, data }: Metadata = await dest.readFile(OUTPUT_FILE).then(JSON.parse)
 
         if (!isInit) {
-          vestings = addresses
+          vestings = data
           isInit = true
         }
 
@@ -56,7 +61,7 @@ const db = new Database({
     async onStateUpdate(dest, info) {
       const metadata: Metadata = {
         ...info,
-        addresses: vestings,
+        data: vestings,
       }
       await dest.writeFile(OUTPUT_FILE, JSON.stringify(metadata, null, 2))
     },
@@ -68,8 +73,14 @@ processor.run(db, async (ctx) => {
 
   for (const c of ctx.blocks) {
     for (const i of c.logs) {
-      const { vesting } = TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(i)
-      vestings.push(vesting)
+      const { vesting, beneficiaryAddress, admin, unlockTimestamp } =
+        TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(i)
+      vestings.push({
+        address: vesting,
+        beneficiary: beneficiaryAddress,
+        admin: admin,
+        unlockTimestamp: Number(unlockTimestamp) * 1000,
+      })
     }
   }
 })

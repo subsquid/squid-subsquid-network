@@ -76,9 +76,9 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
     await ctx.store.insert(pendingStatus)
     addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
 
-    ctx.log.info(`account(${worker.realOwner.id}) registered worker(${worker.id})`)
+    ctx.log.info(`account(${worker.owner.id}) registered worker(${worker.id})`)
     ctx.log.info(
-      `account(${worker.realOwner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
+      `account(${worker.owner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
     )
   }
 })

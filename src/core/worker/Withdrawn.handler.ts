@@ -17,7 +17,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, {
       id: workerId,
-      relations: { realOwner: true },
+      relations: { owner: true },
     })
 
     return async () => {
@@ -42,7 +42,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
       await ctx.store.upsert(worker)
 
       ctx.log.info(
-        `account(${worker.realOwner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
+        `account(${worker.owner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
       )
     }
   },
