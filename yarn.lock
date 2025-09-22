@@ -1834,7 +1834,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"class-validator@npm:^0.14.1":
+"class-validator@npm:^0.14.2":
   version: 0.14.2
   resolution: "class-validator@npm:0.14.2"
   dependencies:
@@ -2784,15 +2784,16 @@ __metadata:
     "@types/lodash": "npm:^4.17.0"
     "@types/node": "npm:^20.11.28"
     bs58: "npm:^5.0.0"
-    class-validator: "npm:^0.14.1"
+    class-validator: "npm:^0.14.2"
     date-fns: "npm:^4.1.0"
     dotenv: "npm:^16.4.5"
     pg: "npm:^8.11.3"
     reflect-metadata: "npm:^0.2.2"
     tsc-alias: "npm:^1.8.8"
-    type-graphql: "npm:^1.2.0-rc.1"
+    type-graphql: "npm:1.2.0-rc.1"
     typeorm: "npm:^0.3.20"
     typescript: "npm:~5.4.2"
+    yesql: "npm:^7.0.0"
   languageName: unknown
   linkType: soft
 
@@ -4536,7 +4537,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"type-graphql@npm:^1.2.0-rc.1":
+"type-graphql@npm:1.2.0-rc.1":
   version: 1.2.0-rc.1
   resolution: "type-graphql@npm:1.2.0-rc.1"
   dependencies:
@@ -5023,5 +5024,12 @@ __metadata:
     y18n: "npm:^5.0.5"
     yargs-parser: "npm:^21.1.1"
   checksum: 10c0/ccd7e723e61ad5965fffbb791366db689572b80cca80e0f96aad968dfff4156cd7cd1ad18607afe1046d8241e6fb2d6c08bf7fa7bfb5eaec818735d8feac8f05
+  languageName: node
+  linkType: hard
+
+"yesql@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "yesql@npm:7.0.0"
+  checksum: 10c0/83485a0a2ec8889c3eb38a3cd561097dccf601430618da2926baeae9a63d353044e1f9cfad0151e4cc38327e531ccf54498c80f0311f497eb46248c1930d24fb
   languageName: node
   linkType: hard
