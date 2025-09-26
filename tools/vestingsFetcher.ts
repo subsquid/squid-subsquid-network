@@ -8,9 +8,7 @@ const OUTPUT_FILE = 'vestings.json'
 
 const processor = new EvmBatchProcessor()
   .setPortal(assertNotNull(process.env.PORTAL_ENDPOINT))
-  .setBlockRange({
-    from: 6_000_000,
-  })
+  .setBlockRange(network.range)
   .setFields({
     log: {
       topics: true,

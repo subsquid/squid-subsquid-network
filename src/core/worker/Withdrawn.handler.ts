@@ -28,7 +28,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, {
       id: workerId,
-      relations: { owner: true, realOwner: true },
+      relations: { owner: { owner: true } },
     })
 
     return async () => {
@@ -65,7 +65,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
       })
 
       ctx.log.info(
-        `account(${worker.realOwner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
+        `account(${worker.owner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
       )
     }
   },

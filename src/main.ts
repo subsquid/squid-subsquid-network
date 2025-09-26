@@ -31,6 +31,10 @@ import {
 import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
 import { last, toEpochStart, toNextEpochStart } from '~/utils/misc'
 import { Task } from '~/utils/queue'
+import {
+  ensureTemporaryHoldingUnlockQueue,
+  processTemporaryHoldingUnlockQueue,
+} from './core/temporary-holding/CheckTempHoldingUnlock.listener'
 
 processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
   const tasks: Task[] = []
@@ -60,6 +64,7 @@ processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (c
           await processDelegationUnlockQueue(ctx, block.header)
           await processGatewayStakeApplyQueue(ctx, block.header)
           await processGatewayStakeUnlockQueue(ctx, block.header)
+          await processTemporaryHoldingUnlockQueue(ctx, block.header)
         },
         { block: block.header },
       ),
@@ -111,6 +116,7 @@ async function init(ctx: MappingContext, block: BlockHeader) {
   await ensureDelegationUnlockQueue(ctx)
   await ensureGatewayStakeApplyQueue(ctx)
   await ensureGatewayStakeUnlockQueue(ctx)
+  await ensureTemporaryHoldingUnlockQueue(ctx)
   await ensureWorkerCapQueue(ctx, block)
 
   if (ctx.isHead) {

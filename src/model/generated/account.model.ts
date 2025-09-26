@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_, OneToOne as OneToOne_} from "@subsquid/typeorm-store"
 import {AccountType} from "./_accountType"
 import {AccountTransfer} from "./accountTransfer.model"
 import {Transfer} from "./transfer.model"
@@ -6,6 +6,7 @@ import {Worker} from "./worker.model"
 import {Delegation} from "./delegation.model"
 import {GatewayStake} from "./gatewayStake.model"
 import {Gateway} from "./gateway.model"
+import {TemporaryHoldingData} from "./temporaryHoldingData.model"
 
 @Entity_()
 export class Account {
@@ -58,4 +59,10 @@ export class Account {
 
     @OneToMany_(() => Gateway, e => e.realOwner)
     gateways!: Gateway[]
+
+    @OneToOne_(() => TemporaryHoldingData, e => e.account)
+    temporaryHolding!: TemporaryHoldingData | undefined | null
+
+    @OneToMany_(() => TemporaryHoldingData, e => e.beneficiary)
+    temporaryHoldings!: TemporaryHoldingData[]
 }

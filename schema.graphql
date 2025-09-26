@@ -27,6 +27,9 @@ type Account @entity {
 
   gatewayStakes: [GatewayStake!] @derivedFrom(field: "realOwner")
   gateways: [Gateway!] @derivedFrom(field: "realOwner")
+
+  temporaryHolding: TemporaryHoldingData @derivedFrom(field: "account")
+  temporaryHoldings: [TemporaryHoldingData!] @derivedFrom(field: "beneficiary")
 }
 
 enum TransferDirection {
@@ -366,4 +369,14 @@ type Epoch @entity {
   endedAt: DateTime
   status: EpochStatus!
   activeWorkerIds: [String!]
+}
+
+type TemporaryHoldingData @entity {
+  id: ID!
+
+  account: Account! @unique
+  beneficiary: Account!
+  admin: Account!
+  unlockedAt: DateTime!
+  locked: Boolean!
 }

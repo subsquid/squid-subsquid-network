@@ -37,7 +37,6 @@ export const handleVestingTransfered = createHandlerOld({
 
       const workers = await ctx.store.find(Worker, {
         where: { owner: { id: vesting.id } },
-        cacheEntities: false,
       })
       for (const worker of workers) {
         worker.realOwner = owner
@@ -46,7 +45,6 @@ export const handleVestingTransfered = createHandlerOld({
 
       const delegations = await ctx.store.find(Delegation, {
         where: { worker: { owner: { id: vesting.id } } },
-        cacheEntities: false,
       })
       for (const delegation of delegations) {
         delegation.realOwner = owner

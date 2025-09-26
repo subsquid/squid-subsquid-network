@@ -30,7 +30,7 @@ export const handleClaimed = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, {
       id: workerId,
-      relations: { owner: true, realOwner: true },
+      relations: { owner: { owner: true } },
     })
 
     return async () => {

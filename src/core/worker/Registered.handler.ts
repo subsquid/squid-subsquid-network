@@ -98,9 +98,9 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       worker,
     })
 
-    ctx.log.info(`account(${worker.realOwner.id}) registered worker(${worker.id})`)
+    ctx.log.info(`account(${worker.owner.id}) registered worker(${worker.id})`)
     ctx.log.info(
-      `account(${worker.realOwner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
+      `account(${worker.owner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
     )
   }
 })

@@ -7,8 +7,6 @@ import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
 import { Account, Delegation, Settings, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
-import { findTransfer } from '../helpers/misc'
-import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleClaimed = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -26,8 +24,7 @@ export const handleClaimed = createHandlerOld({
       ctx.store.defer(Delegation, {
         id,
         relations: {
-          owner: true,
-          realOwner: true,
+          owner: { owner: true },
         },
       }),
     )
@@ -47,7 +44,7 @@ export const handleClaimed = createHandlerOld({
             owner: account,
           },
           relations: {
-            realOwner: true,
+            owner: true,
           },
         })
       } else {
@@ -67,10 +64,8 @@ export const handleClaimed = createHandlerOld({
 
         await ctx.store.upsert(delegation)
 
-        const claimer = delegation.realOwner
-
         ctx.log.info(
-          `account(${claimer.id}) claimed ${toHumanSQD(amount)} from delegation(${delegation.id})`,
+          `account(${delegation.owner.id}) claimed ${toHumanSQD(amount)} from delegation(${delegation.id})`,
         )
       }
 
