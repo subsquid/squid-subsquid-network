@@ -28,6 +28,7 @@ export const handleClaimed = createHandler((ctx, item) => {
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: settings.contracts.rewardTreasury,
       to: account.id,
+      logIndex: log.logIndex - 1,
     })
     if (!transfer) {
       throw new Error(`transfer not found for account(${account.id})`)

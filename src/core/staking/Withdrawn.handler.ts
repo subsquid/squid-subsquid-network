@@ -81,6 +81,8 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       to: accountId,
       from: settings.contracts.staking,
+      amount,
+      logIndex: log.logIndex - 1,
     })
     if (!transfer) {
       throw new Error(`transfer not found for delegation(${delegation.id})`)

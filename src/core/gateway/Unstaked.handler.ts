@@ -38,6 +38,7 @@ export const handleUnstaked = createHandler((ctx, item) => {
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: network.contracts.GatewayRegistry.address,
       to: account.id,
+      logIndex: log.logIndex - 1,
     })
     if (!transfer) {
       throw new Error(`transfer not found for account(${account.id})`)

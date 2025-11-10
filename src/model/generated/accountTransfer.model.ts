@@ -1,8 +1,9 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {TransferDirection} from "./_transferDirection"
 import {Account} from "./account.model"
 import {Transfer} from "./transfer.model"
 
+@Index_(["account", "transfer"], {unique: false})
 @Entity_()
 export class AccountTransfer {
     constructor(props?: Partial<AccountTransfer>) {
@@ -15,7 +16,6 @@ export class AccountTransfer {
     @Column_("varchar", {length: 4, nullable: false})
     direction!: TransferDirection
 
-    @Index_()
     @ManyToOne_(() => Account, {nullable: true})
     account!: Account
 

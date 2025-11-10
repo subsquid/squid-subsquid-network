@@ -30,6 +30,7 @@ export const handleExcessiveBondReturned = createHandlerOld({
       const transfer = findTransfer(log.transaction?.logs ?? [], {
         to: worker.owner.id,
         from: settings.contracts.workerRegistration,
+        logIndex: log.logIndex - 1,
       })
       if (!transfer) {
         throw new Error(`transfer not found for worker(${worker.id})`)

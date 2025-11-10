@@ -56,6 +56,9 @@ export class NetworkStats {
   @Field(() => BigInteger, { nullable: false })
   totalDelegation!: bigint
 
+  @Field(() => BigInteger, { nullable: false })
+  totalPortalLock!: bigint
+
   @Field(() => Number, { nullable: false })
   lastBlock!: number
 
@@ -103,6 +106,7 @@ export class NetworkSummaryResolver {
         SELECT
           COALESCE(SUM(bond), 0) as "totalBond",
           COALESCE(SUM(total_delegation), 0) as "totalDelegation",
+          COALESCE((SELECT SUM(amount) FROM gateway_stake), 0) as "totalPortalLock",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0), 0) as "workerApr",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0), 0) as "stakerApr",
           COALESCE(SUM(queries90_days), 0) as "queries90Days",

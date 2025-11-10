@@ -37,7 +37,10 @@ enum TransferDirection {
   TO
 }
 
-type AccountTransfer @entity {
+type AccountTransfer
+  @entity
+  @index(fields: ["account", "transfer"])
+{
   id: ID!
 
   direction: TransferDirection!
@@ -54,7 +57,10 @@ enum TransferType {
   RELEASE
 }
 
-type Transfer @entity {
+type Transfer
+  @entity
+  @index(fields: ["type", "timestamp"])
+{
   id: ID!
 
   blockNumber: Int!
@@ -108,7 +114,7 @@ type Commitment @entity {
   id: ID!
   from: DateTime!
   fromBlock: Int!
-  to: DateTime!
+  to: DateTime! @index
   toBlock: Int!
   recipients: [CommitmentRecipient!]!
 }
@@ -147,11 +153,12 @@ type Worker
   @entity
   @index(fields: ["id", "createdAt", "status"])
   @index(fields: ["id", "realOwner"])
+  @index(fields: ["status", "online"])
 {
   id: ID!
 
   peerId: String! @index
-  owner: Account!
+  owner: Account! @index
   "owner.owner for VESTING account"
   realOwner: Account!
   bond: BigInt!
@@ -212,7 +219,12 @@ type Worker
   snapshots: [WorkerSnapshot!] @derivedFrom(field: "worker")
 }
 
-type WorkerStatusChange @entity {
+type WorkerStatusChange
+  @entity
+  @index(fields: ["pending", "timestamp"])
+  @index(fields: ["status", "timestamp"])
+  @index(fields: ["worker", "blockNumber"])
+{
   worker: Worker!
   status: WorkerStatus!
   timestamp: DateTime
@@ -220,7 +232,12 @@ type WorkerStatusChange @entity {
   pending: Boolean!
 }
 
-type WorkerReward @entity {
+type WorkerReward
+  @entity
+  @index(fields: ["worker", "timestamp"])
+  @index(fields: ["timestamp", "apr"])
+  @index(fields: ["timestamp", "stakerApr"])
+{
   id: ID!
 
   blockNumber: Int!
@@ -234,7 +251,10 @@ type WorkerReward @entity {
   stakerApr: Float!
 }
 
-type WorkerSnapshot @entity {
+type WorkerSnapshot
+  @entity
+  @index(fields: ["worker", "timestamp"])
+{
   id: ID!
   worker: Worker!
   timestamp: DateTime!
@@ -242,7 +262,11 @@ type WorkerSnapshot @entity {
   epoch: Epoch!
 }
 
-type WorkerMetrics @entity {
+type WorkerMetrics
+  @entity
+  @index(fields: ["timestamp"])
+  @index(fields: ["worker", "timestamp"])
+{
   id: ID!
   worker: Worker!
   timestamp: DateTime!
@@ -281,7 +305,12 @@ enum DelegationStatus {
   UNKNOWN
 }
 
-type DelegationStatusChange @entity {
+type DelegationStatusChange
+  @entity
+  @index(fields: ["pending", "timestamp"])
+  @index(fields: ["status", "timestamp"])
+  @index(fields: ["delegation", "blockNumber"])
+{
   delegation: Delegation!
   status: DelegationStatus!
   timestamp: DateTime

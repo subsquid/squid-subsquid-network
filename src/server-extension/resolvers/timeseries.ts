@@ -2,43 +2,83 @@ import { DateTime } from '@subsquid/graphql-server'
 import { max, min } from 'date-fns'
 import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
 import { EntityManager } from 'typeorm'
-import { getGroupSize } from '~/utils/groupSize'
-import { toStartOfInterval } from '~/utils/time'
+import { getGroupSize, GroupSize } from '~/utils/groupSize'
+
+let cachedFirstTransferTimestamp: Date | null = null
+
+async function getFirstTransferTimestamp(manager: EntityManager): Promise<Date | null> {
+  if (cachedFirstTransferTimestamp) {
+    return cachedFirstTransferTimestamp
+  }
+
+  const result = await manager.query('SELECT MIN(timestamp) as min_timestamp FROM transfer')
+  if (result[0]?.min_timestamp) {
+    cachedFirstTransferTimestamp = new Date(result[0].min_timestamp)
+  }
+
+  return cachedFirstTransferTimestamp
+}
+
+async function normalizeTimeRange(
+  manager: EntityManager,
+  from?: Date,
+  to?: Date,
+): Promise<{ from: Date; to: Date }> {
+  const firstTransfer = await getFirstTransferTimestamp(manager)
+  const defaultFrom = firstTransfer || new Date('2020-01-01')
+
+  const initialFrom = from || defaultFrom
+  const normalizedFrom = from && firstTransfer ? max([from, firstTransfer]) : initialFrom
+
+  const normalizedTo = min([to || new Date(), new Date()])
+  const finalFrom = min([normalizedFrom, normalizedTo])
+
+  return { from: finalFrom, to: normalizedTo }
+}
+
+function getGroupSizeInfo(
+  from: Date,
+  to: Date,
+  step: { targetPoints?: number } | string = { targetPoints: 50 },
+): GroupSize {
+  const groupSize = getGroupSize(
+    typeof step === 'string' ? step : { from, to, maxPoints: step.targetPoints },
+  )
+  return groupSize
+}
+
+async function getAlignedDates(
+  manager: EntityManager,
+  from: Date,
+  to: Date,
+  groupSizeLabel: string,
+): Promise<{ alignedFrom: Date; alignedTo: Date }> {
+  const result = await manager.query(
+    `SELECT
+      date_bin('${groupSizeLabel}', $1::timestamptz, '2001-01-01'::timestamp) as aligned_from,
+      date_bin('${groupSizeLabel}', $2::timestamptz, '2001-01-01'::timestamp) as aligned_to`,
+    [from, to],
+  )
+  return {
+    alignedFrom: new Date(result[0].aligned_from),
+    alignedTo: new Date(result[0].aligned_to),
+  }
+}
 
 function sql(strings: TemplateStringsArray, ...values: any[]): string {
   return String.raw({ raw: strings }, ...values).replace(/[\n\s]+/g, ' ')
 }
 
-function dateBin(
-  column: string,
-  from: Date,
-  to: Date,
-  step: { targetPoints?: number } | string = { targetPoints: 50 },
-): string {
-  const groupSize = getGroupSize(
-    typeof step === 'string' ? step : { from, to, maxPoints: step.targetPoints },
-  )
-  return sql`date_bin('${groupSize.label}', ${column}, '2001-01-01'::timestamp)`
+function dateBin(column: string, groupSizeLabel: string): string {
+  return sql`date_bin('${groupSizeLabel}', ${column}, '2001-01-01'::timestamp)`
 }
 
-function generateTimeSeries(
-  from: Date,
-  to: Date,
-  step: { targetPoints?: number } | string = { targetPoints: 50 },
-): string {
-  const groupSize = getGroupSize(
-    typeof step === 'string' ? step : { from, to, maxPoints: step.targetPoints },
-  )
-
+function generateTimeSeries(groupSizeLabel: string): string {
   return sql`generate_series(
-    date_bin('${groupSize.label}', $1::timestamptz, '2001-01-01'::timestamp) + '${groupSize.label}'::interval,
-    date_bin('${groupSize.label}', $2::timestamptz, '2001-01-01'::timestamp),
-    '${groupSize.label}'::interval
+    $1::timestamptz,
+    $2::timestamptz - '${groupSizeLabel}'::interval,
+    '${groupSizeLabel}'::interval
   )`
-}
-
-function timeseriesFilter(field: string): string {
-  return sql`${field} >= $1 AND ${field} < $2`
 }
 
 function trimNullValues<T extends { value: any }>(data: T[]): T[] {
@@ -91,69 +131,101 @@ class HoldersCountEntry {
   }
 }
 
+@ObjectType()
+class HoldersCountTimeseries {
+  @Field(() => [HoldersCountEntry])
+  data!: HoldersCountEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<HoldersCountTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class HoldersCountTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [HoldersCountEntry])
+  @Query(() => HoldersCountTimeseries)
   async holdersCountTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<HoldersCountEntry[]> {
+  ): Promise<HoldersCountTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-        WITH events_binned AS (
+        WITH initial_count AS (
+          SELECT
+            COALESCE(
+              SUM(CASE WHEN balance > 0 AND change = balance THEN 1 WHEN balance = 0 AND change < 0 THEN -1 ELSE 0 END),
+              0
+            ) AS initial_value
+          FROM (
+            SELECT
+              account_id,
+              (array_agg(balance ORDER BY t.id DESC))[1] as balance,
+              SUM(CASE WHEN direction = 'FROM' THEN -t.amount WHEN direction = 'TO' THEN t.amount ELSE 0 END) as change
+            FROM account_transfer at
+            INNER JOIN transfer t ON at.transfer_id = t.id
+            WHERE t.timestamp < $1
+            GROUP BY account_id
+          ) initial_balances
+        ),
+        events_binned AS (
           SELECT
             date as bin_ts,
             SUM (CASE WHEN balance > 0 AND change = balance THEN 1 WHEN balance = 0 AND change < 0 THEN -1 ELSE 0 END) as delta
           FROM (
             SELECT
-              ${dateBin('t.timestamp', from, to, step)} as date,
-              account_id,
-              (array_agg(balance ORDER BY t.id DESC))[1] as balance,
-              SUM (CASE WHEN direction = 'FROM' THEN - t.amount WHEN direction = 'TO' THEN t.amount ELSE 0 END) as change
-            FROM account_transfer
-            LEFT JOIN transfer as t ON transfer_id = t.id
-            GROUP BY date, account_id
+              ${dateBin('t.timestamp', groupSize.label)} as date,
+              at.account_id,
+              (array_agg(at.balance ORDER BY t.id DESC))[1] as balance,
+              SUM (CASE WHEN at.direction = 'FROM' THEN - t.amount WHEN at.direction = 'TO' THEN t.amount ELSE 0 END) as change
+            FROM account_transfer at
+            INNER JOIN transfer t ON at.transfer_id = t.id
+            WHERE t.timestamp >= $1 AND t.timestamp < $2
+            GROUP BY date, at.account_id
           ) daily_balances
           GROUP BY date
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
-            COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-            SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
+            ts.bin_ts AS timestamp,
+            (SELECT initial_value FROM initial_count) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
           FROM time_series ts
-          FULL JOIN events_binned e
+          LEFT JOIN events_binned e
             ON e.bin_ts = ts.bin_ts
         )
         SELECT
           timestamp,
           value
         FROM cumulative_data
-        WHERE ${timeseriesFilter('timestamp')}
         ORDER BY timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new HoldersCountEntry({
-          timestamp: r.timestamp,
-          value: r.value ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new HoldersCountTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new HoldersCountEntry({
+            timestamp: r.timestamp,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -170,61 +242,85 @@ class TvlEntry {
   }
 }
 
+@ObjectType()
+class LockedValueTimeseries {
+  @Field(() => [TvlEntry])
+  data!: TvlEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<LockedValueTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class LockedValueTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [TvlEntry])
+  @Query(() => LockedValueTimeseries)
   async lockedValueTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<TvlEntry[]> {
+  ): Promise<LockedValueTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-        WITH events_binned AS (
+        WITH
+        initial_value AS (
           SELECT
-            ${dateBin('t.timestamp', from, to, step)} AS bin_ts,
+            COALESCE(
+              SUM(CASE WHEN t.type = 'DEPOSIT' THEN t.amount WHEN t.type = 'WITHDRAW' THEN -t.amount ELSE 0 END),
+              0
+            ) AS initial_locked
+          FROM transfer t
+          WHERE t.type IN ('DEPOSIT', 'WITHDRAW') AND t.timestamp < $1
+        ),
+        events_binned AS (
+          SELECT
+            ${dateBin('t.timestamp', groupSize.label)} AS bin_ts,
             SUM(CASE WHEN t.type = 'DEPOSIT' THEN t.amount WHEN t.type = 'WITHDRAW' THEN - t.amount ELSE 0 END) AS delta
           FROM transfer t
-          WHERE t.type in ('DEPOSIT', 'WITHDRAW')
-          GROUP BY 1
+          WHERE t.type in ('DEPOSIT', 'WITHDRAW') AND t.timestamp >= $1 AND t.timestamp < $2
+          GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
-            COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-            SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
+            ts.bin_ts AS timestamp,
+            (SELECT initial_locked FROM initial_value) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
           FROM time_series ts
-          FULL JOIN events_binned e
+          LEFT JOIN events_binned e
             ON e.bin_ts = ts.bin_ts
         )
         SELECT
           timestamp,
           value
         FROM cumulative_data
-        WHERE ${timeseriesFilter('timestamp')}
         ORDER BY timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new TvlEntry({
-          timestamp: r.timestamp,
-          value: r.value == null ? null : BigInt(r.value),
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new LockedValueTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new TvlEntry({
+            timestamp: r.timestamp,
+            value: BigInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -244,59 +340,95 @@ class ActiveWorkersEntry {
   }
 }
 
+@ObjectType()
+class ActiveWorkersTimeseries {
+  @Field(() => [ActiveWorkersEntry])
+  data!: ActiveWorkersEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<ActiveWorkersTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class ActiveWorkersTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [ActiveWorkersEntry])
+  @Query(() => ActiveWorkersTimeseries)
   async activeWorkersTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<ActiveWorkersEntry[]> {
+  ): Promise<ActiveWorkersTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const query = sql`
-      WITH events_binned AS (
+      WITH
+      events_with_dates AS (
         SELECT
-          ${dateBin('timestamp', from, to, step)} AS bin_ts,
-          SUM((status = 'ACTIVE')::int) - SUM((status = 'DEREGISTERED')::int) AS delta
+          worker_id,
+          status,
+          block_number,
+          COALESCE(
+            timestamp,
+            LAG(timestamp) OVER (PARTITION BY worker_id ORDER BY block_number)
+          ) AS timestamp
         FROM worker_status_change
         WHERE pending = FALSE
+      ),
+      initial_count AS (
+        SELECT 
+          COALESCE(
+            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'DEREGISTERED' THEN -1 ELSE 0 END),
+            0
+          ) AS initial_value
+        FROM events_with_dates
+        WHERE timestamp < $1
+      ),
+      events_binned AS (
+        SELECT
+          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
+          SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'DEREGISTERED' THEN -1 ELSE 0 END) AS delta
+        FROM events_with_dates
+        WHERE timestamp >= $1 AND timestamp < $2
         GROUP BY 1
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
       ),
       cumulative_data AS (
-      SELECT
-        COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-        SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
-      FROM time_series ts
-      FULL JOIN events_binned e
-        ON e.bin_ts = ts.bin_ts
+        SELECT
+          ts.bin_ts AS timestamp,
+          (SELECT initial_value FROM initial_count) +
+          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+        FROM time_series ts
+        LEFT JOIN events_binned e
+          ON e.bin_ts = ts.bin_ts
       )
       SELECT
         timestamp,
         value
       FROM cumulative_data
-      WHERE ${timeseriesFilter('timestamp')}
       ORDER BY timestamp;
     `
-    const raw = await manager.query(query, [from, to])
+    const raw = await manager.query(query, [alignedFrom, alignedTo])
 
-    const mapped = raw.map(
-      (r: any) =>
-        new ActiveWorkersEntry({
-          timestamp: r.timestamp,
-          value: r.value ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new ActiveWorkersTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new ActiveWorkersEntry({
+            timestamp: r.timestamp,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -316,24 +448,67 @@ class OperatorsEntry {
   }
 }
 
+@ObjectType()
+class UniqueOperatorsTimeseries {
+  @Field(() => [OperatorsEntry])
+  data!: OperatorsEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<UniqueOperatorsTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class UniqueOperatorsTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [OperatorsEntry])
+  @Query(() => UniqueOperatorsTimeseries)
   async uniqueOperatorsTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<OperatorsEntry[]> {
+  ): Promise<UniqueOperatorsTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH events_binned AS (
+      WITH
+      events_with_dates AS (
+        SELECT
+          wsc.id,
+          w.owner_id,
+          wsc.status,
+          wsc.block_number,
+          COALESCE(
+            wsc.timestamp,
+            LAG(wsc.timestamp) OVER (PARTITION BY wsc.worker_id ORDER BY wsc.block_number)
+          ) AS timestamp
+        FROM worker_status_change wsc
+        INNER JOIN worker w ON w.id = wsc.worker_id
+        WHERE wsc.status IN ('REGISTERING', 'WITHDRAWN')
+      ),
+      initial_count AS (
+        SELECT
+          COALESCE(
+            SUM(CASE WHEN workers_count > 0 THEN 1 ELSE 0 END),
+            0
+          ) AS initial_value
+        FROM (
+          SELECT
+            owner_id,
+            SUM(CASE WHEN status = 'REGISTERING' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as workers_count
+          FROM events_with_dates
+          WHERE timestamp < $1
+          GROUP BY owner_id
+        ) initial_operators
+      ),
+      events_binned AS (
         SELECT
           date as bin_ts,
           SUM(CASE WHEN workers_count > 0 AND change = workers_count THEN 1 WHEN workers_count <= 0 AND change < 0 THEN -1 ELSE 0 END) as delta
@@ -341,50 +516,47 @@ export class UniqueOperatorsTimeseriesResolver {
           SELECT date, owner_id, change,
             SUM(change) OVER (PARTITION BY owner_id ORDER BY date) as workers_count
           FROM (
-            SELECT ${dateBin('timestamp', from, to, step)} as date,
+            SELECT ${dateBin('timestamp', groupSize.label)} as date,
               owner_id,
               SUM(CASE WHEN status = 'REGISTERING' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 END) as change
-            FROM (
-              SELECT wsc.id, wsc.timestamp, w.owner_id, wsc.status
-              FROM worker_status_change as wsc
-              JOIN worker as w ON w.id = wsc.worker_id
-              WHERE wsc.status IN ('REGISTERING', 'WITHDRAWN')
-            ) events
+            FROM events_with_dates
+            WHERE timestamp >= $1 AND timestamp < $2
             GROUP BY date, owner_id
           ) raw
         ) with_counts
         GROUP BY date
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
       ),
       cumulative_data AS (
         SELECT
-          COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-          SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
+          ts.bin_ts AS timestamp,
+          (SELECT initial_value FROM initial_count) +
+          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
         FROM time_series ts
-        FULL JOIN events_binned e
+        LEFT JOIN events_binned e
           ON e.bin_ts = ts.bin_ts
       )
       SELECT
         timestamp,
         value
       FROM cumulative_data
-      WHERE ${timeseriesFilter('timestamp')}
       ORDER BY timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new OperatorsEntry({
-          timestamp: r.timestamp,
-          value: r.value ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new UniqueOperatorsTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new OperatorsEntry({
+            timestamp: r.timestamp,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -404,61 +576,97 @@ class DelegationsEntry {
   }
 }
 
+@ObjectType()
+class DelegationsTimeseries {
+  @Field(() => [DelegationsEntry])
+  data!: DelegationsEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<DelegationsTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class DelegationsTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [DelegationsEntry])
+  @Query(() => DelegationsTimeseries)
   async delegationsTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<DelegationsEntry[]> {
+  ): Promise<DelegationsTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH events_binned AS (
+      WITH
+      events_with_dates AS (
         SELECT
-          ${dateBin('wsc.timestamp', from, to, step)} AS bin_ts,
-          SUM(CASE WHEN wsc.status = 'ACTIVE' THEN 1 WHEN wsc.status = 'WITHDRAWN' THEN -1 ELSE 0 END) AS delta
-        FROM delegation_status_change as wsc
-        WHERE wsc.pending = false
+          delegation_id,
+          status,
+          block_number,
+          COALESCE(
+            timestamp,
+            LAG(timestamp) OVER (PARTITION BY delegation_id ORDER BY block_number)
+          ) AS timestamp
+        FROM delegation_status_change
+        WHERE pending = false
+      ),
+      initial_count AS (
+        SELECT
+          COALESCE(
+            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END),
+            0
+          ) AS initial_value
+        FROM events_with_dates
+        WHERE timestamp < $1
+      ),
+      events_binned AS (
+        SELECT
+          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
+          SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) AS delta
+        FROM events_with_dates
+        WHERE timestamp >= $1 AND timestamp < $2
         GROUP BY 1
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
       ),
       cumulative_data AS (
         SELECT
-          COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-          SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
+          ts.bin_ts AS timestamp,
+          (SELECT initial_value FROM initial_count) +
+          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
         FROM time_series ts
-        FULL JOIN events_binned e
+        LEFT JOIN events_binned e
           ON e.bin_ts = ts.bin_ts
       )
       SELECT
         timestamp,
         value
       FROM cumulative_data
-      WHERE ${timeseriesFilter('timestamp')}
       ORDER BY timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new DelegationsEntry({
-          timestamp: r.timestamp,
-          value: r.value ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new DelegationsTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new DelegationsEntry({
+            timestamp: r.timestamp,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -478,24 +686,67 @@ class DelegatorsEntry {
   }
 }
 
+@ObjectType()
+class DelegatorsTimeseries {
+  @Field(() => [DelegatorsEntry])
+  data!: DelegatorsEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<DelegatorsTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class DelegatorsTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [DelegatorsEntry])
+  @Query(() => DelegatorsTimeseries)
   async delegatorsTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<DelegatorsEntry[]> {
+  ): Promise<DelegatorsTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH events_binned AS (
+      WITH
+      events_with_dates AS (
+        SELECT
+          wsc.id,
+          d.owner_id,
+          wsc.status,
+          wsc.block_number,
+          COALESCE(
+            wsc.timestamp,
+            LAG(wsc.timestamp) OVER (PARTITION BY wsc.delegation_id ORDER BY wsc.block_number)
+          ) AS timestamp
+        FROM delegation_status_change wsc
+        INNER JOIN delegation d ON d.id = wsc.delegation_id
+        WHERE wsc.status IN ('ACTIVE', 'WITHDRAWN')
+      ),
+      initial_count AS (
+        SELECT
+          COALESCE(
+            SUM(CASE WHEN workers_count > 0 THEN 1 ELSE 0 END),
+            0
+          ) AS initial_value
+        FROM (
+          SELECT
+            owner_id,
+            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as workers_count
+          FROM events_with_dates
+          WHERE timestamp < $1
+          GROUP BY owner_id
+        ) initial_delegators
+      ),
+      events_binned AS (
         SELECT
           date as bin_ts,
           SUM(CASE WHEN workers_count > 0 AND change = workers_count THEN 1 WHEN workers_count <= 0 AND change < 0 THEN -1 ELSE 0 END) as delta
@@ -503,50 +754,47 @@ export class DelegatorsTimeseriesResolver {
           SELECT date, owner_id, change,
             SUM(change) OVER (PARTITION BY owner_id ORDER BY date) as workers_count
           FROM (
-            SELECT ${dateBin('timestamp', from, to, step)} as date,
+            SELECT ${dateBin('timestamp', groupSize.label)} as date,
               owner_id,
               SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as change
-            FROM (
-              SELECT wsc.id, wsc.timestamp, delegation.owner_id, wsc.status
-              FROM delegation_status_change wsc
-              JOIN delegation ON delegation.id = wsc.delegation_id
-              WHERE wsc.status IN ('ACTIVE', 'WITHDRAWN')
-            ) events
+            FROM events_with_dates
+            WHERE timestamp >= $1 AND timestamp < $2
             GROUP BY date, owner_id
           ) raw
         ) with_counts
         GROUP BY date
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} AS bin_ts
+        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
       ),
       cumulative_data AS (
         SELECT
-          COALESCE(ts.bin_ts, e.bin_ts) AS timestamp,
-          SUM(e.delta) OVER (ORDER BY COALESCE(ts.bin_ts, e.bin_ts)) AS value
+          ts.bin_ts AS timestamp,
+          (SELECT initial_value FROM initial_count) +
+          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
         FROM time_series ts
-        FULL JOIN events_binned e
+        LEFT JOIN events_binned e
           ON e.bin_ts = ts.bin_ts
       )
       SELECT
         timestamp,
         value
       FROM cumulative_data
-      WHERE ${timeseriesFilter('timestamp')}
       ORDER BY timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new DelegatorsEntry({
-          timestamp: r.timestamp,
-          value: r.value ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new DelegatorsTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new DelegatorsEntry({
+            timestamp: r.timestamp,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -585,71 +833,81 @@ class TransferCountByType {
   }
 }
 
+@ObjectType()
+class TransfersByTypeTimeseries {
+  @Field(() => [TransferCountByType])
+  data!: TransferCountByType[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<TransfersByTypeTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class TransfersByTypeTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [TransferCountByType])
+  @Query(() => TransfersByTypeTimeseries)
   async transfersByTypeTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<TransferCountByType[]> {
+  ): Promise<TransfersByTypeTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-        WITH time_series AS (
-          SELECT ${generateTimeSeries(from, to, step)} as timestamp
+        WITH
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
         ),
-                 transfer_counts AS (
-           SELECT ${dateBin('timestamp', from, to, step)} as date,
-             count(*) FILTER (WHERE type = 'DEPOSIT') AS deposit,
-             count(*) FILTER (WHERE type = 'WITHDRAW') AS withdraw,
-             count(*) FILTER (WHERE type = 'CLAIM') AS reward,
-             count(*) FILTER (WHERE type = 'RELEASE') AS release,
-             count(*) FILTER (WHERE type NOT IN ('DEPOSIT', 'WITHDRAW', 'CLAIM', 'RELEASE')) AS transfer
-           FROM transfer
-           WHERE ${timeseriesFilter(dateBin('timestamp', from, to, step))}
-           GROUP BY date
-         )
+        transfer_counts AS (
+          SELECT ${dateBin('timestamp', groupSize.label)} as date,
+            count(*) FILTER (WHERE type = 'DEPOSIT') AS deposit,
+            count(*) FILTER (WHERE type = 'WITHDRAW') AS withdraw,
+            count(*) FILTER (WHERE type = 'CLAIM') AS reward,
+            count(*) FILTER (WHERE type = 'RELEASE') AS release,
+            count(*) FILTER (WHERE type NOT IN ('DEPOSIT', 'WITHDRAW', 'CLAIM', 'RELEASE')) AS transfer
+          FROM transfer
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY date
+        )
         SELECT 
           ts.timestamp as date,
-          tc.deposit,
-          tc.withdraw,
-          tc.transfer,
-          tc.reward,
-          tc.release
+          COALESCE(tc.deposit, 0) as deposit,
+          COALESCE(tc.withdraw, 0) as withdraw,
+          COALESCE(tc.transfer, 0) as transfer,
+          COALESCE(tc.reward, 0) as reward,
+          COALESCE(tc.release, 0) as release
         FROM time_series ts
-         LEFT JOIN transfer_counts tc ON ts.timestamp = tc.date
-         ORDER BY ts.timestamp
+        LEFT JOIN transfer_counts tc ON ts.timestamp = tc.date
+        ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    return raw.map(
-      (r: any) =>
-        new TransferCountByType({
-          timestamp: r.date,
-          value:
-            r.deposit != null ||
-            r.withdraw != null ||
-            r.transfer != null ||
-            r.reward != null ||
-            r.release != null
-              ? new TransferCountByTypeValue({
-                  deposit: parseInt(r.deposit || 0),
-                  withdraw: parseInt(r.withdraw || 0),
-                  transfer: parseInt(r.transfer || 0),
-                  reward: parseInt(r.reward || 0),
-                  release: parseInt(r.release || 0),
-                })
-              : null,
-        }),
-    )
+    return new TransfersByTypeTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new TransferCountByType({
+            timestamp: r.date,
+            value: new TransferCountByTypeValue({
+              deposit: parseInt(r.deposit),
+              withdraw: parseInt(r.withdraw),
+              transfer: parseInt(r.transfer),
+              reward: parseInt(r.reward),
+              release: parseInt(r.release),
+            }),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -669,56 +927,69 @@ class UniqueAccountsEntry {
   }
 }
 
+@ObjectType()
+class UniqueAccountsTimeseries {
+  @Field(() => [UniqueAccountsEntry])
+  data!: UniqueAccountsEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<UniqueAccountsTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class UniqueAccountsTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [UniqueAccountsEntry])
+  @Query(() => UniqueAccountsTimeseries)
   async uniqueAccountsTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<UniqueAccountsEntry[]> {
+  ): Promise<UniqueAccountsTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       account_counts AS (
-        SELECT ${dateBin('timestamp', from, to, step)} as date, count(DISTINCT account_id) as value
-        FROM (
-          SELECT timestamp, from_id as account_id FROM transfer
-          UNION ALL
-          SELECT timestamp, to_id as account_id FROM transfer
-        ) AS tr
-        WHERE ${timeseriesFilter(dateBin('timestamp', from, to, step))}
+        SELECT 
+          ${dateBin('t.timestamp', groupSize.label)} as date,
+          COUNT(DISTINCT at.account_id) as value
+        FROM transfer t
+        INNER JOIN account_transfer at ON at.transfer_id = t.id
+        WHERE t.timestamp >= $1 AND t.timestamp < $2
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        ac.value as value
+        COALESCE(ac.value, 0) as value
       FROM time_series ts
       LEFT JOIN account_counts ac ON ts.timestamp = ac.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new UniqueAccountsEntry({
-          timestamp: r.date,
-          value: r.value != null ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new UniqueAccountsTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new UniqueAccountsEntry({
+            timestamp: r.date,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -737,51 +1008,66 @@ class QueriesCountEntry {
   }
 }
 
+@ObjectType()
+class QueriesCountTimeseries {
+  @Field(() => [QueriesCountEntry])
+  data!: QueriesCountEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<QueriesCountTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class QueriesCountTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [QueriesCountEntry])
+  @Query(() => QueriesCountTimeseries)
   async queriesCountTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<QueriesCountEntry[]> {
+  ): Promise<QueriesCountTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       query_counts AS (
-        SELECT ${dateBin('timestamp', from, to, step)} as date, sum(queries) as value
+        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(queries) as value
         FROM worker_metrics
+        WHERE timestamp >= $1 AND timestamp < $2
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        qc.value as value
+        COALESCE(qc.value, 0) as value
       FROM time_series ts
       LEFT JOIN query_counts qc ON ts.timestamp = qc.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new QueriesCountEntry({
-          timestamp: r.date,
-          value: r.value != null ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new QueriesCountTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new QueriesCountEntry({
+            timestamp: r.date,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -800,51 +1086,66 @@ class ServedDataEntry {
   }
 }
 
+@ObjectType()
+class ServedDataTimeseries {
+  @Field(() => [ServedDataEntry])
+  data!: ServedDataEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<ServedDataTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class ServedDataTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [ServedDataEntry])
+  @Query(() => ServedDataTimeseries)
   async servedDataTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<ServedDataEntry[]> {
+  ): Promise<ServedDataTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       served_data_counts AS (
-        SELECT ${dateBin('timestamp', from, to, step)} as date, sum(served_data) as value
+        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(served_data) as value
         FROM worker_metrics
+        WHERE timestamp >= $1 AND timestamp < $2
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        sdc.value as value
+        COALESCE(sdc.value, 0) as value
       FROM time_series ts
       LEFT JOIN served_data_counts sdc ON ts.timestamp = sdc.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new ServedDataEntry({
-          timestamp: r.date,
-          value: r.value != null ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new ServedDataTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new ServedDataEntry({
+            timestamp: r.date,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -863,56 +1164,73 @@ class StoredDataEntry {
   }
 }
 
+@ObjectType()
+class StoredDataTimeseries {
+  @Field(() => [StoredDataEntry])
+  data!: StoredDataEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<StoredDataTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class StoredDataTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [StoredDataEntry])
+  @Query(() => StoredDataTimeseries)
   async storedDataTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<StoredDataEntry[]> {
+  ): Promise<StoredDataTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       stored_data_counts AS (
-        SELECT date, sum(stored_data) as value
+        SELECT date, SUM(avg_stored_data) as value
         FROM (
-          SELECT ${dateBin('timestamp', from, to, step)} as date, worker_id, max(stored_data) as stored_data
+          SELECT 
+            ${dateBin('timestamp', groupSize.label)} as date,
+            worker_id,
+            AVG(stored_data) as avg_stored_data
           FROM worker_metrics
-          WHERE ${timeseriesFilter('timestamp')}
+          WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY date, worker_id
-        ) w
+        ) avg_per_worker
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        COALESCE(sdc.value, LAG(sdc.value) OVER (ORDER BY ts.timestamp)) as value
+        COALESCE(sdc.value, COALESCE(LAG(sdc.value) OVER (ORDER BY ts.timestamp), 0)) as value
       FROM time_series ts
       LEFT JOIN stored_data_counts sdc ON ts.timestamp = sdc.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new StoredDataEntry({
-          timestamp: r.date,
-          value: r.value != null ? parseInt(r.value) : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new StoredDataTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new StoredDataEntry({
+            timestamp: r.date,
+            value: parseInt(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -941,62 +1259,73 @@ class RewardEntry {
   }
 }
 
+@ObjectType()
+class RewardTimeseries {
+  @Field(() => [RewardEntry])
+  data!: RewardEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<RewardTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 @Resolver()
 export class RewardTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [RewardEntry])
+  @Query(() => RewardTimeseries)
   async rewardTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<RewardEntry[]> {
+  ): Promise<RewardTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       reward_counts AS (
         SELECT
-          ${dateBin('wr.timestamp', from, to, step)} as date,
+          ${dateBin('wr.timestamp', groupSize.label)} as date,
           SUM(wr.amount) AS worker_value,
           SUM(wr.stakers_reward) AS staker_value
         FROM worker_reward as wr
-        WHERE ${timeseriesFilter(dateBin('wr.timestamp', from, to, step))}
+        WHERE wr.timestamp >= $1 AND wr.timestamp < $2
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        rc.worker_value as worker_value,
-        rc.staker_value as staker_value
+        COALESCE(rc.worker_value, 0) as worker_value,
+        COALESCE(rc.staker_value, 0) as staker_value
       FROM time_series ts
       LEFT JOIN reward_counts rc ON ts.timestamp = rc.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new RewardEntry({
-          timestamp: r.date,
-          value:
-            r.worker_value != null || r.staker_value != null
-              ? new RewardValue({
-                  workerReward: BigInt(r.worker_value || 0),
-                  stakerReward: BigInt(r.staker_value || 0),
-                })
-              : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new RewardTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new RewardEntry({
+            timestamp: r.date,
+            value: new RewardValue({
+              workerReward: BigInt(r.worker_value),
+              stakerReward: BigInt(r.staker_value),
+            }),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }
 
@@ -1026,6 +1355,19 @@ class AprEntry {
   }
 }
 
+@ObjectType()
+class AprTimeseries {
+  @Field(() => [AprEntry])
+  data!: AprEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<AprTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
 /*************************************
  * APR timeseries                    *
  *************************************/
@@ -1033,57 +1375,55 @@ class AprEntry {
 export class AprTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
 
-  @Query(() => [AprEntry])
+  @Query(() => AprTimeseries)
   async aprTimeseries(
-    @Arg('from') from: Date,
-    @Arg('to', { nullable: true }) to: Date = new Date(),
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
-  ): Promise<AprEntry[]> {
+  ): Promise<AprTimeseries> {
     const manager = await this.tx()
-
-    to = min([to, new Date()])
-    from = min([from, to])
+    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const groupSize = getGroupSizeInfo(from, to, step)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
     const raw = await manager.query(
       sql`
-      WITH time_series AS (
-        SELECT ${generateTimeSeries(from, to, step)} as timestamp
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       apr_data AS (
         SELECT
-          ${dateBin('timestamp', from, to, step)} as date,
+          ${dateBin('timestamp', groupSize.label)} as date,
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
         FROM worker_reward
-        WHERE ${timeseriesFilter(dateBin('timestamp', from, to, step))}
+        WHERE timestamp >= $1 AND timestamp < $2
         GROUP BY date
       )
       SELECT 
         ts.timestamp as date,
-        ad."workerApr",
-        ad."stakerApr"
+        COALESCE(ad."workerApr", 0) as "workerApr",
+        COALESCE(ad."stakerApr", 0) as "stakerApr"
       FROM time_series ts
       LEFT JOIN apr_data ad ON ts.timestamp = ad.date
-      WHERE ${timeseriesFilter('ts.timestamp')}
       ORDER BY ts.timestamp
       `,
-      [from, to],
+      [alignedFrom, alignedTo],
     )
 
-    const mapped = raw.map(
-      (r: any) =>
-        new AprEntry({
-          timestamp: r.date,
-          value:
-            r.workerApr != null || r.stakerApr != null
-              ? new AprValue({
-                  workerApr: Number(r.workerApr || 0),
-                  stakerApr: Number(r.stakerApr || 0),
-                })
-              : null,
-        }),
-    )
-
-    return trimNullValues(mapped)
+    return new AprTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new AprEntry({
+            timestamp: r.date,
+            value: new AprValue({
+              workerApr: Number(r.workerApr),
+              stakerApr: Number(r.stakerApr),
+            }),
+          }),
+      ),
+      step: groupSize.ms,
+    })
   }
 }

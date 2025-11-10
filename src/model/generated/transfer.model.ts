@@ -1,10 +1,11 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, StringColumn as StringColumn_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, StringColumn as StringColumn_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {TransferType} from "./_transferType"
 import {Account} from "./account.model"
 import {Delegation} from "./delegation.model"
 import {Worker} from "./worker.model"
 import {GatewayStake} from "./gatewayStake.model"
 
+@Index_(["type", "timestamp"], {unique: false})
 @Entity_()
 export class Transfer {
     constructor(props?: Partial<Transfer>) {

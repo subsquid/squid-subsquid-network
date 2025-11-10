@@ -10,6 +10,7 @@ import {WorkerSnapshot} from "./workerSnapshot.model"
 
 @Index_(["id", "createdAt", "status"], {unique: false})
 @Index_(["id", "realOwner"], {unique: false})
+@Index_(["status", "online"], {unique: false})
 @Entity_()
 export class Worker {
     constructor(props?: Partial<Worker>) {

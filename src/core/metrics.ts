@@ -282,7 +282,89 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
     lastMetricsUpdateOffset = 0
 
     ctx.log.info(`workers stats of ${workers.length} updated`)
+
+    // Aggregate 24-hour and 90-day metrics for each worker
+    await updateWorkerAggregatedMetrics(ctx)
   }
+}
+
+async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
+  const now = new Date()
+  const oneDayAgo = new Date(now.getTime() - DAY_MS)
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * DAY_MS)
+
+  // Get all workers
+  const workers = await ctx.store.find(Worker, {
+    where: {},
+    cacheEntities: false,
+  })
+
+  // Process each worker individually
+  for (const worker of workers) {
+    // Load metrics for this worker only
+    const workerMetrics = await ctx.store.find(WorkerMetrics, {
+      where: {
+        worker: { id: worker.id },
+        timestamp: MoreThanOrEqual(ninetyDaysAgo),
+      },
+      order: { timestamp: 'DESC' },
+      cacheEntities: false,
+    })
+
+    // Aggregate for 24 hours
+    let totalQueries24h = 0n
+    let totalServedData24h = 0n
+    let totalScannedData24h = 0n
+    let uptimeSum24h = 0
+    let uptimeCount24h = 0
+    let maxStoredData = 0n
+
+    // Aggregate for 90 days
+    let totalQueries90d = 0n
+    let totalServedData90d = 0n
+    let totalScannedData90d = 0n
+    let uptimeSum90d = 0
+    let uptimeCount90d = 0
+
+    for (const metric of workerMetrics) {
+      const isIn24h = metric.timestamp >= oneDayAgo
+
+      // Aggregate 90-day metrics
+      totalQueries90d += BigInt(metric.queries)
+      totalServedData90d += metric.servedData
+      totalScannedData90d += metric.scannedData
+      uptimeSum90d += metric.uptime
+      uptimeCount90d += 1
+
+      // Aggregate 24-hour metrics
+      if (isIn24h) {
+        totalQueries24h += BigInt(metric.queries)
+        totalServedData24h += metric.servedData
+        totalScannedData24h += metric.scannedData
+        uptimeSum24h += metric.uptime
+        uptimeCount24h += 1
+        if (metric.storedData > maxStoredData) {
+          maxStoredData = metric.storedData
+        }
+      }
+    }
+
+    // Update 24-hour metrics
+    worker.storedData = uptimeCount24h > 0 ? maxStoredData : null
+    worker.queries24Hours = uptimeCount24h > 0 ? totalQueries24h : null
+    worker.servedData24Hours = uptimeCount24h > 0 ? totalServedData24h : null
+    worker.scannedData24Hours = uptimeCount24h > 0 ? totalScannedData24h : null
+    worker.uptime24Hours = uptimeCount24h > 0 ? uptimeSum24h / uptimeCount24h : null
+
+    // Update 90-day metrics
+    worker.queries90Days = uptimeCount90d > 0 ? totalQueries90d : null
+    worker.servedData90Days = uptimeCount90d > 0 ? totalServedData90d : null
+    worker.scannedData90Days = uptimeCount90d > 0 ? totalScannedData90d : null
+    worker.uptime90Days = uptimeCount90d > 0 ? uptimeSum90d / uptimeCount90d : null
+  }
+
+  await ctx.store.upsert(workers)
+  ctx.log.info(`aggregated metrics updated for ${workers.length} workers`)
 }
 
 const rewardMetricsUpdateInterval = 30 * MINUTE_MS

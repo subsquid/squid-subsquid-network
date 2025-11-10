@@ -15,6 +15,7 @@ import {
   Settings,
   Transfer,
   TransferType,
+  Worker,
   WorkerStatus,
   WorkerStatusChange,
 } from '~/model'
@@ -40,6 +41,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
   const workerId = createWorkerId(event.workerId)
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
+  const workerDeferred = ctx.store.defer(Worker, workerId)
 
   return async () => {
     const settings = await settingsDeferred.getOrFail()
@@ -50,13 +52,24 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
 
     const owner = await ownerDeferred.getOrFail()
 
-    const worker = createWorker(workerId, {
-      owner,
-      realOwner: owner.owner ? owner.owner : owner,
-      peerId: parsePeerId(event.peerId),
-      createdAt: new Date(log.block.timestamp),
-      metadata,
-    })
+    let worker = await workerDeferred.get()
+    if (worker != null) {
+      worker.owner = owner
+      worker.realOwner = owner.owner ? owner.owner : owner
+      worker.peerId = parsePeerId(event.peerId)
+      worker.name = metadata.name
+      worker.email = metadata.email
+      worker.website = metadata.website
+      worker.description = metadata.description
+    } else {
+      worker = createWorker(workerId, {
+        owner,
+        realOwner: owner.owner ? owner.owner : owner,
+        peerId: parsePeerId(event.peerId),
+        createdAt: new Date(log.block.timestamp),
+        metadata,
+      })
+    }
 
     ctx.log.info(`registered worker(${worker.id})`)
 
@@ -89,6 +102,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
     const transfer = findTransfer(log.getTransaction().logs, {
       from: ownerId,
       to: settings.contracts.workerRegistration,
+      logIndex: log.logIndex - 1,
     })
     if (!transfer) {
       throw new Error(`transfer not found for worker(${worker.id})`)

@@ -1,6 +1,7 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_, IntColumn as IntColumn_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_, IntColumn as IntColumn_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 
+@Index_(["worker", "timestamp"], {unique: false})
 @Entity_()
 export class WorkerMetrics {
     constructor(props?: Partial<WorkerMetrics>) {
@@ -10,10 +11,10 @@ export class WorkerMetrics {
     @PrimaryColumn_()
     id!: string
 
-    @Index_()
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
+    @Index_()
     @DateTimeColumn_({nullable: false})
     timestamp!: Date
 

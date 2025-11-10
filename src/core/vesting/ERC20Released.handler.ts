@@ -27,6 +27,7 @@ export const handleVestingReleased = createHandler((ctx, item) => {
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: vesting.id,
       to: vesting.owner?.id,
+      logIndex: log.logIndex + 1
     })
     if (!transfer) return
 

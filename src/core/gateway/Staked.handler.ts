@@ -3,7 +3,7 @@ import { createHandler } from '../base'
 import { createGatewayStake, unwrapAccount } from '../helpers/entities'
 import { createAccountId, createGatewayOperatorId } from '../helpers/ids'
 import { findTransfer } from '../helpers/misc'
-import {saveTransfer} from '../token/Transfer.handler'
+import { saveTransfer } from '../token/Transfer.handler'
 
 import { addToGatewayStakeApplyQueue } from './StakeApply.queue'
 import { addToGatewayStakeUnlockQueue } from './StakeUnlock.queue'
@@ -52,6 +52,7 @@ export const gatewayStakedHandler = createHandler((ctx, item) => {
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       to: network.contracts.GatewayRegistry.address,
       from: account.id,
+      logIndex: log.logIndex - 1,
     })
     if (!transfer) {
       throw new Error(`transfer not found for account(${account.id})`)

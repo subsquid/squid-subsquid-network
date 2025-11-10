@@ -3,8 +3,12 @@ import { Log } from '~/config/processor'
 
 import * as SQD from '~/abi/SQD'
 
-export function findTransfer(logs: Log[], filter: { from?: string; to?: string; amount?: bigint }) {
+export function findTransfer(
+  logs: Log[],
+  filter: { from?: string; to?: string; amount?: bigint; logIndex: number },
+) {
   for (const log of logs) {
+    if (filter.logIndex !== log.logIndex) continue
     if (log.address !== network.contracts.SQD.address) continue
     if (!SQD.events.Transfer.is(log)) continue
 

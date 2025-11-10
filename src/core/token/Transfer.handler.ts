@@ -120,11 +120,8 @@ export async function saveTransfer(
       amount: event.value,
       timestamp: new Date(log.block.timestamp),
       txHash: log.transactionHash,
-      type: extra?.type ?? TransferType.TRANSFER,
-      worker: extra?.worker,
-      delegation: extra?.delegation,
-      gatewayStake: extra?.gatewayStake,
-      vesting: extra?.vesting,
+      type: TransferType.TRANSFER,
+      ...extra,
     })
 
     await ctx.store.insert(transfer)

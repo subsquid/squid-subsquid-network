@@ -1,7 +1,8 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {Epoch} from "./epoch.model"
 
+@Index_(["worker", "timestamp"], {unique: false})
 @Entity_()
 export class WorkerSnapshot {
     constructor(props?: Partial<WorkerSnapshot>) {
@@ -11,7 +12,6 @@ export class WorkerSnapshot {
     @PrimaryColumn_()
     id!: string
 
-    @Index_()
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
