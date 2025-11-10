@@ -1,16 +1,27 @@
-import { assertNotNull } from '@subsquid/evm-processor'
+import { assertNotNull, Log } from '@subsquid/evm-processor'
 
 import { isLog } from '../../item'
 import { createHandler } from '../base'
-import { createWorker } from '../helpers/entities'
+import { createAccount, createWorker } from '../helpers/entities'
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
+import * as SQD from '~/abi/SQD'
 import { network } from '~/config/network'
-import { Account, Settings, WorkerStatus, WorkerStatusChange } from '~/model'
+import {
+  Account,
+  Settings,
+  Transfer,
+  TransferType,
+  Worker,
+  WorkerStatus,
+  WorkerStatusChange,
+} from '~/model'
 import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleWorkerRegistered = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -30,6 +41,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
   const workerId = createWorkerId(event.workerId)
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
+  const workerDeferred = ctx.store.defer(Worker, workerId)
 
   return async () => {
     const settings = await settingsDeferred.getOrFail()
@@ -40,13 +52,24 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
 
     const owner = await ownerDeferred.getOrFail()
 
-    const worker = createWorker(workerId, {
-      owner,
-      realOwner: owner.owner ? owner.owner : owner,
-      peerId: parsePeerId(event.peerId),
-      createdAt: new Date(log.block.timestamp),
-      metadata,
-    })
+    let worker = await workerDeferred.get()
+    if (worker != null) {
+      worker.owner = owner
+      worker.realOwner = owner.owner ? owner.owner : owner
+      worker.peerId = parsePeerId(event.peerId)
+      worker.name = metadata.name
+      worker.email = metadata.email
+      worker.website = metadata.website
+      worker.description = metadata.description
+    } else {
+      worker = createWorker(workerId, {
+        owner,
+        realOwner: owner.owner ? owner.owner : owner,
+        peerId: parsePeerId(event.peerId),
+        createdAt: new Date(log.block.timestamp),
+        metadata,
+      })
+    }
 
     ctx.log.info(`registered worker(${worker.id})`)
 
@@ -74,7 +97,20 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       pending: true,
     })
     await ctx.store.insert(pendingStatus)
-    addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
+    await addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
+
+    const transfer = findTransfer(log.getTransaction().logs, {
+      from: ownerId,
+      to: settings.contracts.workerRegistration,
+      logIndex: log.logIndex - 1,
+    })
+    if (!transfer) {
+      throw new Error(`transfer not found for worker(${worker.id})`)
+    }
+    await saveTransfer(ctx, transfer, {
+      type: TransferType.DEPOSIT,
+      worker,
+    })
 
     ctx.log.info(`account(${worker.owner.id}) registered worker(${worker.id})`)
     ctx.log.info(

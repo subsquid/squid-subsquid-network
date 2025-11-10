@@ -51,7 +51,7 @@ export async function processTemporaryHoldingUnlockQueue(
     })
     assert(temporaryHolding.locked, `temporary_holding(${temporaryHolding.id}) is not locked`)
     if (temporaryHolding.unlockedAt.getTime() > block.timestamp) {
-      tasks.push(temporaryHolding)
+      tasks.push(task)
       continue
     }
 

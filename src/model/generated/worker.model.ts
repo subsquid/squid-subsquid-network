@@ -4,13 +4,13 @@ import {Account} from "./account.model"
 import {WorkerStatus} from "./_workerStatus"
 import {WorkerStatusChange} from "./workerStatusChange.model"
 import {WorkerReward} from "./workerReward.model"
-import {Claim} from "./claim.model"
 import {Delegation} from "./delegation.model"
 import {WorkerDayUptime} from "./_workerDayUptime"
 import {WorkerSnapshot} from "./workerSnapshot.model"
 
 @Index_(["id", "createdAt", "status"], {unique: false})
 @Index_(["id", "realOwner"], {unique: false})
+@Index_(["status", "online"], {unique: false})
 @Entity_()
 export class Worker {
     constructor(props?: Partial<Worker>) {
@@ -76,9 +76,6 @@ export class Worker {
 
     @BigIntColumn_({nullable: false})
     claimedReward!: bigint
-
-    @OneToMany_(() => Claim, e => e.worker)
-    claims!: Claim[]
 
     @FloatColumn_({nullable: true})
     apr!: number | undefined | null

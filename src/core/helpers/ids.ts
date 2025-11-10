@@ -4,6 +4,10 @@ export function createWorkerStatusId(workerId: string, blockNumber: number | big
   return `${blockNumber}-${workerId}`
 }
 
+export function createDelegationStatusChangeId(delegationId: string, blockNumber: number | bigint) {
+  return `${blockNumber}-${delegationId}`
+}
+
 export function createWorkerId(workerIndex: bigint) {
   return workerIndex.toString()
 }

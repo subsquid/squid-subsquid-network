@@ -6,8 +6,10 @@ import { createAccountId, createWorkerId } from '../helpers/ids'
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution'
 import { network } from '~/config/network'
-import { Claim, ClaimType, Worker } from '~/model'
+import { TransferType, Worker } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleClaimed = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -40,22 +42,9 @@ export const handleClaimed = createHandlerOld({
 
       await ctx.store.upsert(worker)
 
-      const account = worker.owner.owner || worker.owner
-      const claim = new Claim({
-        id: log.id,
-        blockNumber: log.block.height,
-        timestamp: new Date(log.block.timestamp),
-        type: ClaimType.WORKER,
-        account,
-        worker,
-        amount,
-      })
-
       ctx.log.info(
-        `account(${account.id}) claimed ${toHumanSQD(claim.amount)} from worker(${worker.id})`,
+        `account(${worker.owner.id}) claimed ${toHumanSQD(amount)} from worker(${worker.id})`,
       )
-
-      await ctx.store.insert(claim)
     }
   },
 })

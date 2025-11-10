@@ -12,20 +12,23 @@
     "lint": "biome --fix --unsafe"
   },
   "dependencies": {
-    "@belopash/typeorm-store": "^1.5.0",
+    "@belopash/typeorm-store": "^1.6.0-rc.17",
     "@subsquid/archive-registry": "^3.3.2",
     "@subsquid/big-decimal": "^1.0.0",
     "@subsquid/evm-processor": "1.28.0-portal-api.b241d7",
-    "@subsquid/graphql-server": "^4.10.0",
+    "@subsquid/graphql-server": "^4.11.0",
     "@subsquid/http-client": "^1.6.0",
     "@subsquid/typeorm-migration": "^1.3.0",
     "@subsquid/typeorm-store": "^1.5.1",
     "bs58": "^5.0.0",
-    "class-validator": "^0.14.1",
+    "class-validator": "^0.14.2",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
     "pg": "^8.11.3",
-    "type-graphql": "^1.2.0-rc.1",
-    "typeorm": "^0.3.20"
+    "reflect-metadata": "^0.2.2",
+    "type-graphql": "1.2.0-rc.1",
+    "typeorm": "^0.3.20",
+    "yesql": "^7.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

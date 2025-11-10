@@ -4,8 +4,19 @@ import { createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
-import { WorkerStatusChange, WorkerStatus, Worker, Settings } from '~/model'
+import {
+  WorkerStatusChange,
+  WorkerStatus,
+  Worker,
+  Settings,
+  Transfer,
+  TransferType,
+  Account,
+} from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { createAccount } from '../helpers/entities'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleWorkerWithdrawn = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -17,7 +28,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, {
       id: workerId,
-      relations: { owner: true },
+      relations: { owner: { owner: true } },
     })
 
     return async () => {
@@ -40,6 +51,19 @@ export const handleWorkerWithdrawn = createHandlerOld({
       worker.bond = 0n
 
       await ctx.store.upsert(worker)
+
+      const transfer = findTransfer(log.transaction?.logs ?? [], {
+        to: worker.owner.id,
+        from: settings.contracts.workerRegistration,
+        logIndex: log.logIndex - 1,
+      })
+      if (!transfer) {
+        throw new Error(`transfer not found for worker(${worker.id})`)
+      }
+      await saveTransfer(ctx, transfer, {
+        type: TransferType.WITHDRAW,
+        worker,
+      })
 
       ctx.log.info(
         `account(${worker.owner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,

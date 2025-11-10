@@ -3,12 +3,25 @@ import assert from 'assert'
 import { isLog } from '../../item'
 import { createHandler } from '../base'
 import { addToWorkerCapQueue } from '../cap'
-import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
+import {
+  createAccountId,
+  createDelegationId,
+  createDelegationStatusChangeId,
+  createWorkerId,
+} from '../helpers/ids'
 
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
-import { Delegation, Settings } from '~/model'
+import {
+  Delegation,
+  DelegationStatus,
+  DelegationStatusChange,
+  Settings,
+  TransferType,
+} from '~/model'
 import { toHumanSQD } from '~/utils/misc'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleWithdrawn = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -38,6 +51,20 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     const delegation = await delegationDeferred.getOrFail()
     delegation.deposit -= amount
 
+    if (delegation.deposit === 0n) {
+      delegation.status = DelegationStatus.WITHDRAWN
+      await ctx.store.insert(
+        new DelegationStatusChange({
+          id: createDelegationStatusChangeId(delegation.id, log.block.height),
+          delegation,
+          status: DelegationStatus.WITHDRAWN,
+          timestamp: new Date(log.block.timestamp),
+          blockNumber: log.block.height,
+          pending: false,
+        }),
+      )
+    }
+
     await ctx.store.upsert(delegation)
 
     const worker = delegation.worker
@@ -50,6 +77,20 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     await ctx.store.upsert(worker)
 
     await addToWorkerCapQueue(ctx, worker.id)
+
+    const transfer = findTransfer(log.transaction?.logs ?? [], {
+      to: accountId,
+      from: settings.contracts.staking,
+      amount,
+      logIndex: log.logIndex - 1,
+    })
+    if (!transfer) {
+      throw new Error(`transfer not found for delegation(${delegation.id})`)
+    }
+    await saveTransfer(ctx, transfer, {
+      type: TransferType.WITHDRAW,
+      delegation,
+    })
 
     ctx.log.info(
       `account(${delegation.owner.id}) undelegated ${toHumanSQD(amount)} from worker(${worker.id})`,

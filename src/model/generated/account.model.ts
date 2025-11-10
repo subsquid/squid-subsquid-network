@@ -4,7 +4,6 @@ import {AccountTransfer} from "./accountTransfer.model"
 import {Transfer} from "./transfer.model"
 import {Worker} from "./worker.model"
 import {Delegation} from "./delegation.model"
-import {Claim} from "./claim.model"
 import {GatewayStake} from "./gatewayStake.model"
 import {Gateway} from "./gateway.model"
 import {TemporaryHoldingData} from "./temporaryHoldingData.model"
@@ -54,9 +53,6 @@ export class Account {
 
     @IntColumn_({nullable: false})
     claimableDelegationCount!: number
-
-    @OneToMany_(() => Claim, e => e.account)
-    claims!: Claim[]
 
     @OneToMany_(() => GatewayStake, e => e.realOwner)
     gatewayStakes!: GatewayStake[]

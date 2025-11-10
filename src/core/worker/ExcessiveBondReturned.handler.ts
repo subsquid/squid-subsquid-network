@@ -4,7 +4,9 @@ import { createWorkerId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
-import { Settings, Worker } from '~/model'
+import { Settings, TransferType, Worker } from '~/model'
+import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleExcessiveBondReturned = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -15,7 +17,7 @@ export const handleExcessiveBondReturned = createHandlerOld({
       WorkerRegistry.events.ExcessiveBondReturned.decode(log)
 
     const workerId = createWorkerId(workerIndex)
-    const workerDeferred = ctx.store.defer(Worker, workerId)
+    const workerDeferred = ctx.store.defer(Worker, { id: workerId, relations: { owner: true } })
 
     return async () => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
@@ -24,6 +26,19 @@ export const handleExcessiveBondReturned = createHandlerOld({
       const worker = await workerDeferred.getOrFail()
       worker.bond -= amount
       await ctx.store.upsert(worker)
+
+      const transfer = findTransfer(log.transaction?.logs ?? [], {
+        to: worker.owner.id,
+        from: settings.contracts.workerRegistration,
+        logIndex: log.logIndex - 1,
+      })
+      if (!transfer) {
+        throw new Error(`transfer not found for worker(${worker.id})`)
+      }
+      await saveTransfer(ctx, transfer, {
+        type: TransferType.WITHDRAW,
+        worker,
+      })
     }
   },
 })

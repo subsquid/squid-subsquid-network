@@ -1,6 +1,9 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 
+@Index_(["worker", "timestamp"], {unique: false})
+@Index_(["timestamp", "apr"], {unique: false})
+@Index_(["timestamp", "stakerApr"], {unique: false})
 @Entity_()
 export class WorkerReward {
     constructor(props?: Partial<WorkerReward>) {
@@ -13,17 +16,21 @@ export class WorkerReward {
     @IntColumn_({nullable: false})
     blockNumber!: number
 
-    @Index_()
     @DateTimeColumn_({nullable: false})
     timestamp!: Date
 
-    @Index_()
     @ManyToOne_(() => Worker, {nullable: true})
     worker!: Worker
 
     @BigIntColumn_({nullable: false})
     amount!: bigint
 
+    @FloatColumn_({nullable: false})
+    apr!: number
+
     @BigIntColumn_({nullable: false})
     stakersReward!: bigint
+
+    @FloatColumn_({nullable: false})
+    stakerApr!: number
 }

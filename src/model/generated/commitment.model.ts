@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, Index as Index_} from "@subsquid/typeorm-store"
 import * as marshal from "./marshal"
 import {CommitmentRecipient} from "./_commitmentRecipient"
 
@@ -17,6 +17,7 @@ export class Commitment {
     @IntColumn_({nullable: false})
     fromBlock!: number
 
+    @Index_()
     @DateTimeColumn_({nullable: false})
     to!: Date
 
