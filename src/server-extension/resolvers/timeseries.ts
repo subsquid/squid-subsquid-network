@@ -115,6 +115,43 @@ function isValueNull(value: any): boolean {
   return false
 }
 
+/**
+ * Helper to build worker filter SQL and parameters
+ */
+function buildWorkerFilter(workerId?: string): {
+  filter: string
+  params: (Date | string)[]
+  paramIndex: number
+} {
+  if (workerId) {
+    return {
+      filter: sql`AND worker_id = $3`,
+      params: [] as any[], // Will be filled by caller with [from, to, workerId]
+      paramIndex: 3,
+    }
+  }
+  return {
+    filter: '',
+    params: [] as any[], // Will be filled by caller with [from, to]
+    paramIndex: 2,
+  }
+}
+
+/**
+ * Prepare timeseries query context
+ */
+async function prepareTimeseriesContext(
+  manager: EntityManager,
+  fromArg?: Date,
+  toArg?: Date,
+  step?: string,
+) {
+  const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+  const groupSize = getGroupSizeInfo(from, to, step)
+  const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+  return { from, to, groupSize, alignedFrom, alignedTo }
+}
+
 /*************************************
  * Holders count timeseries          *
  *************************************/
@@ -1030,11 +1067,18 @@ export class QueriesCountTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<QueriesCountTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
-    const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const { filter: workerFilter } = buildWorkerFilter(workerId)
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
       sql`
@@ -1045,7 +1089,7 @@ export class QueriesCountTimeseriesResolver {
       query_counts AS (
         SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(queries) as value
         FROM worker_metrics
-        WHERE timestamp >= $1 AND timestamp < $2
+        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
       SELECT 
@@ -1055,7 +1099,7 @@ export class QueriesCountTimeseriesResolver {
       LEFT JOIN query_counts qc ON ts.timestamp = qc.date
       ORDER BY ts.timestamp
       `,
-      [alignedFrom, alignedTo],
+      params,
     )
 
     return new QueriesCountTimeseries({
@@ -1108,11 +1152,18 @@ export class ServedDataTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<ServedDataTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
-    const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const { filter: workerFilter } = buildWorkerFilter(workerId)
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
       sql`
@@ -1123,7 +1174,7 @@ export class ServedDataTimeseriesResolver {
       served_data_counts AS (
         SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(served_data) as value
         FROM worker_metrics
-        WHERE timestamp >= $1 AND timestamp < $2
+        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
       SELECT 
@@ -1133,7 +1184,7 @@ export class ServedDataTimeseriesResolver {
       LEFT JOIN served_data_counts sdc ON ts.timestamp = sdc.date
       ORDER BY ts.timestamp
       `,
-      [alignedFrom, alignedTo],
+      params,
     )
 
     return new ServedDataTimeseries({
@@ -1186,11 +1237,18 @@ export class StoredDataTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<StoredDataTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
-    const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const { filter: workerFilter } = buildWorkerFilter(workerId)
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
       sql`
@@ -1206,7 +1264,7 @@ export class StoredDataTimeseriesResolver {
             worker_id,
             AVG(stored_data) as avg_stored_data
           FROM worker_metrics
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
           GROUP BY date, worker_id
         ) avg_per_worker
         GROUP BY date
@@ -1218,7 +1276,7 @@ export class StoredDataTimeseriesResolver {
       LEFT JOIN stored_data_counts sdc ON ts.timestamp = sdc.date
       ORDER BY ts.timestamp
       `,
-      [alignedFrom, alignedTo],
+      params,
     )
 
     return new StoredDataTimeseries({
@@ -1231,6 +1289,249 @@ export class StoredDataTimeseriesResolver {
       ),
       step: groupSize.ms,
     })
+  }
+}
+
+/*************************************
+| * Uptime timeseries                 *
+ *************************************/
+@ObjectType()
+class UptimeEntry {
+  @Field(() => DateTime)
+  timestamp!: Date
+  @Field(() => Number, { nullable: true })
+  value!: number | null
+
+  constructor(props: Partial<UptimeEntry>) {
+    Object.assign(this, props)
+  }
+}
+
+@ObjectType()
+class UptimeTimeseries {
+  @Field(() => [UptimeEntry])
+  data!: UptimeEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<UptimeTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
+@Resolver()
+export class UptimeTimeseriesResolver {
+  constructor(private tx: () => Promise<EntityManager>) {}
+
+  @Query(() => UptimeTimeseries)
+  async uptimeTimeseries(
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
+    @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
+  ): Promise<UptimeTimeseries> {
+    const manager = await this.tx()
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const { filter: workerFilter } = buildWorkerFilter(workerId)
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+
+    const raw = await manager.query(
+      sql`
+      WITH
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+      ),
+      uptime_data AS (
+        SELECT 
+          ${dateBin('timestamp', groupSize.label)} as date,
+          AVG(uptime) as value
+        FROM worker_metrics
+        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+        GROUP BY date
+      )
+      SELECT 
+        ts.timestamp as date,
+        COALESCE(ud.value, 0) as value
+      FROM time_series ts
+      LEFT JOIN uptime_data ud ON ts.timestamp = ud.date
+      ORDER BY ts.timestamp
+      `,
+      params,
+    )
+
+    return new UptimeTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new UptimeEntry({
+            timestamp: r.date,
+            value: parseFloat(r.value),
+          }),
+      ),
+      step: groupSize.ms,
+    })
+  }
+}
+
+/*************************************
+| * Account balance history timeseries *
+ *************************************/
+@ObjectType()
+class AccountBalanceEntry {
+  @Field(() => DateTime)
+  timestamp!: Date
+  @Field(() => BigInt, { nullable: true })
+  value!: bigint | null
+
+  constructor(props: Partial<AccountBalanceEntry>) {
+    Object.assign(this, props)
+  }
+}
+
+@ObjectType()
+class AccountBalanceTimeseries {
+  @Field(() => [AccountBalanceEntry])
+  data!: AccountBalanceEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<AccountBalanceTimeseries>) {
+    Object.assign(this, props)
+  }
+}
+
+@Resolver()
+export class AccountBalanceTimeseriesResolver {
+  constructor(private tx: () => Promise<EntityManager>) {}
+
+  @Query(() => AccountBalanceTimeseries)
+  async accountBalanceTimeseries(
+    @Arg('accountId') accountId: string,
+    @Arg('from', { nullable: true }) fromArg?: Date,
+    @Arg('to', { nullable: true }) toArg?: Date,
+    @Arg('step', { nullable: true }) step?: string,
+  ): Promise<AccountBalanceTimeseries> {
+    const manager = await this.tx()
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const raw = await manager.query(
+      sql`
+      WITH
+      owned_accounts AS (
+        SELECT id FROM account WHERE id = $3
+        UNION ALL
+        SELECT id FROM account WHERE owner_id = $3
+      ),
+      all_transfers AS (
+        SELECT
+          t.timestamp,
+          CASE 
+            WHEN at.direction = 'TO' THEN t.amount
+            WHEN at.direction = 'FROM' THEN -t.amount
+            ELSE 0
+          END AS delta
+        FROM account_transfer at
+        INNER JOIN transfer t ON at.transfer_id = t.id
+        WHERE at.account_id IN (SELECT id FROM owned_accounts)
+          AND t.timestamp < $2
+          AND t.type NOT IN ('DEPOSIT', 'WITHDRAW')
+      ),
+      initial_balance AS (
+        SELECT COALESCE(SUM(delta), 0) AS initial_value
+        FROM all_transfers
+        WHERE timestamp < $1
+      ),
+      balance_deltas AS (
+        SELECT
+          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
+          SUM(delta) AS delta
+        FROM all_transfers
+        WHERE timestamp >= $1
+        GROUP BY bin_ts
+      ),
+      time_series AS (
+        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+      ),
+      cumulative_balance AS (
+        SELECT
+          ts.bin_ts AS timestamp,
+          (SELECT initial_value FROM initial_balance) +
+          SUM(COALESCE(bd.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+        FROM time_series ts
+        LEFT JOIN balance_deltas bd ON ts.bin_ts = bd.bin_ts
+      )
+      SELECT
+        timestamp,
+        value
+      FROM cumulative_balance
+      ORDER BY timestamp
+      `,
+      [alignedFrom, alignedTo, accountId],
+    )
+
+    return new AccountBalanceTimeseries({
+      data: raw.map(
+        (r: any) =>
+          new AccountBalanceEntry({
+            timestamp: r.timestamp,
+            value: r.value ? BigInt(r.value) : null,
+          }),
+      ),
+      step: groupSize.ms,
+    })
+  }
+}
+
+/*************************************
+| * Cumulative reward timeseries      *
+ *************************************/
+@ObjectType()
+class CumulativeRewardValue {
+  @Field(() => BigInt)
+  workerReward!: bigint
+  @Field(() => BigInt)
+  stakerReward!: bigint
+
+  constructor(props: Partial<CumulativeRewardValue>) {
+    Object.assign(this, props)
+  }
+}
+
+@ObjectType()
+class CumulativeRewardEntry {
+  @Field(() => DateTime)
+  timestamp!: Date
+
+  @Field(() => CumulativeRewardValue, { nullable: true })
+  value!: CumulativeRewardValue | null
+
+  constructor(props: Partial<CumulativeRewardEntry>) {
+    Object.assign(this, props)
+  }
+}
+
+@ObjectType()
+class CumulativeRewardTimeseries {
+  @Field(() => [CumulativeRewardEntry])
+  data!: CumulativeRewardEntry[]
+
+  @Field(() => Number)
+  step!: number
+
+  constructor(props: Partial<CumulativeRewardTimeseries>) {
+    Object.assign(this, props)
   }
 }
 
@@ -1281,11 +1582,18 @@ export class RewardTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<RewardTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
-    const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const workerFilter = workerId ? sql`AND wr.worker_id = $3` : ''
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
       sql`
@@ -1299,7 +1607,7 @@ export class RewardTimeseriesResolver {
           SUM(wr.amount) AS worker_value,
           SUM(wr.stakers_reward) AS staker_value
         FROM worker_reward as wr
-        WHERE wr.timestamp >= $1 AND wr.timestamp < $2
+        WHERE wr.timestamp >= $1 AND wr.timestamp < $2 ${workerFilter}
         GROUP BY date
       )
       SELECT 
@@ -1310,7 +1618,7 @@ export class RewardTimeseriesResolver {
       LEFT JOIN reward_counts rc ON ts.timestamp = rc.date
       ORDER BY ts.timestamp
       `,
-      [alignedFrom, alignedTo],
+      params,
     )
 
     return new RewardTimeseries({
@@ -1380,11 +1688,18 @@ export class AprTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<AprTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
-    const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
+      manager,
+      fromArg,
+      toArg,
+      step,
+    )
+
+    const workerFilter = workerId ? sql`AND worker_id = $3` : ''
+    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
       sql`
@@ -1398,7 +1713,7 @@ export class AprTimeseriesResolver {
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
         FROM worker_reward
-        WHERE timestamp >= $1 AND timestamp < $2
+        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
       SELECT 
@@ -1409,7 +1724,7 @@ export class AprTimeseriesResolver {
       LEFT JOIN apr_data ad ON ts.timestamp = ad.date
       ORDER BY ts.timestamp
       `,
-      [alignedFrom, alignedTo],
+      params,
     )
 
     return new AprTimeseries({
