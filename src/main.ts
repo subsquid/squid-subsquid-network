@@ -35,8 +35,16 @@ import {
   ensureTemporaryHoldingUnlockQueue,
   processTemporaryHoldingUnlockQueue,
 } from './core/temporary-holding/CheckTempHoldingUnlock.listener'
+import { startMaterializedViewRefresh } from './materialized-view-refresh'
+
+let isMaterializedRefreshRunning = false
 
 processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
+  if (!isMaterializedRefreshRunning) {
+    isMaterializedRefreshRunning = true
+    startMaterializedViewRefresh(ctx.store['em'].connection.manager)
+  }
+
   const tasks: Task[] = []
 
   ctx.store.defer(Settings, network.name)
@@ -146,7 +154,7 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
         cacheEntities: false,
       })
 
-      ids.push(...batch.map(block => block.id))
+      ids.push(...batch.map((block) => block.id))
 
       if (batch.length < limit) break
       offset += limit

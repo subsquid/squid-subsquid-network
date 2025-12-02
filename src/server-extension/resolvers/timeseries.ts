@@ -199,38 +199,17 @@ export class HoldersCountTimeseriesResolver {
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
-          SELECT
-            COALESCE(
-              SUM(CASE WHEN balance > 0 AND change = balance THEN 1 WHEN balance = 0 AND change < 0 THEN -1 ELSE 0 END),
-              0
-            ) AS initial_value
-          FROM (
-            SELECT
-              account_id,
-              (array_agg(balance ORDER BY t.id DESC))[1] as balance,
-              SUM(CASE WHEN direction = 'FROM' THEN -t.amount WHEN direction = 'TO' THEN t.amount ELSE 0 END) as change
-            FROM account_transfer at
-            INNER JOIN transfer t ON at.transfer_id = t.id
-            WHERE t.timestamp < $1
-            GROUP BY account_id
-          ) initial_balances
+          SELECT COALESCE(SUM(delta), 0) AS initial_value
+          FROM mv_holders_count_daily
+          WHERE timestamp < $1
         ),
         events_binned AS (
           SELECT
-            date as bin_ts,
-            SUM (CASE WHEN balance > 0 AND change = balance THEN 1 WHEN balance = 0 AND change < 0 THEN -1 ELSE 0 END) as delta
-          FROM (
-            SELECT
-              ${dateBin('t.timestamp', groupSize.label)} as date,
-              at.account_id,
-              (array_agg(at.balance ORDER BY t.id DESC))[1] as balance,
-              SUM (CASE WHEN at.direction = 'FROM' THEN - t.amount WHEN at.direction = 'TO' THEN t.amount ELSE 0 END) as change
-            FROM account_transfer at
-            INNER JOIN transfer t ON at.transfer_id = t.id
-            WHERE t.timestamp >= $1 AND t.timestamp < $2
-            GROUP BY date, at.account_id
-          ) daily_balances
-          GROUP BY date
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_holders_count_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY bin_ts
         ),
         time_series AS (
           SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
@@ -241,12 +220,9 @@ export class HoldersCountTimeseriesResolver {
             (SELECT initial_value FROM initial_count) +
             SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
           FROM time_series ts
-          LEFT JOIN events_binned e
-            ON e.bin_ts = ts.bin_ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
         )
-        SELECT
-          timestamp,
-          value
+        SELECT timestamp, value
         FROM cumulative_data
         ORDER BY timestamp
       `,
@@ -309,22 +285,17 @@ export class LockedValueTimeseriesResolver {
 
     const raw = await manager.query(
       sql`
-        WITH
-        initial_value AS (
-          SELECT
-            COALESCE(
-              SUM(CASE WHEN t.type = 'DEPOSIT' THEN t.amount WHEN t.type = 'WITHDRAW' THEN -t.amount ELSE 0 END),
-              0
-            ) AS initial_locked
-          FROM transfer t
-          WHERE t.type IN ('DEPOSIT', 'WITHDRAW') AND t.timestamp < $1
+        WITH initial_value AS (
+          SELECT COALESCE(SUM(delta), 0) AS initial_locked
+          FROM mv_locked_value_daily
+          WHERE timestamp < $1
         ),
         events_binned AS (
           SELECT
-            ${dateBin('t.timestamp', groupSize.label)} AS bin_ts,
-            SUM(CASE WHEN t.type = 'DEPOSIT' THEN t.amount WHEN t.type = 'WITHDRAW' THEN - t.amount ELSE 0 END) AS delta
-          FROM transfer t
-          WHERE t.type in ('DEPOSIT', 'WITHDRAW') AND t.timestamp >= $1 AND t.timestamp < $2
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_locked_value_daily
+          WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
@@ -336,12 +307,9 @@ export class LockedValueTimeseriesResolver {
             (SELECT initial_locked FROM initial_value) +
             SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
           FROM time_series ts
-          LEFT JOIN events_binned e
-            ON e.bin_ts = ts.bin_ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
         )
-        SELECT
-          timestamp,
-          value
+        SELECT timestamp, value
         FROM cumulative_data
         ORDER BY timestamp
       `,
@@ -405,56 +373,38 @@ export class ActiveWorkersTimeseriesResolver {
     const groupSize = getGroupSizeInfo(from, to, step)
     const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
-    const query = sql`
-      WITH
-      events_with_dates AS (
-        SELECT
-          worker_id,
-          status,
-          block_number,
-          COALESCE(
-            timestamp,
-            LAG(timestamp) OVER (PARTITION BY worker_id ORDER BY block_number)
-          ) AS timestamp
-        FROM worker_status_change
-        WHERE pending = FALSE
-      ),
-      initial_count AS (
-        SELECT 
-          COALESCE(
-            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'DEREGISTERED' THEN -1 ELSE 0 END),
-            0
-          ) AS initial_value
-        FROM events_with_dates
-        WHERE timestamp < $1
-      ),
-      events_binned AS (
-        SELECT
-          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
-          SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'DEREGISTERED' THEN -1 ELSE 0 END) AS delta
-        FROM events_with_dates
-        WHERE timestamp >= $1 AND timestamp < $2
-        GROUP BY 1
-      ),
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
-      ),
-      cumulative_data AS (
-        SELECT
-          ts.bin_ts AS timestamp,
-          (SELECT initial_value FROM initial_count) +
-          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
-        FROM time_series ts
-        LEFT JOIN events_binned e
-          ON e.bin_ts = ts.bin_ts
-      )
-      SELECT
-        timestamp,
-        value
-      FROM cumulative_data
-      ORDER BY timestamp;
-    `
-    const raw = await manager.query(query, [alignedFrom, alignedTo])
+    const raw = await manager.query(
+      sql`
+        WITH initial_count AS (
+          SELECT COALESCE(SUM(delta), 0) AS initial_value
+          FROM mv_active_workers_daily
+          WHERE timestamp < $1
+        ),
+        events_binned AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_active_workers_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY bin_ts
+        ),
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+        ),
+        cumulative_data AS (
+          SELECT
+            ts.bin_ts AS timestamp,
+            (SELECT initial_value FROM initial_count) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+          FROM time_series ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+        )
+        SELECT timestamp, value
+        FROM cumulative_data
+        ORDER BY timestamp
+      `,
+      [alignedFrom, alignedTo],
+    )
 
     return new ActiveWorkersTimeseries({
       data: raw.map(
@@ -515,71 +465,33 @@ export class UniqueOperatorsTimeseriesResolver {
 
     const raw = await manager.query(
       sql`
-      WITH
-      events_with_dates AS (
-        SELECT
-          wsc.id,
-          w.owner_id,
-          wsc.status,
-          wsc.block_number,
-          COALESCE(
-            wsc.timestamp,
-            LAG(wsc.timestamp) OVER (PARTITION BY wsc.worker_id ORDER BY wsc.block_number)
-          ) AS timestamp
-        FROM worker_status_change wsc
-        INNER JOIN worker w ON w.id = wsc.worker_id
-        WHERE wsc.status IN ('REGISTERING', 'WITHDRAWN')
-      ),
-      initial_count AS (
-        SELECT
-          COALESCE(
-            SUM(CASE WHEN workers_count > 0 THEN 1 ELSE 0 END),
-            0
-          ) AS initial_value
-        FROM (
-          SELECT
-            owner_id,
-            SUM(CASE WHEN status = 'REGISTERING' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as workers_count
-          FROM events_with_dates
+        WITH initial_count AS (
+          SELECT COALESCE(SUM(delta), 0) AS initial_value
+          FROM mv_unique_operators_daily
           WHERE timestamp < $1
-          GROUP BY owner_id
-        ) initial_operators
-      ),
-      events_binned AS (
-        SELECT
-          date as bin_ts,
-          SUM(CASE WHEN workers_count > 0 AND change = workers_count THEN 1 WHEN workers_count <= 0 AND change < 0 THEN -1 ELSE 0 END) as delta
-        FROM (
-          SELECT date, owner_id, change,
-            SUM(change) OVER (PARTITION BY owner_id ORDER BY date) as workers_count
-          FROM (
-            SELECT ${dateBin('timestamp', groupSize.label)} as date,
-              owner_id,
-              SUM(CASE WHEN status = 'REGISTERING' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 END) as change
-            FROM events_with_dates
-            WHERE timestamp >= $1 AND timestamp < $2
-            GROUP BY date, owner_id
-          ) raw
-        ) with_counts
-        GROUP BY date
-      ),
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
-      ),
-      cumulative_data AS (
-        SELECT
-          ts.bin_ts AS timestamp,
-          (SELECT initial_value FROM initial_count) +
-          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
-        FROM time_series ts
-        LEFT JOIN events_binned e
-          ON e.bin_ts = ts.bin_ts
-      )
-      SELECT
-        timestamp,
-        value
-      FROM cumulative_data
-      ORDER BY timestamp
+        ),
+        events_binned AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_unique_operators_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY bin_ts
+        ),
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+        ),
+        cumulative_data AS (
+          SELECT
+            ts.bin_ts AS timestamp,
+            (SELECT initial_value FROM initial_count) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+          FROM time_series ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+        )
+        SELECT timestamp, value
+        FROM cumulative_data
+        ORDER BY timestamp
       `,
       [alignedFrom, alignedTo],
     )
@@ -643,53 +555,33 @@ export class DelegationsTimeseriesResolver {
 
     const raw = await manager.query(
       sql`
-      WITH
-      events_with_dates AS (
-        SELECT
-          delegation_id,
-          status,
-          block_number,
-          COALESCE(
-            timestamp,
-            LAG(timestamp) OVER (PARTITION BY delegation_id ORDER BY block_number)
-          ) AS timestamp
-        FROM delegation_status_change
-        WHERE pending = false
-      ),
-      initial_count AS (
-        SELECT
-          COALESCE(
-            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END),
-            0
-          ) AS initial_value
-        FROM events_with_dates
-        WHERE timestamp < $1
-      ),
-      events_binned AS (
-        SELECT
-          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
-          SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) AS delta
-        FROM events_with_dates
-        WHERE timestamp >= $1 AND timestamp < $2
-        GROUP BY 1
-      ),
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
-      ),
-      cumulative_data AS (
-        SELECT
-          ts.bin_ts AS timestamp,
-          (SELECT initial_value FROM initial_count) +
-          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
-        FROM time_series ts
-        LEFT JOIN events_binned e
-          ON e.bin_ts = ts.bin_ts
-      )
-      SELECT
-        timestamp,
-        value
-      FROM cumulative_data
-      ORDER BY timestamp
+        WITH initial_count AS (
+          SELECT COALESCE(SUM(delta), 0) AS initial_value
+          FROM mv_delegations_daily
+          WHERE timestamp < $1
+        ),
+        events_binned AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_delegations_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY bin_ts
+        ),
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+        ),
+        cumulative_data AS (
+          SELECT
+            ts.bin_ts AS timestamp,
+            (SELECT initial_value FROM initial_count) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+          FROM time_series ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+        )
+        SELECT timestamp, value
+        FROM cumulative_data
+        ORDER BY timestamp
       `,
       [alignedFrom, alignedTo],
     )
@@ -753,71 +645,33 @@ export class DelegatorsTimeseriesResolver {
 
     const raw = await manager.query(
       sql`
-      WITH
-      events_with_dates AS (
-        SELECT
-          wsc.id,
-          d.owner_id,
-          wsc.status,
-          wsc.block_number,
-          COALESCE(
-            wsc.timestamp,
-            LAG(wsc.timestamp) OVER (PARTITION BY wsc.delegation_id ORDER BY wsc.block_number)
-          ) AS timestamp
-        FROM delegation_status_change wsc
-        INNER JOIN delegation d ON d.id = wsc.delegation_id
-        WHERE wsc.status IN ('ACTIVE', 'WITHDRAWN')
-      ),
-      initial_count AS (
-        SELECT
-          COALESCE(
-            SUM(CASE WHEN workers_count > 0 THEN 1 ELSE 0 END),
-            0
-          ) AS initial_value
-        FROM (
-          SELECT
-            owner_id,
-            SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as workers_count
-          FROM events_with_dates
+        WITH initial_count AS (
+          SELECT COALESCE(SUM(delta), 0) AS initial_value
+          FROM mv_delegators_daily
           WHERE timestamp < $1
-          GROUP BY owner_id
-        ) initial_delegators
-      ),
-      events_binned AS (
-        SELECT
-          date as bin_ts,
-          SUM(CASE WHEN workers_count > 0 AND change = workers_count THEN 1 WHEN workers_count <= 0 AND change < 0 THEN -1 ELSE 0 END) as delta
-        FROM (
-          SELECT date, owner_id, change,
-            SUM(change) OVER (PARTITION BY owner_id ORDER BY date) as workers_count
-          FROM (
-            SELECT ${dateBin('timestamp', groupSize.label)} as date,
-              owner_id,
-              SUM(CASE WHEN status = 'ACTIVE' THEN 1 WHEN status = 'WITHDRAWN' THEN -1 ELSE 0 END) as change
-            FROM events_with_dates
-            WHERE timestamp >= $1 AND timestamp < $2
-            GROUP BY date, owner_id
-          ) raw
-        ) with_counts
-        GROUP BY date
-      ),
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
-      ),
-      cumulative_data AS (
-        SELECT
-          ts.bin_ts AS timestamp,
-          (SELECT initial_value FROM initial_count) +
-          SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
-        FROM time_series ts
-        LEFT JOIN events_binned e
-          ON e.bin_ts = ts.bin_ts
-      )
-      SELECT
-        timestamp,
-        value
-      FROM cumulative_data
-      ORDER BY timestamp
+        ),
+        events_binned AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            SUM(delta) as delta
+          FROM mv_delegators_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY bin_ts
+        ),
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+        ),
+        cumulative_data AS (
+          SELECT
+            ts.bin_ts AS timestamp,
+            (SELECT initial_value FROM initial_count) +
+            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+          FROM time_series ts
+          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+        )
+        SELECT timestamp, value
+        FROM cumulative_data
+        ORDER BY timestamp
       `,
       [alignedFrom, alignedTo],
     )
@@ -905,13 +759,14 @@ export class TransfersByTypeTimeseriesResolver {
           SELECT ${generateTimeSeries(groupSize.label)} as timestamp
         ),
         transfer_counts AS (
-          SELECT ${dateBin('timestamp', groupSize.label)} as date,
-            count(*) FILTER (WHERE type = 'DEPOSIT') AS deposit,
-            count(*) FILTER (WHERE type = 'WITHDRAW') AS withdraw,
-            count(*) FILTER (WHERE type = 'CLAIM') AS reward,
-            count(*) FILTER (WHERE type = 'RELEASE') AS release,
-            count(*) FILTER (WHERE type NOT IN ('DEPOSIT', 'WITHDRAW', 'CLAIM', 'RELEASE')) AS transfer
-          FROM transfer
+          SELECT 
+            ${dateBin('timestamp', groupSize.label)} as date,
+            SUM(deposit) as deposit,
+            SUM(withdraw) as withdraw,
+            SUM(reward) as reward,
+            SUM(release) as release,
+            SUM(transfer) as transfer
+          FROM mv_transfers_by_type_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY date
         )
@@ -992,27 +847,29 @@ export class UniqueAccountsTimeseriesResolver {
     const groupSize = getGroupSizeInfo(from, to, step)
     const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
 
+    // For daily or larger buckets, use materialized view and sum
+    // Note: This is an approximation - actual unique count across days may be lower
+    // due to overlapping accounts, but it's much faster
     const raw = await manager.query(
       sql`
-      WITH
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
-      ),
-      account_counts AS (
+        WITH
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        ),
+        account_counts AS (
+          SELECT 
+            ${dateBin('timestamp', groupSize.label)} as date,
+            SUM(value) as value
+          FROM mv_unique_accounts_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY date
+        )
         SELECT 
-          ${dateBin('t.timestamp', groupSize.label)} as date,
-          COUNT(DISTINCT at.account_id) as value
-        FROM transfer t
-        INNER JOIN account_transfer at ON at.transfer_id = t.id
-        WHERE t.timestamp >= $1 AND t.timestamp < $2
-        GROUP BY date
-      )
-      SELECT 
-        ts.timestamp as date,
-        COALESCE(ac.value, 0) as value
-      FROM time_series ts
-      LEFT JOIN account_counts ac ON ts.timestamp = ac.date
-      ORDER BY ts.timestamp
+          ts.timestamp as date,
+          COALESCE(ac.value, 0) as value
+        FROM time_series ts
+        LEFT JOIN account_counts ac ON ts.timestamp = ac.date
+        ORDER BY ts.timestamp
       `,
       [alignedFrom, alignedTo],
     )
@@ -1087,8 +944,8 @@ export class QueriesCountTimeseriesResolver {
         SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       query_counts AS (
-        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(queries) as value
-        FROM worker_metrics
+        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(value) as value
+        FROM mv_queries_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
@@ -1172,8 +1029,8 @@ export class ServedDataTimeseriesResolver {
         SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       served_data_counts AS (
-        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(served_data) as value
-        FROM worker_metrics
+        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(value) as value
+        FROM mv_served_data_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
@@ -1257,16 +1114,16 @@ export class StoredDataTimeseriesResolver {
         SELECT ${generateTimeSeries(groupSize.label)} as timestamp
       ),
       stored_data_counts AS (
-        SELECT date, SUM(avg_stored_data) as value
+        SELECT date, SUM(avg_per_worker) as value
         FROM (
           SELECT 
             ${dateBin('timestamp', groupSize.label)} as date,
             worker_id,
-            AVG(stored_data) as avg_stored_data
-          FROM worker_metrics
+            AVG(value) as avg_per_worker
+          FROM mv_stored_data_daily
           WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
           GROUP BY date, worker_id
-        ) avg_per_worker
+        ) worker_averages
         GROUP BY date
       )
       SELECT 
@@ -1351,8 +1208,8 @@ export class UptimeTimeseriesResolver {
       uptime_data AS (
         SELECT 
           ${dateBin('timestamp', groupSize.label)} as date,
-          AVG(uptime) as value
-        FROM worker_metrics
+          AVG(value) as value
+        FROM mv_uptime_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
@@ -1592,7 +1449,7 @@ export class RewardTimeseriesResolver {
       step,
     )
 
-    const workerFilter = workerId ? sql`AND wr.worker_id = $3` : ''
+    const workerFilter = workerId ? sql`AND worker_id = $3` : ''
     const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
 
     const raw = await manager.query(
@@ -1603,11 +1460,11 @@ export class RewardTimeseriesResolver {
       ),
       reward_counts AS (
         SELECT
-          ${dateBin('wr.timestamp', groupSize.label)} as date,
-          SUM(wr.amount) AS worker_value,
-          SUM(wr.stakers_reward) AS staker_value
-        FROM worker_reward as wr
-        WHERE wr.timestamp >= $1 AND wr.timestamp < $2 ${workerFilter}
+          ${dateBin('timestamp', groupSize.label)} as date,
+          SUM(worker_value) AS worker_value,
+          SUM(staker_value) AS staker_value
+        FROM mv_reward_daily
+        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
       )
       SELECT 
@@ -1698,34 +1555,65 @@ export class AprTimeseriesResolver {
       step,
     )
 
-    const workerFilter = workerId ? sql`AND worker_id = $3` : ''
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
-
-    const raw = await manager.query(
-      sql`
-      WITH
-      time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
-      ),
-      apr_data AS (
-        SELECT
-          ${dateBin('timestamp', groupSize.label)} as date,
-          COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
-          COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
-        FROM worker_reward
-        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
-        GROUP BY date
+    let raw
+    
+    if (workerId) {
+      // For specific worker, query raw data (materialized view doesn't have per-worker data)
+      const params = [alignedFrom, alignedTo, workerId]
+      raw = await manager.query(
+        sql`
+        WITH
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        ),
+        apr_data AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as date,
+            COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
+            COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
+          FROM worker_reward
+          WHERE timestamp >= $1 AND timestamp < $2 AND worker_id = $3
+          GROUP BY date
+        )
+        SELECT 
+          ts.timestamp as date,
+          COALESCE(ad."workerApr", 0) as "workerApr",
+          COALESCE(ad."stakerApr", 0) as "stakerApr"
+        FROM time_series ts
+        LEFT JOIN apr_data ad ON ts.timestamp = ad.date
+        ORDER BY ts.timestamp
+        `,
+        params,
       )
-      SELECT 
-        ts.timestamp as date,
-        COALESCE(ad."workerApr", 0) as "workerApr",
-        COALESCE(ad."stakerApr", 0) as "stakerApr"
-      FROM time_series ts
-      LEFT JOIN apr_data ad ON ts.timestamp = ad.date
-      ORDER BY ts.timestamp
-      `,
-      params,
-    )
+    } else {
+      // For all workers, use materialized view with pre-computed overall median
+      const params = [alignedFrom, alignedTo]
+      raw = await manager.query(
+        sql`
+        WITH
+        time_series AS (
+          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        ),
+        apr_data AS (
+          SELECT
+            ${dateBin('timestamp', groupSize.label)} as date,
+            AVG(worker_apr) FILTER (WHERE worker_apr > 0) AS "workerApr",
+            AVG(staker_apr) FILTER (WHERE staker_apr > 0) AS "stakerApr"
+          FROM mv_apr_daily
+          WHERE timestamp >= $1 AND timestamp < $2
+          GROUP BY date
+        )
+        SELECT 
+          ts.timestamp as date,
+          COALESCE(ad."workerApr", 0) as "workerApr",
+          COALESCE(ad."stakerApr", 0) as "stakerApr"
+        FROM time_series ts
+        LEFT JOIN apr_data ad ON ts.timestamp = ad.date
+        ORDER BY ts.timestamp
+        `,
+        params,
+      )
+    }
 
     return new AprTimeseries({
       data: raw.map(
