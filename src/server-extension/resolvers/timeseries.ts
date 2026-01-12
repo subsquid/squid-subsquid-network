@@ -47,16 +47,38 @@ function getGroupSizeInfo(
   return groupSize
 }
 
+function msToInterval(ms: number): string {
+  // Convert milliseconds to PostgreSQL interval format
+  // Use the largest unit that divides evenly
+  const seconds = ms / 1000
+  const minutes = seconds / 60
+  const hours = minutes / 60
+  const days = hours / 24
+  
+  if (days >= 1 && days === Math.floor(days)) {
+    return `${days} days`
+  } else if (hours >= 1 && hours === Math.floor(hours)) {
+    return `${hours} hours`
+  } else if (minutes >= 1 && minutes === Math.floor(minutes)) {
+    return `${minutes} minutes`
+  } else {
+    return `${seconds} seconds`
+  }
+}
+
 async function getAlignedDates(
   manager: EntityManager,
   from: Date,
   to: Date,
-  groupSizeLabel: string,
+  groupSize: GroupSize,
 ): Promise<{ alignedFrom: Date; alignedTo: Date }> {
+  // Convert ms to a fixed-length interval for date_bin
+  const interval = msToInterval(groupSize.ms)
+  
   const result = await manager.query(
     `SELECT
-      date_bin('${groupSizeLabel}', $1::timestamptz, '2001-01-01'::timestamp) as aligned_from,
-      date_bin('${groupSizeLabel}', $2::timestamptz, '2001-01-01'::timestamp) as aligned_to`,
+      date_bin('${interval}', $1::timestamptz, '2001-01-01'::timestamp) as aligned_from,
+      date_bin('${interval}', $2::timestamptz, '2001-01-01'::timestamp) as aligned_to`,
     [from, to],
   )
   return {
@@ -69,15 +91,17 @@ function sql(strings: TemplateStringsArray, ...values: any[]): string {
   return String.raw({ raw: strings }, ...values).replace(/[\n\s]+/g, ' ')
 }
 
-function dateBin(column: string, groupSizeLabel: string): string {
-  return sql`date_bin('${groupSizeLabel}', ${column}, '2001-01-01'::timestamp)`
+function dateBin(column: string, groupSize: GroupSize): string {
+  const interval = msToInterval(groupSize.ms)
+  return sql`date_bin('${interval}', ${column}, '2001-01-01'::timestamp)`
 }
 
-function generateTimeSeries(groupSizeLabel: string): string {
+function generateTimeSeries(groupSize: GroupSize): string {
+  const interval = msToInterval(groupSize.ms)
   return sql`generate_series(
     $1::timestamptz,
-    $2::timestamptz - '${groupSizeLabel}'::interval,
-    '${groupSizeLabel}'::interval
+    $2::timestamptz - '${interval}'::interval,
+    '${interval}'::interval
   )`
 }
 
@@ -107,10 +131,13 @@ function trimNullValues<T extends { value: any }>(data: T[]): T[] {
 function isValueNull(value: any): boolean {
   if (value == null) return true
 
-  // Handle objects like AprValue where all properties might be null
+  // Handle objects like AprValue where all properties might be null or zero
   if (typeof value === 'object' && value !== null) {
-    return Object.values(value).every((v) => v == null)
+    return Object.values(value).every((v) => v == null || v === 0 || v === 0n)
   }
+
+  // Handle numeric zero values (both number and bigint)
+  if (value === 0 || value === 0n) return true
 
   return false
 }
@@ -148,7 +175,7 @@ async function prepareTimeseriesContext(
 ) {
   const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
   const groupSize = getGroupSizeInfo(from, to, step)
-  const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+  const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
   return { from, to, groupSize, alignedFrom, alignedTo }
 }
 
@@ -176,6 +203,12 @@ class HoldersCountTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<HoldersCountTimeseries>) {
     Object.assign(this, props)
   }
@@ -194,7 +227,7 @@ export class HoldersCountTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -205,14 +238,14 @@ export class HoldersCountTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_holders_count_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -229,15 +262,19 @@ export class HoldersCountTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new HoldersCountEntry({
+          timestamp: r.timestamp,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new HoldersCountTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new HoldersCountEntry({
-            timestamp: r.timestamp,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -263,6 +300,12 @@ class LockedValueTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<LockedValueTimeseries>) {
     Object.assign(this, props)
   }
@@ -281,7 +324,7 @@ export class LockedValueTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -292,14 +335,14 @@ export class LockedValueTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_locked_value_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -316,15 +359,19 @@ export class LockedValueTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new TvlEntry({
+          timestamp: r.timestamp,
+          value: BigInt(r.value),
+        }),
+    )
+
     return new LockedValueTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new TvlEntry({
-            timestamp: r.timestamp,
-            value: BigInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -353,6 +400,12 @@ class ActiveWorkersTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<ActiveWorkersTimeseries>) {
     Object.assign(this, props)
   }
@@ -371,7 +424,7 @@ export class ActiveWorkersTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -382,14 +435,14 @@ export class ActiveWorkersTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_active_workers_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -406,15 +459,19 @@ export class ActiveWorkersTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new ActiveWorkersEntry({
+          timestamp: r.timestamp,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new ActiveWorkersTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new ActiveWorkersEntry({
-            timestamp: r.timestamp,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -443,6 +500,12 @@ class UniqueOperatorsTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<UniqueOperatorsTimeseries>) {
     Object.assign(this, props)
   }
@@ -461,7 +524,7 @@ export class UniqueOperatorsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -472,14 +535,14 @@ export class UniqueOperatorsTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_unique_operators_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -496,15 +559,19 @@ export class UniqueOperatorsTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new OperatorsEntry({
+          timestamp: r.timestamp,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new UniqueOperatorsTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new OperatorsEntry({
-            timestamp: r.timestamp,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -533,6 +600,12 @@ class DelegationsTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<DelegationsTimeseries>) {
     Object.assign(this, props)
   }
@@ -551,7 +624,7 @@ export class DelegationsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -562,14 +635,14 @@ export class DelegationsTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_delegations_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -586,15 +659,19 @@ export class DelegationsTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new DelegationsEntry({
+          timestamp: r.timestamp,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new DelegationsTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new DelegationsEntry({
-            timestamp: r.timestamp,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -623,6 +700,12 @@ class DelegatorsTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<DelegatorsTimeseries>) {
     Object.assign(this, props)
   }
@@ -641,7 +724,7 @@ export class DelegatorsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
@@ -652,14 +735,14 @@ export class DelegatorsTimeseriesResolver {
         ),
         events_binned AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as bin_ts,
+            ${dateBin('timestamp', groupSize)} as bin_ts,
             SUM(delta) as delta
           FROM mv_delegators_daily
           WHERE timestamp >= $1 AND timestamp < $2
           GROUP BY bin_ts
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
         ),
         cumulative_data AS (
           SELECT
@@ -676,15 +759,19 @@ export class DelegatorsTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new DelegatorsEntry({
+          timestamp: r.timestamp,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new DelegatorsTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new DelegatorsEntry({
-            timestamp: r.timestamp,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -732,6 +819,12 @@ class TransfersByTypeTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<TransfersByTypeTimeseries>) {
     Object.assign(this, props)
   }
@@ -750,17 +843,17 @@ export class TransfersByTypeTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     const raw = await manager.query(
       sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+          SELECT ${generateTimeSeries(groupSize)} as timestamp
         ),
         transfer_counts AS (
           SELECT 
-            ${dateBin('timestamp', groupSize.label)} as date,
+            ${dateBin('timestamp', groupSize)} as date,
             SUM(deposit) as deposit,
             SUM(withdraw) as withdraw,
             SUM(reward) as reward,
@@ -784,21 +877,25 @@ export class TransfersByTypeTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
-    return new TransfersByTypeTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new TransferCountByType({
-            timestamp: r.date,
-            value: new TransferCountByTypeValue({
-              deposit: parseInt(r.deposit),
-              withdraw: parseInt(r.withdraw),
-              transfer: parseInt(r.transfer),
-              reward: parseInt(r.reward),
-              release: parseInt(r.release),
-            }),
+    const data = raw.map(
+      (r: any) =>
+        new TransferCountByType({
+          timestamp: r.date,
+          value: new TransferCountByTypeValue({
+            deposit: parseInt(r.deposit),
+            withdraw: parseInt(r.withdraw),
+            transfer: parseInt(r.transfer),
+            reward: parseInt(r.reward),
+            release: parseInt(r.release),
           }),
-      ),
+        }),
+    )
+
+    return new TransfersByTypeTimeseries({
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -827,6 +924,12 @@ class UniqueAccountsTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<UniqueAccountsTimeseries>) {
     Object.assign(this, props)
   }
@@ -845,7 +948,7 @@ export class UniqueAccountsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize.label)
+    const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
     // For daily or larger buckets, use materialized view and sum
     // Note: This is an approximation - actual unique count across days may be lower
@@ -854,11 +957,11 @@ export class UniqueAccountsTimeseriesResolver {
       sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+          SELECT ${generateTimeSeries(groupSize)} as timestamp
         ),
         account_counts AS (
           SELECT 
-            ${dateBin('timestamp', groupSize.label)} as date,
+            ${dateBin('timestamp', groupSize)} as date,
             SUM(value) as value
           FROM mv_unique_accounts_daily
           WHERE timestamp >= $1 AND timestamp < $2
@@ -874,15 +977,19 @@ export class UniqueAccountsTimeseriesResolver {
       [alignedFrom, alignedTo],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new UniqueAccountsEntry({
+          timestamp: r.date,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new UniqueAccountsTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new UniqueAccountsEntry({
-            timestamp: r.date,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -909,6 +1016,12 @@ class QueriesCountTimeseries {
 
   @Field(() => Number)
   step!: number
+
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
 
   constructor(props: Partial<QueriesCountTimeseries>) {
     Object.assign(this, props)
@@ -941,10 +1054,10 @@ export class QueriesCountTimeseriesResolver {
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        SELECT ${generateTimeSeries(groupSize)} as timestamp
       ),
       query_counts AS (
-        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(value) as value
+        SELECT ${dateBin('timestamp', groupSize)} as date, sum(value) as value
         FROM mv_queries_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
@@ -959,15 +1072,19 @@ export class QueriesCountTimeseriesResolver {
       params,
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new QueriesCountEntry({
+          timestamp: r.date,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new QueriesCountTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new QueriesCountEntry({
-            timestamp: r.date,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -994,6 +1111,12 @@ class ServedDataTimeseries {
 
   @Field(() => Number)
   step!: number
+
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
 
   constructor(props: Partial<ServedDataTimeseries>) {
     Object.assign(this, props)
@@ -1026,10 +1149,10 @@ export class ServedDataTimeseriesResolver {
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        SELECT ${generateTimeSeries(groupSize)} as timestamp
       ),
       served_data_counts AS (
-        SELECT ${dateBin('timestamp', groupSize.label)} as date, sum(value) as value
+        SELECT ${dateBin('timestamp', groupSize)} as date, sum(value) as value
         FROM mv_served_data_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
         GROUP BY date
@@ -1044,15 +1167,19 @@ export class ServedDataTimeseriesResolver {
       params,
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new ServedDataEntry({
+          timestamp: r.date,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new ServedDataTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new ServedDataEntry({
-            timestamp: r.date,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -1079,6 +1206,12 @@ class StoredDataTimeseries {
 
   @Field(() => Number)
   step!: number
+
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
 
   constructor(props: Partial<StoredDataTimeseries>) {
     Object.assign(this, props)
@@ -1111,13 +1244,13 @@ export class StoredDataTimeseriesResolver {
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        SELECT ${generateTimeSeries(groupSize)} as timestamp
       ),
       stored_data_counts AS (
         SELECT date, SUM(avg_per_worker) as value
         FROM (
           SELECT 
-            ${dateBin('timestamp', groupSize.label)} as date,
+            ${dateBin('timestamp', groupSize)} as date,
             worker_id,
             AVG(value) as avg_per_worker
           FROM mv_stored_data_daily
@@ -1136,15 +1269,19 @@ export class StoredDataTimeseriesResolver {
       params,
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new StoredDataEntry({
+          timestamp: r.date,
+          value: parseInt(r.value),
+        }),
+    )
+
     return new StoredDataTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new StoredDataEntry({
-            timestamp: r.date,
-            value: parseInt(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -1171,6 +1308,12 @@ class UptimeTimeseries {
 
   @Field(() => Number)
   step!: number
+
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
 
   constructor(props: Partial<UptimeTimeseries>) {
     Object.assign(this, props)
@@ -1203,11 +1346,11 @@ export class UptimeTimeseriesResolver {
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        SELECT ${generateTimeSeries(groupSize)} as timestamp
       ),
       uptime_data AS (
         SELECT 
-          ${dateBin('timestamp', groupSize.label)} as date,
+          ${dateBin('timestamp', groupSize)} as date,
           AVG(value) as value
         FROM mv_uptime_daily
         WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
@@ -1223,15 +1366,19 @@ export class UptimeTimeseriesResolver {
       params,
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new UptimeEntry({
+          timestamp: r.date,
+          value: parseFloat(r.value),
+        }),
+    )
+
     return new UptimeTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new UptimeEntry({
-            timestamp: r.date,
-            value: parseFloat(r.value),
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -1258,6 +1405,12 @@ class AccountBalanceTimeseries {
 
   @Field(() => Number)
   step!: number
+
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
 
   constructor(props: Partial<AccountBalanceTimeseries>) {
     Object.assign(this, props)
@@ -1312,14 +1465,14 @@ export class AccountBalanceTimeseriesResolver {
       ),
       balance_deltas AS (
         SELECT
-          ${dateBin('timestamp', groupSize.label)} AS bin_ts,
+          ${dateBin('timestamp', groupSize)} AS bin_ts,
           SUM(delta) AS delta
         FROM all_transfers
         WHERE timestamp >= $1
         GROUP BY bin_ts
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} AS bin_ts
+        SELECT ${generateTimeSeries(groupSize)} AS bin_ts
       ),
       cumulative_balance AS (
         SELECT
@@ -1338,15 +1491,19 @@ export class AccountBalanceTimeseriesResolver {
       [alignedFrom, alignedTo, accountId],
     )
 
+    const data = raw.map(
+      (r: any) =>
+        new AccountBalanceEntry({
+          timestamp: r.timestamp,
+          value: r.value ? BigInt(r.value) : null,
+        }),
+    )
+
     return new AccountBalanceTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new AccountBalanceEntry({
-            timestamp: r.timestamp,
-            value: r.value ? BigInt(r.value) : null,
-          }),
-      ),
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -1425,6 +1582,12 @@ class RewardTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<RewardTimeseries>) {
     Object.assign(this, props)
   }
@@ -1456,11 +1619,11 @@ export class RewardTimeseriesResolver {
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+        SELECT ${generateTimeSeries(groupSize)} as timestamp
       ),
       reward_counts AS (
         SELECT
-          ${dateBin('timestamp', groupSize.label)} as date,
+          ${dateBin('timestamp', groupSize)} as date,
           SUM(worker_value) AS worker_value,
           SUM(staker_value) AS staker_value
         FROM mv_reward_daily
@@ -1478,18 +1641,22 @@ export class RewardTimeseriesResolver {
       params,
     )
 
-    return new RewardTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new RewardEntry({
-            timestamp: r.date,
-            value: new RewardValue({
-              workerReward: BigInt(r.worker_value),
-              stakerReward: BigInt(r.staker_value),
-            }),
+    const data = raw.map(
+      (r: any) =>
+        new RewardEntry({
+          timestamp: r.date,
+          value: new RewardValue({
+            workerReward: BigInt(r.worker_value),
+            stakerReward: BigInt(r.staker_value),
           }),
-      ),
+        }),
+    )
+
+    return new RewardTimeseries({
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }
@@ -1528,6 +1695,12 @@ class AprTimeseries {
   @Field(() => Number)
   step!: number
 
+  @Field(() => DateTime)
+  from!: Date
+
+  @Field(() => DateTime)
+  to!: Date
+
   constructor(props: Partial<AprTimeseries>) {
     Object.assign(this, props)
   }
@@ -1556,7 +1729,7 @@ export class AprTimeseriesResolver {
     )
 
     let raw
-    
+
     if (workerId) {
       // For specific worker, query raw data (materialized view doesn't have per-worker data)
       const params = [alignedFrom, alignedTo, workerId]
@@ -1564,11 +1737,11 @@ export class AprTimeseriesResolver {
         sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+          SELECT ${generateTimeSeries(groupSize)} as timestamp
         ),
         apr_data AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as date,
+            ${dateBin('timestamp', groupSize)} as date,
             COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
             COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
           FROM worker_reward
@@ -1592,11 +1765,11 @@ export class AprTimeseriesResolver {
         sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize.label)} as timestamp
+          SELECT ${generateTimeSeries(groupSize)} as timestamp
         ),
         apr_data AS (
           SELECT
-            ${dateBin('timestamp', groupSize.label)} as date,
+            ${dateBin('timestamp', groupSize)} as date,
             AVG(worker_apr) FILTER (WHERE worker_apr > 0) AS "workerApr",
             AVG(staker_apr) FILTER (WHERE staker_apr > 0) AS "stakerApr"
           FROM mv_apr_daily
@@ -1615,18 +1788,22 @@ export class AprTimeseriesResolver {
       )
     }
 
-    return new AprTimeseries({
-      data: raw.map(
-        (r: any) =>
-          new AprEntry({
-            timestamp: r.date,
-            value: new AprValue({
-              workerApr: Number(r.workerApr),
-              stakerApr: Number(r.stakerApr),
-            }),
+    const data = raw.map(
+      (r: any) =>
+        new AprEntry({
+          timestamp: r.date,
+          value: new AprValue({
+            workerApr: Number(r.workerApr),
+            stakerApr: Number(r.stakerApr),
           }),
-      ),
+        }),
+    )
+
+    return new AprTimeseries({
+      data: trimNullValues(data),
       step: groupSize.ms,
+      from: alignedFrom,
+      to: alignedTo,
     })
   }
 }

@@ -167,14 +167,24 @@ let lastMetricsUpdateOffset = 0
 
 type WorkerStat = {
   peerId: string
-  data: {
-    timestamp: string
-    pings: string
-    storedBytes: string
-    responseBytes: string
-    readChunks: string
-    queries: string
-  }[]
+  data: (
+    | {
+        timestamp: string
+        pings: string
+        storedBytes: string
+        responseBytes: string
+        readChunks: string
+        queries: string
+      }
+    | [
+        timestamp: string,
+        pings: string,
+        storedBytes: string,
+        responseBytes: string,
+        readChunks: string,
+        queries: string,
+      ]
+  )[]
 }
 
 export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHeader) {
@@ -250,7 +260,17 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
         const worker = workersMap.get(stat.peerId)
         if (!worker) continue
 
-        for (const hour of stat.data) {
+        for (let hour of stat.data) {
+          hour = Array.isArray(hour)
+            ? {
+                timestamp: hour[0],
+                pings: hour[1],
+                storedBytes: hour[2],
+                responseBytes: hour[3],
+                readChunks: hour[4],
+                queries: hour[5],
+              }
+            : hour
           const hourTimestamp = new Date(hour.timestamp)
 
           if (compareAsc(hourTimestamp, lastProcessedTimestamp) < 0) continue

@@ -1,5 +1,5 @@
 import { BigDecimal } from '@subsquid/big-decimal'
-import { In } from 'typeorm'
+import { In, MoreThanOrEqual } from 'typeorm'
 
 import { Events, MappingContext } from '../types'
 
@@ -9,7 +9,8 @@ import { Multicall } from '~/abi/multicall'
 import * as SoftCap from '~/abi/SoftCap'
 import { network } from '~/config/network'
 import { BlockHeader } from '~/config/processor'
-import { Queue, Settings, Worker, WorkerStatus } from '~/model'
+import { Queue, Settings, Worker, WorkerReward, WorkerStatus } from '~/model'
+import { DAY_MS } from '~/utils/time'
 
 export const WORKER_CAP_QUEUE = 'worker-cap'
 
@@ -106,6 +107,8 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
   // settings.baseApr = baseApr.toNumber()
   settings.utilizedStake = utilizedStake
 
+  const ninetyDaysAgo = new Date(Date.now() - 90 * DAY_MS)
+
   for (const worker of workers) {
     const supplyRatio =
       utilizedStake === 0n
@@ -127,12 +130,30 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
       .mul(worker.dTenure || 0)
 
     const workerReward = actualYield.mul(worker.bond + worker.capedDelegation / 2n)
-    worker.apr = workerReward.div(worker.bond).mul(100).toNumber()
+    const currentApr = workerReward.div(worker.bond).mul(100).toNumber()
 
     const stakerReward = actualYield.mul(worker.capedDelegation / 2n)
-    worker.stakerApr = worker.totalDelegation
+    const currentStakerApr = worker.totalDelegation
       ? stakerReward.div(worker.totalDelegation).mul(100).toNumber()
-      : worker.apr / 2
+      : currentApr / 2
+
+    // Query last 90 days of WorkerReward records for this worker
+    const workerHistoricalRewards = await ctx.store.find(WorkerReward, {
+      where: {
+        worker: { id: worker.id },
+        timestamp: MoreThanOrEqual(ninetyDaysAgo),
+      },
+    })
+
+    const historicalAprs = workerHistoricalRewards.map((r) => r.apr)
+    const historicalStakerAprs = workerHistoricalRewards.map((r) => r.stakerApr)
+
+    // Average of 90 days values + 1 current
+    const allAprs = [...historicalAprs, currentApr]
+    const allStakerAprs = [...historicalStakerAprs, currentStakerApr]
+
+    worker.apr = allAprs.reduce((sum, apr) => sum + apr, 0) / allAprs.length
+    worker.stakerApr = allStakerAprs.reduce((sum, apr) => sum + apr, 0) / allStakerAprs.length
   }
 
   await ctx.store.upsert(workers)
