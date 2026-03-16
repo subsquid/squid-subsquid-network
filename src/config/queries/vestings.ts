@@ -1,6 +1,6 @@
 import fs from 'fs'
 
-import { EvmBatchProcessor } from '@subsquid/evm-processor'
+import { DataSourceBuilder } from '@subsquid/evm-stream'
 
 import { network } from '../network'
 
@@ -12,46 +12,56 @@ type VestingsMetadata = {
   addresses: string[]
 }
 
-export function addVestingsQuery(processor: EvmBatchProcessor) {
+export function addVestingsQuery(builder: DataSourceBuilder) {
   const file = fs.readFileSync(`./assets/${network.name}/vestings.json`, 'utf-8')
   const vestings = JSON.parse(file) as VestingsMetadata
 
-  processor.addLog({
-    address: [network.contracts.VestingFactory.address],
+  builder.addLog({
     range: network.contracts.VestingFactory.range,
-    topic0: [VestingFactory.events.VestingCreated.topic],
+    where: {
+      address: [network.contracts.VestingFactory.address],
+      topic0: [VestingFactory.events.VestingCreated.topic],
+    },
   })
 
   if (network.name === 'tethys') {
-    processor
+    builder
       .addLog({
-        address: vestings.addresses,
-        topic0: [Vesting.events.OwnershipTransferred.topic],
         range: {
           from: 0,
           to: vestings.height,
         },
+        where: {
+          address: vestings.addresses,
+          topic0: [Vesting.events.OwnershipTransferred.topic],
+        },
       })
       .addLog({
-        topic0: [Vesting.events.OwnershipTransferred.topic],
         range: {
           from: vestings.height ?? 0,
+        },
+        where: {
+          topic0: [Vesting.events.OwnershipTransferred.topic],
         },
       })
   }
 
-  processor.addLog({
-    address: vestings.addresses,
-    topic0: [Vesting.events.ERC20Released.topic],
+  builder.addLog({
     range: {
       from: 0,
       to: vestings.height,
     },
+    where: {
+      address: vestings.addresses,
+      topic0: [Vesting.events.ERC20Released.topic],
+    },
   })
-  processor.addLog({
-    topic0: [Vesting.events.ERC20Released.topic],
+  builder.addLog({
     range: {
       from: vestings.height ?? 0,
+    },
+    where: {
+      topic0: [Vesting.events.ERC20Released.topic],
     },
   })
 }

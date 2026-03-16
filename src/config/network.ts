@@ -1,4 +1,4 @@
-import { assertNotNull } from '@subsquid/evm-processor'
+import { assertNotNull } from '@subsquid/util-internal'
 
 export type ContractConfig = {
   address: string

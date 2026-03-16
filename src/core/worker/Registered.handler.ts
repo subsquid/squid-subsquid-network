@@ -1,4 +1,4 @@
-import { assertNotNull, Log } from '@subsquid/evm-processor'
+import { assertNotNull } from '@subsquid/util-internal'
 
 import { isLog } from '../../item'
 import { createHandler } from '../base'
@@ -7,8 +7,8 @@ import { createAccountId, createWorkerId, createWorkerStatusId } from '../helper
 
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
 
-import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import * as SQD from '~/abi/SQD'
+import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
 import {
   Account,
@@ -19,7 +19,7 @@ import {
   WorkerStatus,
   WorkerStatusChange,
 } from '~/model'
-import { parseWorkerMetadata, parsePeerId, toHumanSQD } from '~/utils/misc'
+import { parsePeerId, parseWorkerMetadata, toHumanSQD } from '~/utils/misc'
 import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
 

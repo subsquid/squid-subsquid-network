@@ -1,6 +1,4 @@
-import { assertNotNull } from '@subsquid/evm-processor'
-
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandlerOld } from '../base'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'

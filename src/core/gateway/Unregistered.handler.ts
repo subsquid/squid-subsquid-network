@@ -1,9 +1,8 @@
-import { assertNotNull } from '@subsquid/evm-processor'
-
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandler, createHandlerOld } from '../base'
 import { createWorkerStatusId } from '../helpers/ids'
 
+import { assertNotNull } from '@subsquid/util-internal'
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
 import { Gateway, GatewayStatus, GatewayStatusChange } from '~/model'

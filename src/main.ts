@@ -1,4 +1,4 @@
-import { TypeormDatabaseWithCache } from '@belopash/typeorm-store'
+import { type StoreWithCache, TypeormDatabaseWithCache } from '@belopash/typeorm-store'
 import { LessThanOrEqual } from 'typeorm'
 
 import { ensureWorkerCapQueue, updateWorkersCap } from './core/cap'
@@ -11,14 +11,17 @@ import { ensureWorkerUnlock, processWorkerUnlockQueue } from './core/worker/Work
 import { sortItems } from './item'
 import { MappingContext } from './types'
 
+import { run } from '@subsquid/batch-processor'
+import { augmentBlock } from '@subsquid/evm-objects'
+import { createLogger } from '@subsquid/logger'
 import { network } from '~/config/network'
-import { processor, BlockHeader } from '~/config/processor'
+import { BlockHeader, type ProcessorContext, processor } from '~/config/processor'
 import { handlers } from '~/core'
 import {
   ensureGatewayStakeUnlockQueue,
   processGatewayStakeUnlockQueue,
 } from '~/core/gateway/StakeUnlock.queue'
-import { createSettings, createBlock } from '~/core/helpers/entities'
+import { createBlock, createSettings } from '~/core/helpers/entities'
 import { createEpochId } from '~/core/helpers/ids'
 import {
   ensureDelegationUnlockQueue,
@@ -39,7 +42,15 @@ import { startMaterializedViewRefresh } from './materialized-view-refresh'
 
 let isMaterializedRefreshRunning = false
 
-processor.run(new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (ctx) => {
+const logger = createLogger('sqd:mapping')
+
+run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
+  const ctx: ProcessorContext<StoreWithCache> = {
+    ..._ctx,
+    blocks: _ctx.blocks.map(augmentBlock),
+    log: logger,
+  }
+
   if (!isMaterializedRefreshRunning) {
     isMaterializedRefreshRunning = true
     startMaterializedViewRefresh(ctx.store['em'].connection.manager)

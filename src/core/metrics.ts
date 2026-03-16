@@ -1,25 +1,25 @@
-import { BlockHeader } from '@subsquid/evm-processor'
+import { Transform } from 'node:stream'
 import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client'
 import { In, MoreThanOrEqual, Not } from 'typeorm'
-import { Transform } from 'node:stream'
 
 import { Events, MappingContext } from '../types'
 
 import { recalculateWorkerAprs } from './cap'
 
+import { compareAsc, startOfDay } from 'date-fns'
 import { network } from '~/config/network'
 import {
-  WorkerStatus,
-  Worker,
-  Commitment,
-  WorkerDayUptime,
-  Settings,
   Block,
+  Commitment,
+  Settings,
+  Worker,
+  WorkerDayUptime,
   WorkerMetrics,
+  WorkerStatus,
 } from '~/model'
 import { joinUrl, toPercent } from '~/utils/misc'
 import { DAY_MS, MINUTE_MS, toStartOfInterval } from '~/utils/time'
-import { startOfDay, compareAsc } from 'date-fns'
+import type {BlockHeader} from '~/config/processor'
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,

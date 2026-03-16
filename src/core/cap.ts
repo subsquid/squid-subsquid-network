@@ -5,10 +5,11 @@ import { Events, MappingContext } from '../types'
 
 import { WorkerUnlockTask } from './worker/WorkerUnlock.queue'
 
-import { Multicall } from '~/abi/multicall'
 import * as SoftCap from '~/abi/SoftCap'
+import { Multicall } from '~/abi/multicall'
 import { network } from '~/config/network'
 import { BlockHeader } from '~/config/processor'
+import { client } from '~/config/rpc-client'
 import { Queue, Settings, Worker, WorkerReward, WorkerStatus } from '~/model'
 import { DAY_MS } from '~/utils/time'
 
@@ -54,7 +55,11 @@ export async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, 
 
   const queue = await ctx.store.getOrFail(Queue<WorkerUnlockTask>, WORKER_CAP_QUEUE)
 
-  const multicall = new Multicall(ctx, block, network.contracts.Multicall3.address)
+  const multicall = new Multicall(
+    { _chain: { client } },
+    block,
+    network.contracts.Multicall3.address,
+  )
 
   const workers = await ctx.store.find(Worker, {
     where: all ? {} : { id: In([...queue.tasks.map((t) => t.id)]) },
