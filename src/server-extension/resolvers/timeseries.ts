@@ -1,8 +1,18 @@
 import { DateTime } from '@subsquid/graphql-server'
 import { max, min } from 'date-fns'
-import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
+import { Arg, Field, ObjectType, Query, Resolver, registerEnumType } from 'type-graphql'
 import { EntityManager } from 'typeorm'
 import { GroupSize, getGroupSize } from '~/utils/groupSize'
+
+enum TvlType {
+  WORKER = 'WORKER',
+  DELEGATION = 'DELEGATION',
+  PORTAL = 'PORTAL',
+}
+
+registerEnumType(TvlType, {
+  name: 'TvlType',
+})
 
 let cachedFirstTransferTimestamp: Date | null = null
 
@@ -311,6 +321,17 @@ class LockedValueTimeseries {
   }
 }
 
+function getTvlTypeFilter(type: TvlType): string {
+  switch (type) {
+    case TvlType.WORKER:
+      return 'worker_id IS NOT NULL'
+    case TvlType.DELEGATION:
+      return 'delegation_id IS NOT NULL'
+    case TvlType.PORTAL:
+      return 'gateway_stake_id IS NOT NULL'
+  }
+}
+
 @Resolver()
 export class LockedValueTimeseriesResolver {
   constructor(private tx: () => Promise<EntityManager>) {}
@@ -320,44 +341,84 @@ export class LockedValueTimeseriesResolver {
     @Arg('from', { nullable: true }) fromArg?: Date,
     @Arg('to', { nullable: true }) toArg?: Date,
     @Arg('step', { nullable: true }) step?: string,
+    @Arg('type', () => TvlType, { nullable: true }) type?: TvlType,
   ): Promise<LockedValueTimeseries> {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
     const { alignedFrom, alignedTo } = await getAlignedDates(manager, from, to, groupSize)
 
-    const raw = await manager.query(
-      sql`
-        WITH initial_value AS (
-          SELECT COALESCE(SUM(delta), 0) AS initial_locked
-          FROM mv_locked_value_daily
-          WHERE timestamp < $1
-        ),
-        events_binned AS (
-          SELECT
-            ${dateBin('timestamp', groupSize)} as bin_ts,
-            SUM(delta) as delta
-          FROM mv_locked_value_daily
-          WHERE timestamp >= $1 AND timestamp < $2
-          GROUP BY bin_ts
-        ),
-        time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
-        ),
-        cumulative_data AS (
-          SELECT
-            ts.bin_ts AS timestamp,
-            (SELECT initial_locked FROM initial_value) +
-            SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
-          FROM time_series ts
-          LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
-        )
-        SELECT timestamp, value
-        FROM cumulative_data
-        ORDER BY timestamp
-      `,
-      [alignedFrom, alignedTo],
-    )
+    let raw
+    if (type) {
+      const typeFilter = getTvlTypeFilter(type)
+      raw = await manager.query(
+        sql`
+          WITH initial_value AS (
+            SELECT COALESCE(SUM(
+              CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAW' THEN -amount ELSE 0 END
+            ), 0) AS initial_locked
+            FROM transfer
+            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp < $1 AND ${typeFilter}
+          ),
+          events_binned AS (
+            SELECT
+              ${dateBin('timestamp', groupSize)} as bin_ts,
+              SUM(CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAW' THEN -amount ELSE 0 END) as delta
+            FROM transfer
+            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp >= $1 AND timestamp < $2 AND ${typeFilter}
+            GROUP BY bin_ts
+          ),
+          time_series AS (
+            SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ),
+          cumulative_data AS (
+            SELECT
+              ts.bin_ts AS timestamp,
+              (SELECT initial_locked FROM initial_value) +
+              SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+            FROM time_series ts
+            LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+          )
+          SELECT timestamp, value
+          FROM cumulative_data
+          ORDER BY timestamp
+        `,
+        [alignedFrom, alignedTo],
+      )
+    } else {
+      raw = await manager.query(
+        sql`
+          WITH initial_value AS (
+            SELECT COALESCE(SUM(delta), 0) AS initial_locked
+            FROM mv_locked_value_daily
+            WHERE timestamp < $1
+          ),
+          events_binned AS (
+            SELECT
+              ${dateBin('timestamp', groupSize)} as bin_ts,
+              SUM(delta) as delta
+            FROM mv_locked_value_daily
+            WHERE timestamp >= $1 AND timestamp < $2
+            GROUP BY bin_ts
+          ),
+          time_series AS (
+            SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ),
+          cumulative_data AS (
+            SELECT
+              ts.bin_ts AS timestamp,
+              (SELECT initial_locked FROM initial_value) +
+              SUM(COALESCE(e.delta, 0)) OVER (ORDER BY ts.bin_ts) AS value
+            FROM time_series ts
+            LEFT JOIN events_binned e ON e.bin_ts = ts.bin_ts
+          )
+          SELECT timestamp, value
+          FROM cumulative_data
+          ORDER BY timestamp
+        `,
+        [alignedFrom, alignedTo],
+      )
+    }
 
     const data = raw.map(
       (r: any) =>
