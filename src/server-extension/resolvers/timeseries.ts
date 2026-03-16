@@ -2,7 +2,7 @@ import { DateTime } from '@subsquid/graphql-server'
 import { max, min } from 'date-fns'
 import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
 import { EntityManager } from 'typeorm'
-import { getGroupSize, GroupSize } from '~/utils/groupSize'
+import { GroupSize, getGroupSize } from '~/utils/groupSize'
 
 let cachedFirstTransferTimestamp: Date | null = null
 
@@ -54,7 +54,7 @@ function msToInterval(ms: number): string {
   const minutes = seconds / 60
   const hours = minutes / 60
   const days = hours / 24
-  
+
   if (days >= 1 && days === Math.floor(days)) {
     return `${days} days`
   } else if (hours >= 1 && hours === Math.floor(hours)) {
@@ -74,7 +74,7 @@ async function getAlignedDates(
 ): Promise<{ alignedFrom: Date; alignedTo: Date }> {
   // Convert ms to a fixed-length interval for date_bin
   const interval = msToInterval(groupSize.ms)
-  
+
   const result = await manager.query(
     `SELECT
       date_bin('${interval}', $1::timestamptz, '2001-01-01'::timestamp) as aligned_from,

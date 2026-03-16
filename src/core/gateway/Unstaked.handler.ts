@@ -6,8 +6,8 @@ import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
 import { GatewayStake, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
-import { saveTransfer } from '../token/Transfer.handler'
 import { findTransfer } from '../helpers/misc'
+import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleUnstaked = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.GatewayRegistry)) return

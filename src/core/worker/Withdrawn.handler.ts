@@ -1,21 +1,21 @@
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandlerOld } from '../base'
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
 import {
-  WorkerStatusChange,
-  WorkerStatus,
-  Worker,
+  Account,
   Settings,
   Transfer,
   TransferType,
-  Account,
+  Worker,
+  WorkerStatus,
+  WorkerStatusChange,
 } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
-import { findTransfer } from '../helpers/misc'
 import { createAccount } from '../helpers/entities'
+import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
 
 export const handleWorkerWithdrawn = createHandlerOld({

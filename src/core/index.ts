@@ -1,13 +1,13 @@
 import * as Gateway from './gateway'
 import * as NetworkController from './network-controller'
+import * as RewardsTreasury from './reward-treasury'
 import * as RewardsDistributor from './rewards-distributor'
 import * as Router from './router'
 import * as Staking from './staking'
-import * as Token from './token'
 import * as TemporaryHolding from './temporary-holding'
+import * as Token from './token'
 import * as Vesting from './vesting'
 import * as Worker from './worker'
-import * as RewardsTreasury from './reward-treasury'
 
 export const handlers = [
   ...NetworkController.handlers,

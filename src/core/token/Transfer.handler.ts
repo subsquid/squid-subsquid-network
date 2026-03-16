@@ -1,25 +1,25 @@
 import { Context } from 'node:vm'
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandlerOld } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
+import { MappingContext } from 'src/types'
 import * as SQD from '~/abi/SQD'
 import { network } from '~/config/network'
+import { Log } from '~/config/processor'
 import {
   Account,
-  Transfer,
   AccountTransfer,
-  TransferDirection,
   AccountType,
-  TransferType,
-  Worker,
   Delegation,
   GatewayStake,
+  Transfer,
+  TransferDirection,
+  TransferType,
+  Worker,
 } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
-import { Log } from '~/config/processor'
-import { MappingContext } from 'src/types'
 
 export const handleTransfer = createHandlerOld({
   filter(_, item): item is LogItem {

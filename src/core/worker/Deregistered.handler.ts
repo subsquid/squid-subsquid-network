@@ -7,7 +7,7 @@ import { addToWorkerUnlockQueue } from './WorkerUnlock.queue'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
-import { WorkerStatusChange, WorkerStatus, Worker, Settings } from '~/model'
+import { Settings, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 
 export const handleWorkerDeregistered = createHandler((ctx, item) => {
   if (!isLog(item)) return

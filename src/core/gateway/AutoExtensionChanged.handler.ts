@@ -2,11 +2,11 @@ import { isContract, isLog } from '../../item'
 import { createHandler } from '../base'
 import { createGatewayOperatorId } from '../helpers/ids'
 
-import { INT32_MAX } from './Staked.handler'
 import {
   addToGatewayStakeUnlockQueue,
   removeFromGatewayStakeUnlockQueue,
 } from './StakeUnlock.queue'
+import { INT32_MAX } from './Staked.handler'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'

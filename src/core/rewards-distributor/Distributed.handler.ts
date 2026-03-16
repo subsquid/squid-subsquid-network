@@ -12,15 +12,15 @@ import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution'
 import { network } from '~/config/network'
 import { Log } from '~/config/processor'
 import {
-  Worker,
   Block,
-  Delegation,
-  DelegationReward,
-  WorkerReward,
-  WorkerStatus,
   Commitment,
   CommitmentRecipient,
+  Delegation,
+  DelegationReward,
   DelegationStatus,
+  Worker,
+  WorkerReward,
+  WorkerStatus,
 } from '~/model'
 import { stopwatch, toPercent } from '~/utils/misc'
 import { YEAR_MS } from '~/utils/time'

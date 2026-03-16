@@ -1,7 +1,7 @@
 import {
   Entity as Entity_,
-  PrimaryColumn as PrimaryColumn_,
   JSONColumn as JSONColumn_,
+  PrimaryColumn as PrimaryColumn_,
 } from '@subsquid/typeorm-store'
 
 @Entity_()

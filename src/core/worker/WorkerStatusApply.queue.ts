@@ -3,7 +3,7 @@ import assert from 'assert'
 import { MappingContext } from '../../types'
 import { resetWorkerStats } from '../helpers/entities'
 
-import { WorkerStatusChange, WorkerStatus, Worker, Queue } from '~/model'
+import { Queue, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 
 export const WORKER_STATUS_APPLY_QUEUE = 'worker-status-apply'
 

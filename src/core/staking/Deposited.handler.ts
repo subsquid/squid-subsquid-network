@@ -16,13 +16,13 @@ import { addToDelegationUnlockQueue } from './CheckDelegationUnlock.listener'
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
 import {
-  Worker,
   Account,
   Delegation,
-  Settings,
-  TransferType,
   DelegationStatus,
   DelegationStatusChange,
+  Settings,
+  TransferType,
+  Worker,
 } from '~/model'
 import { toHumanSQD, toNextEpochStart } from '~/utils/misc'
 import { findTransfer } from '../helpers/misc'

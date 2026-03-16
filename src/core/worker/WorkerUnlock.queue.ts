@@ -2,7 +2,7 @@ import assert from 'assert'
 
 import { MappingContext } from '../../types'
 
-import { Worker, Queue } from '~/model'
+import { Queue, Worker } from '~/model'
 
 export const WORKER_UNLOCK_QUEUE = 'worker-unlock'
 

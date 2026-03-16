@@ -1,4 +1,4 @@
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandler, createHandlerOld } from '../base'
 
 import * as NetworkController from '~/abi/NetworkController'

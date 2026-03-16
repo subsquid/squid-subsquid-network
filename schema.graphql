@@ -37,10 +37,7 @@ enum TransferDirection {
   TO
 }
 
-type AccountTransfer
-  @entity
-  @index(fields: ["account", "transfer"])
-{
+type AccountTransfer @entity @index(fields: ["account", "transfer"]) {
   id: ID!
 
   direction: TransferDirection!
@@ -57,10 +54,7 @@ enum TransferType {
   RELEASE
 }
 
-type Transfer
-  @entity
-  @index(fields: ["type", "timestamp"])
-{
+type Transfer @entity @index(fields: ["type", "timestamp"]) {
   id: ID!
 
   blockNumber: Int!
@@ -251,10 +245,7 @@ type WorkerReward
   stakerApr: Float!
 }
 
-type WorkerSnapshot
-  @entity
-  @index(fields: ["worker", "timestamp"])
-{
+type WorkerSnapshot @entity @index(fields: ["worker", "timestamp"]) {
   id: ID!
   worker: Worker!
   timestamp: DateTime!
@@ -262,11 +253,7 @@ type WorkerSnapshot
   epoch: Epoch!
 }
 
-type WorkerMetrics
-  @entity
-  @index(fields: ["timestamp"])
-  @index(fields: ["worker", "timestamp"])
-{
+type WorkerMetrics @entity @index(fields: ["timestamp"]) @index(fields: ["worker", "timestamp"]) {
   id: ID!
   worker: Worker!
   timestamp: DateTime!

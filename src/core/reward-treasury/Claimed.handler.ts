@@ -1,11 +1,11 @@
-import { createHandler } from '../base'
 import * as RewardsTreasury from '~/abi/RewardTreasury'
-import { createAccountId } from '../helpers/ids'
-import { Account, Settings, TransferType } from '~/model'
 import { network } from '~/config/network'
+import { Account, Settings, TransferType } from '~/model'
+import { isLog } from '../../item'
+import { createHandler } from '../base'
+import { createAccountId } from '../helpers/ids'
 import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
-import { isLog } from '../../item'
 
 export const handleClaimed = createHandler((ctx, item) => {
   if (!isLog(item)) return

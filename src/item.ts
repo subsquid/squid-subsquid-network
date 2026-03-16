@@ -1,4 +1,4 @@
-import { Log, Transaction, BlockData } from '~/config/processor'
+import { BlockData, Log, Transaction } from '~/config/processor'
 import { normalizeAddress } from '~/utils/misc'
 
 export type LogItem = {

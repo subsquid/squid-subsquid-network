@@ -1,4 +1,4 @@
-import { assertNotNull, EvmBatchProcessor } from '@subsquid/evm-processor'
+import { EvmBatchProcessor, assertNotNull } from '@subsquid/evm-processor'
 import { Database, LocalDest } from '@subsquid/file-store'
 
 import * as TemporaryHoldingFactory from '../src/abi/TemporaryHoldingFactory'

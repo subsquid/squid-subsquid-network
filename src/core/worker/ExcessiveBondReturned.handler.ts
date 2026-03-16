@@ -1,4 +1,4 @@
-import { isContract, isLog, LogItem } from '../../item'
+import { LogItem, isContract, isLog } from '../../item'
 import { createHandlerOld } from '../base'
 import { createWorkerId } from '../helpers/ids'
 
