@@ -12,12 +12,12 @@
     "lint": "biome --fix --unsafe"
   },
   "dependencies": {
-    "@belopash/typeorm-store": "^1.6.0-rc.17",
+    "@belopash/typeorm-store": "^1.6.0",
     "@subsquid/archive-registry": "^3.3.2",
-    "@subsquid/batch-processor": "^0.1.0-portal-api.a8e10e",
+    "@subsquid/batch-processor": "^0.1.0-portal-api.d0738f",
     "@subsquid/big-decimal": "^1.0.0",
-    "@subsquid/evm-objects": "^0.0.2-portal-api.a8e10e",
-    "@subsquid/evm-stream": "^0.0.1-portal-api.a8e10e",
+    "@subsquid/evm-objects": "^0.0.2-portal-api.d0738f",
+    "@subsquid/evm-stream": "^0.0.1-portal-api.d0738f",
     "@subsquid/graphql-server": "^4.11.0",
     "@subsquid/http-client": "^1.6.0",
     "@subsquid/logger": "^1.4.0",
