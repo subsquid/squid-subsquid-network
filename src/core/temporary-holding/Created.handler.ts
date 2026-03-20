@@ -1,5 +1,5 @@
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
@@ -27,7 +27,7 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
   })
   const adminDeferred = ctx.store.defer(Account, createAccountId(adminAddress))
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const beneficiary = await ownerDeferred.getOrInsert((id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
@@ -59,8 +59,8 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
       }),
     )
 
-    ctx.log.info(`created temporary_holding(${vesting.id}) for account(${beneficiary.id})`)
+    ctx.log.info(`created temporary_holding(${vesting.id}) for account(${beneficiary.id}) (${elapsed()}ms)`)
 
     await addToTemporaryHoldingUnlockQueue(ctx, vesting.id)
-  }
+  })
 })

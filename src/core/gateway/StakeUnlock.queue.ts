@@ -29,8 +29,6 @@ export async function addToGatewayStakeUnlockQueue(ctx: MappingContext, id: stri
   queue.tasks.push({ id })
 
   await ctx.store.upsert(queue)
-
-  ctx.store.defer(GatewayStake, id)
 }
 
 export async function removeFromGatewayStakeUnlockQueue(ctx: MappingContext, id: string) {
@@ -46,6 +44,11 @@ export async function processGatewayStakeUnlockQueue(
   block: { l1BlockNumber: number },
 ) {
   const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE)
+  if (queue.tasks.length === 0) return
+
+  const start = performance.now()
+  const total = queue.tasks.length
+  let processed = 0
 
   const tasks: StakeUnlockTask[] = []
   for (const task of queue.tasks) {
@@ -59,10 +62,15 @@ export async function processGatewayStakeUnlockQueue(
 
     stake.locked = false
     await ctx.store.upsert(stake)
+    processed++
 
     ctx.log.info(`stake(${stake.id}) unlocked`)
   }
 
   queue.tasks = tasks
   await ctx.store.upsert(queue)
+
+  if (processed > 0) {
+    ctx.log.info(`stake-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+  }
 }

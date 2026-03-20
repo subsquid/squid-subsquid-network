@@ -22,6 +22,6 @@ export const workerRegistrationSetHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`worker registration contract address set to ${workerRegistration}`)
+    ctx.log.info(`worker registration contract address set to ${workerRegistration}`)
   }
 })

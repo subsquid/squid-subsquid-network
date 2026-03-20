@@ -18,7 +18,7 @@ export async function ensureTemporaryHoldingUnlockQueue(ctx: MappingContext) {
   )
 
   for (const task of queue.tasks) {
-    ctx.store.defer(TemporaryHoldingData, task.id)
+    ctx.store.defer(TemporaryHoldingData, { id: task.id, relations: { account: true, admin: true } })
   }
 }
 
@@ -42,6 +42,11 @@ export async function processTemporaryHoldingUnlockQueue(
     Queue<TemporaryHoldingUnlockTask>,
     TEMPORARY_HOLDING_UNLOCK_QUEUE,
   )
+  if (queue.tasks.length === 0) return
+
+  const start = performance.now()
+  const total = queue.tasks.length
+  let processed = 0
 
   const tasks: TemporaryHoldingUnlockTask[] = []
   for (const task of queue.tasks) {
@@ -60,10 +65,15 @@ export async function processTemporaryHoldingUnlockQueue(
 
     temporaryHolding.account.owner = temporaryHolding.admin
     await ctx.store.upsert(temporaryHolding.account)
+    processed++
 
     ctx.log.info(`temporary_holding(${temporaryHolding.id}) unlocked`)
   }
 
   queue.tasks = tasks
   await ctx.store.upsert(queue)
+
+  if (processed > 0) {
+    ctx.log.info(`temporary-holding-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+  }
 }

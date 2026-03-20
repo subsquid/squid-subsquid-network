@@ -29,6 +29,6 @@ export const handleLockPeriodUpdated = createHandler((ctx, item) => {
     //   await ctx.store.upsert(currentEpoch);
     // }
 
-    ctx.log.debug(`set lock period to ${settings.lockPeriod}`)
+    ctx.log.info(`set lock period to ${settings.lockPeriod}`)
   }
 })

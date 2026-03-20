@@ -29,6 +29,6 @@ export const handleEpochLengthUpdated = createHandler((ctx, item) => {
     //   await ctx.store.upsert(currentEpoch);
     // }
 
-    ctx.log.debug(`set epoch length to ${settings.epochLength}`)
+    ctx.log.info(`set epoch length to ${settings.epochLength}`)
   }
 })

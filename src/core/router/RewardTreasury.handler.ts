@@ -22,6 +22,6 @@ export const rewardTreasurySetHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`reward treasury contract address set to ${rewardTreasury}`)
+    ctx.log.info(`reward treasury contract address set to ${rewardTreasury}`)
   }
 })

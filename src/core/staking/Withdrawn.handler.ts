@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { addToWorkerCapQueue } from '../cap'
 import {
   createAccountId,
@@ -44,7 +44,7 @@ export const handleWithdrawn = createHandler((ctx, item) => {
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
     if (settings.contracts.staking !== log.address) return
 
@@ -93,7 +93,7 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     })
 
     ctx.log.info(
-      `account(${delegation.owner.id}) undelegated ${toHumanSQD(amount)} from worker(${worker.id})`,
+      `account(${delegation.owner.id}) undelegated ${toHumanSQD(amount)} from worker(${worker.id}) (${elapsed()}ms)`,
     )
-  }
+  })
 })

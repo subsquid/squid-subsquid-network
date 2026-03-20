@@ -1,5 +1,5 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
@@ -31,7 +31,7 @@ export const handleWorkerWithdrawn = createHandlerOld({
       relations: { owner: { owner: true } },
     })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
       if (log.address !== settings.contracts.workerRegistration) return
 
@@ -66,8 +66,8 @@ export const handleWorkerWithdrawn = createHandlerOld({
       })
 
       ctx.log.info(
-        `account(${worker.owner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id})`,
+        `account(${worker.owner.id}) unbonded ${toHumanSQD(worker.bond)} from worker(${worker.id}) (${elapsed()}ms)`,
       )
-    }
+    })
   },
 })

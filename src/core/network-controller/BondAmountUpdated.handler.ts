@@ -22,6 +22,6 @@ export const handleBondAmountUpdated = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`set bond amount set ${bondAmount}`)
+    ctx.log.info(`set bond amount set ${bondAmount}`)
   }
 })

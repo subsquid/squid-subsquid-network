@@ -22,6 +22,6 @@ export const networkControllerSetHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`network controller contract address set to ${networkController}`)
+    ctx.log.info(`network controller contract address set to ${networkController}`)
   }
 })

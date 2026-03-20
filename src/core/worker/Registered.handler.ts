@@ -1,7 +1,7 @@
 import { assertNotNull } from '@subsquid/util-internal'
 
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createAccount, createWorker } from '../helpers/entities'
 import { createAccountId, createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
@@ -43,7 +43,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
   const settingsDeferred = ctx.store.defer(Settings, network.name)
   const workerDeferred = ctx.store.defer(Worker, workerId)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
     if (log.address !== settings.contracts.workerRegistration) return
 
@@ -114,7 +114,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
 
     ctx.log.info(`account(${worker.owner.id}) registered worker(${worker.id})`)
     ctx.log.info(
-      `account(${worker.owner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id})`,
+      `account(${worker.owner.id}) bonded ${toHumanSQD(worker.bond)} to worker(${worker.id}) (${elapsed()}ms)`,
     )
-  }
+  })
 })

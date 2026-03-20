@@ -1,10 +1,11 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createWorkerId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
 import { Settings, TransferType, Worker } from '~/model'
+import { toHumanSQD } from '~/utils/misc'
 import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
 
@@ -19,7 +20,7 @@ export const handleExcessiveBondReturned = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, { id: workerId, relations: { owner: true } })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
       if (log.address !== settings.contracts.workerRegistration) return
 
@@ -39,6 +40,10 @@ export const handleExcessiveBondReturned = createHandlerOld({
         type: TransferType.WITHDRAW,
         worker,
       })
-    }
+
+      ctx.log.info(
+        `account(${worker.owner.id}) returned excessive bond ${toHumanSQD(amount)} from worker(${worker.id}) (${elapsed()}ms)`,
+      )
+    })
   },
 })

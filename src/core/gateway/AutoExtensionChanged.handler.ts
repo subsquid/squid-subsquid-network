@@ -1,5 +1,5 @@
 import { isContract, isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createGatewayOperatorId } from '../helpers/ids'
 
 import {
@@ -39,10 +39,12 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
   const stakeId = createGatewayOperatorId(gatewayOperator)
   const stakeDeferred = ctx.store.defer(GatewayStake, stakeId)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const stake = await stakeDeferred.get()
-    // for some reason it's possible to change autoExtension before staking any tokens
-    if (!stake) return
+    if (!stake) {
+      ctx.log.info(`skipped AutoExtensionChanged: no stake for operator ${stakeId} (${elapsed()}ms)`)
+      return
+    }
 
     stake.autoExtension = autoExtension
     stake.locked = true
@@ -52,12 +54,12 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
 
     if (lockEnd) {
       await removeFromGatewayStakeUnlockQueue(ctx, stake.id)
-      ctx.log.info(`stake(${stake.id}) auto-extension enabled`)
+      ctx.log.info(`stake(${stake.id}) auto-extension enabled (${elapsed()}ms)`)
     } else {
       await addToGatewayStakeUnlockQueue(ctx, stake.id)
       ctx.log.info(
-        `stake(${stake.id}) auto-extension disabled [${(stake.lockStart, stake.lockEnd)}]`,
+        `stake(${stake.id}) auto-extension disabled [${(stake.lockStart, stake.lockEnd)}] (${elapsed()}ms)`,
       )
     }
-  }
+  })
 })

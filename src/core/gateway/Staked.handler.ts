@@ -1,5 +1,5 @@
 import { isContract, isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createGatewayStake, unwrapAccount } from '../helpers/entities'
 import { createAccountId, createGatewayOperatorId } from '../helpers/ids'
 import { findTransfer } from '../helpers/misc'
@@ -10,7 +10,7 @@ import { addToGatewayStakeUnlockQueue } from './StakeUnlock.queue'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
-import { Account, GatewayStake, TransferType } from '~/model'
+import { Account, GatewayStake, PortalPool, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
 
 export const gatewayStakedHandler = createHandler((ctx, item) => {
@@ -29,8 +29,14 @@ export const gatewayStakedHandler = createHandler((ctx, item) => {
 
   const stakeId = createGatewayOperatorId(event.gatewayOperator)
   const stakeDeferred = ctx.store.defer(GatewayStake, stakeId)
+  const poolDeferred = ctx.store.defer(PortalPool, accountId)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
+    if (await poolDeferred.get()) {
+      ctx.log.info(`skipped Staked: operator ${accountId} is a portal pool (${elapsed()}ms)`)
+      return
+    }
+
     const account = await accountDeferred.getOrFail()
 
     const stake = await stakeDeferred.getOrInsert(async (id) =>
@@ -63,12 +69,12 @@ export const gatewayStakedHandler = createHandler((ctx, item) => {
     })
 
     ctx.log.info(
-      `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}]`,
+      `account(${account.id}) staked ${toHumanSQD(stake.amount)} for [${stake.lockStart}, ${stake.lockEnd}] (${elapsed()}ms)`,
     )
 
     await addToGatewayStakeApplyQueue(ctx, stake.id)
     await addToGatewayStakeUnlockQueue(ctx, stake.id)
-  }
+  })
 })
 
 export const INT32_MAX = 2_147_483_647

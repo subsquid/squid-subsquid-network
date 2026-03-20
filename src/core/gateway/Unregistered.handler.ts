@@ -1,5 +1,5 @@
-import { LogItem, isContract, isLog } from '../../item'
-import { createHandler, createHandlerOld } from '../base'
+import { isContract, isLog } from '../../item'
+import { createHandler, timed } from '../base'
 import { createWorkerStatusId } from '../helpers/ids'
 
 import { assertNotNull } from '@subsquid/util-internal'
@@ -22,7 +22,7 @@ export const handleUnregistered = createHandler((ctx, item) => {
     relations: { owner: true },
   })
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const gateway = await gatewayDeferred.getOrFail()
     const owner = assertNotNull(gateway.owner)
 
@@ -38,6 +38,6 @@ export const handleUnregistered = createHandler((ctx, item) => {
     gateway.status = statusChange.status
     await ctx.store.upsert(gateway)
 
-    ctx.log.info(`account(${owner.id}) deregistered gateway(${gatewayId})`)
-  }
+    ctx.log.info(`account(${owner.id}) deregistered gateway(${gatewayId}) (${elapsed()}ms)`)
+  })
 })

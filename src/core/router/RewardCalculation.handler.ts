@@ -22,6 +22,6 @@ export const rewardCalculationSetHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`reward calculation contract address set to ${rewardCalculation}`)
+    ctx.log.info(`reward calculation contract address set to ${rewardCalculation}`)
   }
 })

@@ -1,5 +1,5 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createAccount, createGatewayStake, unwrapAccount } from '../helpers/entities'
 import { createAccountId, createGatewayOperatorId, createWorkerStatusId } from '../helpers/ids'
 
@@ -32,7 +32,7 @@ export const handleRegistered = createHandlerOld({
 
     const gatewayId = parsePeerId(event.peerId)
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const account = await accountDeferred.getOrInsert((id) => createAccount(id))
 
       const stake = await stakeDeferred.getOrInsert(async (id) =>
@@ -68,7 +68,7 @@ export const handleRegistered = createHandlerOld({
       gateway.status = statusChange.status
       await ctx.store.upsert(gateway)
 
-      ctx.log.info(`account(${gateway.owner.id}) registered gateway(${gatewayId})`)
-    }
+      ctx.log.info(`account(${gateway.owner.id}) registered gateway(${gatewayId}) (${elapsed()}ms)`)
+    })
   },
 })

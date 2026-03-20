@@ -1,10 +1,10 @@
 import { isContract, isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createGatewayOperatorId } from '../helpers/ids'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
-import { GatewayStake, TransferType } from '~/model'
+import { GatewayStake, PortalPool, TransferType } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
 import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
@@ -17,13 +17,19 @@ export const handleUnstaked = createHandler((ctx, item) => {
   const log = item.value
   const event = GatewayRegistry.events.Unstaked.decode(log)
 
-  const stakeId = createGatewayOperatorId(event.gatewayOperator)
+  const operatorId = createGatewayOperatorId(event.gatewayOperator)
   const stakeDeferred = ctx.store.defer(GatewayStake, {
-    id: stakeId,
+    id: operatorId,
     relations: { owner: true },
   })
+  const poolDeferred = ctx.store.defer(PortalPool, operatorId)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
+    if (await poolDeferred.get()) {
+      ctx.log.info(`skipped Unstaked: operator ${operatorId} is a portal pool (${elapsed()}ms)`)
+      return
+    }
+
     const stake = await stakeDeferred.getOrFail()
     const account = stake.owner
 
@@ -48,6 +54,6 @@ export const handleUnstaked = createHandler((ctx, item) => {
       gatewayStake: stake,
     })
 
-    ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)}`)
-  }
+    ctx.log.info(`account(${account.id}) unstaked ${toHumanSQD(event.amount)} (${elapsed()}ms)`)
+  })
 })

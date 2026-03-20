@@ -1,5 +1,5 @@
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createAccountId } from '../helpers/ids'
 
 import * as Vesting from '~/abi/SubsquidVesting'
@@ -20,9 +20,12 @@ export const handleVestingReleased = createHandler((ctx, item) => {
     },
   })
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const vesting = await vestingDeferred.get()
-    if (!vesting) return // not our vesting
+    if (!vesting) {
+      ctx.log.info(`skipped ERC20Released: unknown vesting ${createAccountId(log.address)} (${elapsed()}ms)`)
+      return
+    }
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: vesting.id,
@@ -36,6 +39,6 @@ export const handleVestingReleased = createHandler((ctx, item) => {
       vesting,
     })
 
-    ctx.log.info(`released vesting(${vesting.id}) to account(${vesting.owner?.id})`)
-  }
+    ctx.log.info(`released vesting(${vesting.id}) to account(${vesting.owner?.id}) (${elapsed()}ms)`)
+  })
 })

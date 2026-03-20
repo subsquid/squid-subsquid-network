@@ -22,6 +22,6 @@ export const stakingSetHandler = createHandler((ctx, item) => {
 
     await ctx.store.upsert(settings)
 
-    ctx.log.debug(`staking contract address set to ${staking}`)
+    ctx.log.info(`staking contract address set to ${staking}`)
   }
 })

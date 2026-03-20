@@ -1,5 +1,5 @@
 import { LogItem, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
@@ -22,9 +22,12 @@ export const handleVestingTransfered = createHandlerOld({
       id: createAccountId(log.address),
     })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const vesting = await vestingDeferred.get()
-      if (!vesting) return // not our vesting
+      if (!vesting) {
+        ctx.log.info(`skipped OwnershipTransferred: unknown vesting ${createAccountId(log.address)} (${elapsed()}ms)`)
+        return
+      }
 
       const owner = await ownerDeferred.getOrInsert((id) => {
         ctx.log.info(`created account(${id})`)
@@ -51,7 +54,7 @@ export const handleVestingTransfered = createHandlerOld({
       }
       await ctx.store.upsert(delegations)
 
-      ctx.log.info(`transferred vesting(${vesting.id}) to account(${owner.id})`)
-    }
+      ctx.log.info(`transferred vesting(${vesting.id}) to account(${owner.id}) (${elapsed()}ms)`)
+    })
   },
 })

@@ -27,7 +27,7 @@
 
 //       await ctx.store.upsert(settings);
 
-//       ctx.log.debug(`set delegation limit coefficient ${settings.delegationLimitCoefficient}`);
+//       ctx.log.info(`set delegation limit coefficient ${settings.delegationLimitCoefficient}`);
 //     });
 //   },
 // });

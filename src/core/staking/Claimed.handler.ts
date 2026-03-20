@@ -1,5 +1,5 @@
 import { LogItem, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
 
@@ -31,7 +31,7 @@ export const handleClaimed = createHandlerOld({
 
     const settingsDeferred = ctx.store.defer(Settings, network.name)
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const settings = await settingsDeferred.getOrFail()
       if (settings.contracts.staking !== log.address) return
 
@@ -71,6 +71,8 @@ export const handleClaimed = createHandlerOld({
 
       account.claimableDelegationCount = 0
       await ctx.store.upsert(account)
-    }
+
+      ctx.log.info(`staking claims processed for account(${account.id}) (${elapsed()}ms)`)
+    })
   },
 })

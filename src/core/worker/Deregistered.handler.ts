@@ -1,5 +1,5 @@
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
@@ -23,7 +23,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
     relations: { owner: true },
   })
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const settings = await ctx.store.getOrFail(Settings, network.name)
     if (log.address !== settings.contracts.workerRegistration) return
 
@@ -61,6 +61,6 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
     await ctx.store.insert(pendingStatusChange)
     await addToWorkerStatusApplyQueue(ctx, pendingStatusChange.id)
 
-    ctx.log.info(`account(${worker.owner.id}) deregistered worker(${worker.id})`)
-  }
+    ctx.log.info(`account(${worker.owner.id}) deregistered worker(${worker.id}) (${elapsed()}ms)`)
+  })
 })

@@ -1,5 +1,5 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 
 import * as GatewayRegistry from '~/abi/GatewayRegistry'
 import { network } from '~/config/network'
@@ -23,7 +23,7 @@ export const handleMetadataChanged = createHandlerOld({
       relations: { owner: true },
     })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const gateway = await gatewayDeferred.getOrFail()
 
       const metadata = parseGatewayMetadata(ctx, event.metadata)
@@ -35,7 +35,7 @@ export const handleMetadataChanged = createHandlerOld({
 
       await ctx.store.upsert(gateway)
 
-      ctx.log.info(`updated metadata of gateway(${gatewayId}) `)
-    }
+      ctx.log.info(`updated metadata of gateway(${gatewayId}) (${elapsed()}ms)`)
+    })
   },
 })

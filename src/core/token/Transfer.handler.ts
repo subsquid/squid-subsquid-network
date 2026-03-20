@@ -1,6 +1,6 @@
 import { Context } from 'node:vm'
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
@@ -14,6 +14,7 @@ import {
   AccountType,
   Delegation,
   GatewayStake,
+  PortalPool,
   Transfer,
   TransferDirection,
   TransferType,
@@ -38,7 +39,7 @@ export const handleTransfer = createHandlerOld({
 
     ctx.store.defer(Transfer, { id: log.id, relations: { from: true, to: true } })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const transfer = await saveTransfer(ctx, { log, event })
       if (!transfer) return
 
@@ -69,9 +70,9 @@ export const handleTransfer = createHandlerOld({
       ])
 
       ctx.log.info(
-        `account(${transfer.from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${transfer.to.id})`,
+        `account(${transfer.from.id}) transferred ${toHumanSQD(transfer.amount)} to account(${transfer.to.id}) (${elapsed()}ms)`,
       )
-    }
+    })
   },
 })
 
@@ -84,6 +85,7 @@ export async function saveTransfer(
     delegation?: Delegation
     gatewayStake?: GatewayStake
     vesting?: Account
+    portalPool?: PortalPool
   },
 ) {
   if (event.value === 0n) {

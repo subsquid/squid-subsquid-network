@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createAccountId, createWorkerId } from '../helpers/ids'
 
 import * as RewardsDistribution from '~/abi/DistributedRewardsDistribution'
@@ -33,7 +33,7 @@ export const handleClaimed = createHandlerOld({
       relations: { owner: { owner: true } },
     })
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const worker = await workerDeferred.getOrFail()
       assert(worker.owner.id === accountId) // should never happen, but just in case
 
@@ -43,8 +43,8 @@ export const handleClaimed = createHandlerOld({
       await ctx.store.upsert(worker)
 
       ctx.log.info(
-        `account(${worker.owner.id}) claimed ${toHumanSQD(amount)} from worker(${worker.id})`,
+        `account(${worker.owner.id}) claimed ${toHumanSQD(amount)} from worker(${worker.id}) (${elapsed()}ms)`,
       )
-    }
+    })
   },
 })

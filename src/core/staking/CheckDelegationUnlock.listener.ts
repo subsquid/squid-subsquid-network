@@ -36,6 +36,11 @@ export async function processDelegationUnlockQueue(
   block: { l1BlockNumber: number },
 ) {
   const queue = await ctx.store.getOrFail(Queue<DelegationUnlockTask>, DELEGATION_UNLOCK_QUEUE)
+  if (queue.tasks.length === 0) return
+
+  const start = performance.now()
+  const total = queue.tasks.length
+  let processed = 0
 
   const tasks: DelegationUnlockTask[] = []
   for (const task of queue.tasks) {
@@ -48,10 +53,15 @@ export async function processDelegationUnlockQueue(
 
     delegation.locked = false
     await ctx.store.upsert(delegation)
+    processed++
 
     ctx.log.info(`delegation(${delegation.id}) unlocked`)
   }
 
   queue.tasks = tasks
   await ctx.store.upsert(queue)
+
+  if (processed > 0) {
+    ctx.log.info(`delegation-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+  }
 }

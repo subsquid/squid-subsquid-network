@@ -33,11 +33,6 @@ export async function addToWorkerStatusApplyQueue(ctx: MappingContext, id: strin
   queue.tasks.push({ id })
 
   await ctx.store.upsert(queue)
-
-  ctx.store.defer(WorkerStatusChange, {
-    id,
-    relations: { worker: true },
-  })
 }
 
 export async function removeFromWorkerStatusApplyQueue(ctx: MappingContext, id: string) {
@@ -53,6 +48,11 @@ export async function processWorkerStatusApplyQueue(
   block: { l1BlockNumber: number; timestamp: number },
 ) {
   const queue = await ctx.store.getOrFail(Queue<WorkerStatusApplyTask>, WORKER_STATUS_APPLY_QUEUE)
+  if (queue.tasks.length === 0) return
+
+  const start = performance.now()
+  const total = queue.tasks.length
+  let processed = 0
 
   const tasks: WorkerStatusApplyTask[] = []
   for (const task of queue.tasks) {
@@ -85,8 +85,13 @@ export async function processWorkerStatusApplyQueue(
     ctx.log.info(`status of worker(${worker.id}) changed to ${worker.status}`)
 
     await ctx.store.upsert(worker)
+    processed++
   }
 
   queue.tasks = tasks
   await ctx.store.upsert(queue)
+
+  if (processed > 0) {
+    ctx.log.info(`worker-status-apply queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+  }
 }

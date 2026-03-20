@@ -1,5 +1,5 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
@@ -23,7 +23,7 @@ export const handleVestingCreated = createHandler((ctx, item) => {
     relations: { owner: true },
   })
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const owner = await ownerDeferred.getOrInsert((id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
@@ -40,6 +40,6 @@ export const handleVestingCreated = createHandler((ctx, item) => {
       await ctx.store.upsert(vesting)
     }
 
-    ctx.log.info(`created vesting(${vesting.id}) for account(${owner.id})`)
-  }
+    ctx.log.info(`created vesting(${vesting.id}) for account(${owner.id}) (${elapsed()}ms)`)
+  })
 })

@@ -1,5 +1,5 @@
 import { LogItem, isContract, isLog } from '../../item'
-import { createHandlerOld } from '../base'
+import { createHandlerOld, timed } from '../base'
 import { createWorkerId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
@@ -18,7 +18,7 @@ export const handleMetadataUpdated = createHandlerOld({
     const workerId = createWorkerId(workerIndex)
     const workerDeferred = ctx.store.defer(Worker, workerId)
 
-    return async () => {
+    return timed(ctx, async (elapsed) => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
       if (log.address !== settings.contracts.workerRegistration) return
 
@@ -30,7 +30,7 @@ export const handleMetadataUpdated = createHandlerOld({
       worker.website = metadata.website
       await ctx.store.upsert(worker)
 
-      ctx.log.info(`updated metadata of worker(${worker.id}) `)
-    }
+      ctx.log.info(`updated metadata of worker(${worker.id}) (${elapsed()}ms)`)
+    })
   },
 })

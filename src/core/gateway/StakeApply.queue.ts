@@ -36,6 +36,11 @@ export async function processGatewayStakeApplyQueue(
   block: { l1BlockNumber: number },
 ) {
   const queue = await ctx.store.getOrFail(Queue<StakeApplyTask>, STAKE_APPLY_QUEUE)
+  if (queue.tasks.length === 0) return
+
+  const start = performance.now()
+  const total = queue.tasks.length
+  let processed = 0
 
   const tasks: StakeApplyTask[] = []
   for (const task of queue.tasks) {
@@ -53,10 +58,15 @@ export async function processGatewayStakeApplyQueue(
     stake.computationUnits = stake.computationUnitsPending
     stake.computationUnitsPending = null
     await ctx.store.upsert(stake)
+    processed++
 
     ctx.log.info(`stake(${stake.id}) applied`)
   }
 
   queue.tasks = tasks
   await ctx.store.upsert(queue)
+
+  if (processed > 0) {
+    ctx.log.info(`stake-apply queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+  }
 }

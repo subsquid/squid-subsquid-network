@@ -2,7 +2,7 @@ import * as RewardsTreasury from '~/abi/RewardTreasury'
 import { network } from '~/config/network'
 import { Account, Settings, TransferType } from '~/model'
 import { isLog } from '../../item'
-import { createHandler } from '../base'
+import { createHandler, timed } from '../base'
 import { createAccountId } from '../helpers/ids'
 import { findTransfer } from '../helpers/misc'
 import { saveTransfer } from '../token/Transfer.handler'
@@ -19,7 +19,7 @@ export const handleClaimed = createHandler((ctx, item) => {
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
 
-  return async () => {
+  return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
     if (settings.contracts.rewardTreasury !== log.address) return
 
@@ -36,5 +36,7 @@ export const handleClaimed = createHandler((ctx, item) => {
     await saveTransfer(ctx, transfer, {
       type: TransferType.CLAIM,
     })
-  }
+
+    ctx.log.info(`account(${account.id}) claimed from reward treasury (${elapsed()}ms)`)
+  })
 })
