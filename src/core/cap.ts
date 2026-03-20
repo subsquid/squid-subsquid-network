@@ -46,8 +46,6 @@ export async function addToWorkerCapQueue(ctx: MappingContext, id: string) {
   queue.tasks.push({ id })
 
   await ctx.store.upsert(queue)
-
-  ctx.store.defer(Worker, id)
 }
 
 export async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, all = false) {

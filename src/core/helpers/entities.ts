@@ -79,9 +79,10 @@ export function createDelegation(
 // }
 
 export function createBlock(block: _Block) {
-  const { timestamp, ...props } = block
+  const { timestamp, l1BlockNumber, ...props } = block
   return new Block({
     timestamp: new Date(timestamp),
+    l1BlockNumber: l1BlockNumber || undefined,
     ...props,
   })
 }

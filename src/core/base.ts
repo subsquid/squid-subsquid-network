@@ -18,3 +18,10 @@ export function createHandlerOld<T extends Item = Item>({
 export function createHandler(fn: Handler): Handler {
   return fn
 }
+
+export function timed(ctx: MappingContext, fn: (elapsed: () => number) => Promise<void>): Task {
+  return async () => {
+    const start = performance.now()
+    await fn(() => Math.round((performance.now() - start) * 100) / 100)
+  }
+}

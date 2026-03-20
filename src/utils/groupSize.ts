@@ -1,49 +1,29 @@
 import { differenceInMilliseconds } from 'date-fns'
 
-export type GroupSize = { label: string; ms: number; unit: 'hour' | 'day' | 'week' | 'month' }
+const DAY_MS = 24 * 60 * 60 * 1000
 
-const UNIT_MS: Record<
-  string,
-  { ms: number; unit: GroupSize['unit']; singular: string; plural: string }
-> = {
-  h: { ms: 60 * 60 * 1000, unit: 'hour', singular: 'hour', plural: 'hours' },
-  d: { ms: 24 * 60 * 60 * 1000, unit: 'day', singular: 'day', plural: 'days' },
-  w: { ms: 7 * 24 * 60 * 60 * 1000, unit: 'week', singular: 'week', plural: 'weeks' },
-  M: { ms: 4 * 7 * 24 * 60 * 60 * 1000, unit: 'month', singular: 'month', plural: 'months' },
-}
-
-function parseBucketSize(bucket: string): GroupSize {
-  const match = bucket.match(/^(\d+)([hdwM])$/)
-  if (!match) {
-    throw new Error(
-      `Invalid bucket size format: ${bucket}. Expected format: <number><unit> (e.g., 1h, 3d, 2w, 1M)`,
-    )
-  }
-
-  const [, numStr, unitChar] = match
-  const num = parseInt(numStr, 10)
-  const unitInfo = UNIT_MS[unitChar]
-
-  if (!unitInfo) {
-    throw new Error(
-      `Invalid unit: ${unitChar}. Valid units: h (hour), d (day), w (week), M (month)`,
-    )
-  }
-
-  const label = `${num} ${num === 1 ? unitInfo.singular : unitInfo.plural}`
-  const ms = num * unitInfo.ms
-
-  return { label, ms, unit: unitInfo.unit }
-}
-
-const DEFAULT_BUCKETS = ['1h', '3h', '6h', '12h', '1d', '3d', '1w', '2w', '1M', '3M', '6M']
+export type GroupSize = { days: number; ms: number }
 
 /**
- * Returns suitable bucket size (group size) so that the number of points
- * in the range does not exceed maxPoints.
- *
- * @param from  start of interval
- * @param to    end of interval; defaults to `new Date()`
+ * Parse a step string like "1d", "7d", "30d" into a GroupSize.
+ */
+function parseBucketSize(bucket: string): GroupSize {
+  const match = bucket.match(/^(\d+)d$/)
+  if (!match) {
+    throw new Error(
+      `Invalid bucket size: "${bucket}". Expected format: <number>d (e.g. "1d", "7d", "30d")`,
+    )
+  }
+  const days = parseInt(match[1], 10)
+  return { days, ms: days * DAY_MS }
+}
+
+const NICE_DAYS = [1, 7, 30, 90, 365]
+
+/**
+ * Returns a step size in days so that the number of points does not exceed
+ * maxPoints. Picks from nice day multiples, or computes one dynamically
+ * for very long ranges.
  */
 export function getGroupSize(
   step: string | { from: Date; to: Date; maxPoints?: number },
@@ -52,15 +32,16 @@ export function getGroupSize(
     return parseBucketSize(step)
   }
 
-  const { from, to, maxPoints = 50 } = step
+  const { from, to, maxPoints = 100 } = step
   const rangeMs = Math.max(0, differenceInMilliseconds(to, from))
+  const rangeDays = rangeMs / DAY_MS
 
-  for (const bucketStr of DEFAULT_BUCKETS) {
-    const bucket = parseBucketSize(bucketStr)
-    if (rangeMs / bucket.ms <= maxPoints) {
-      return bucket
+  for (const d of NICE_DAYS) {
+    if (rangeDays / d <= maxPoints) {
+      return { days: d, ms: d * DAY_MS }
     }
   }
-  // If even the largest bucket still exceeds maxPoints, return the largest
-  return parseBucketSize(DEFAULT_BUCKETS[DEFAULT_BUCKETS.length - 1])
+
+  const days = Math.ceil(rangeDays / maxPoints)
+  return { days, ms: days * DAY_MS }
 }

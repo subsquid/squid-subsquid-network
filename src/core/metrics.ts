@@ -425,7 +425,7 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       where: { timestamp: MoreThanOrEqual(new Date(snapshotTimestamp)) },
       order: { id: 'ASC' },
     })
-    if (!endBlock) {
+    if (!endBlock?.l1BlockNumber) {
       ctx.log.warn(`unable to fetch rewards starts: end block not found`)
       return
     }
@@ -434,7 +434,7 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       where: { l1BlockNumber: MoreThanOrEqual(endBlock.l1BlockNumber - rewardEpochLength) },
       order: { id: 'ASC' },
     })
-    if (!startBlock) {
+    if (!startBlock?.l1BlockNumber) {
       ctx.log.warn(`unable to fetch rewards starts: start block not found`)
       return
     }
