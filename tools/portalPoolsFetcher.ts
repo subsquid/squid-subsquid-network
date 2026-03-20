@@ -3,14 +3,14 @@ import { DataSourceBuilder } from '@subsquid/evm-stream'
 import { Database, LocalDest } from '@subsquid/file-store'
 import { assertNotNull } from '@subsquid/util-internal'
 
-import * as VestingFactory from '../src/abi/VestingFactory'
+import * as PortalPoolFactory from '../src/abi/PortalPoolFactory'
 import { network } from '../src/config/network'
 
-const OUTPUT_FILE = 'vestings.json'
+const OUTPUT_FILE = 'portal_pools.json'
 
 const source = new DataSourceBuilder()
   .setPortal(assertNotNull(process.env.PORTAL_ENDPOINT))
-  .setBlockRange(network.range)
+  .setBlockRange(network.contracts.PortalPoolFactory.range)
   .setFields({
     log: {
       topics: true,
@@ -19,13 +19,13 @@ const source = new DataSourceBuilder()
   })
   .addLog({
     where: {
-      address: [network.contracts.VestingFactory.address],
-      topic0: [VestingFactory.events.VestingCreated.topic],
+      address: [network.contracts.PortalPoolFactory.address],
+      topic0: [PortalPoolFactory.events.PoolCreated.topic],
     },
   })
   .build()
 
-let vestings: string[] = []
+let pools: string[] = []
 
 type Metadata = {
   height: number
@@ -47,7 +47,7 @@ const db = new Database({
           .then(JSON.parse)
 
         if (!isInit) {
-          vestings = addresses
+          pools = addresses
           isInit = true
         }
 
@@ -59,7 +59,7 @@ const db = new Database({
     async onStateUpdate(dest, info) {
       const metadata: Metadata = {
         ...info,
-        addresses: vestings,
+        addresses: pools,
       }
       await dest.writeFile(OUTPUT_FILE, JSON.stringify(metadata, null, 2))
     },
@@ -71,8 +71,8 @@ run(source, db, async (ctx) => {
 
   for (const c of ctx.blocks) {
     for (const i of c.logs) {
-      const { vesting } = VestingFactory.events.VestingCreated.decode(i)
-      vestings.push(vesting)
+      const { portal } = PortalPoolFactory.events.PoolCreated.decode(i)
+      pools.push(portal.toLowerCase())
     }
   }
 })

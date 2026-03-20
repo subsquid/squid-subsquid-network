@@ -1,12 +1,14 @@
-import { EvmBatchProcessor, assertNotNull } from '@subsquid/evm-processor'
+import { run } from '@subsquid/batch-processor'
+import { DataSourceBuilder } from '@subsquid/evm-stream'
 import { Database, LocalDest } from '@subsquid/file-store'
+import { assertNotNull } from '@subsquid/util-internal'
 
 import * as TemporaryHoldingFactory from '../src/abi/TemporaryHoldingFactory'
 import { network } from '../src/config/network'
 
 const OUTPUT_FILE = 'temp_holdings.json'
 
-const processor = new EvmBatchProcessor()
+const source = new DataSourceBuilder()
   .setPortal(assertNotNull(process.env.PORTAL_ENDPOINT))
   .setBlockRange({
     from: 6_000_000,
@@ -18,9 +20,12 @@ const processor = new EvmBatchProcessor()
     },
   })
   .addLog({
-    address: [network.contracts.TemporaryHoldingFactory.address],
-    topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
+    where: {
+      address: [network.contracts.TemporaryHoldingFactory.address],
+      topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
+    },
   })
+  .build()
 
 let vestings: TemporaryHoldingData[] = []
 
@@ -68,7 +73,7 @@ const db = new Database({
   },
 })
 
-processor.run(db, async (ctx) => {
+run(source, db, async (ctx) => {
   ctx.store.setForceFlush(true)
 
   for (const c of ctx.blocks) {

@@ -1,5 +1,7 @@
-import { EvmBatchProcessor, assertNotNull } from '@subsquid/evm-processor'
+import { run } from '@subsquid/batch-processor'
+import { DataSourceBuilder } from '@subsquid/evm-stream'
 import { Database, LocalDest } from '@subsquid/file-store'
+import { assertNotNull } from '@subsquid/util-internal'
 
 import * as Router from '../src/abi/Router'
 import { ContractConfig, network } from '../src/config/network'
@@ -13,7 +15,7 @@ import { WorkerRegistryMetadata } from '~/config/queries/workersRegistry'
 
 const OUTPUT_FILE = 'router.json'
 
-const processor = new EvmBatchProcessor()
+const builder = new DataSourceBuilder()
   .setPortal(assertNotNull(process.env.PORTAL_ENDPOINT))
   .setBlockRange({
     from: network.contracts.Router.range.from,
@@ -25,7 +27,9 @@ const processor = new EvmBatchProcessor()
     },
   })
 
-addRouterQuery(processor)
+addRouterQuery(builder)
+
+const source = builder.build()
 
 type Metadata = WorkerRegistryMetadata &
   StakingMetadata &
@@ -105,68 +109,68 @@ const db = new Database({
   },
 })
 
-processor.run(db, async (ctx) => {
+run(source, db, async (ctx) => {
   ctx.store.setForceFlush(true)
 
-  for (const c of ctx.blocks) {
-    for (const i of c.logs) {
-      switch (i.topics[0]) {
+  for (const block of ctx.blocks) {
+    for (const log of block.logs) {
+      switch (log.topics[0]) {
         case Router.events.NetworkControllerSet.topic:
           {
-            const event = Router.events.NetworkControllerSet.decode(i)
+            const event = Router.events.NetworkControllerSet.decode(log)
             if (networkController.length > 0) {
-              networkController[networkController.length - 1].range.to = i.block.height - 1
+              networkController[networkController.length - 1].range.to = block.header.height - 1
             }
             networkController.push({
               address: event.networkController,
-              range: { from: i.block.height },
+              range: { from: block.header.height },
             })
           }
           break
         case Router.events.RewardCalculationSet.topic:
           {
-            const event = Router.events.RewardCalculationSet.decode(i)
+            const event = Router.events.RewardCalculationSet.decode(log)
             if (rewardCalculation.length > 0) {
-              rewardCalculation[rewardCalculation.length - 1].range.to = i.block.height - 1
+              rewardCalculation[rewardCalculation.length - 1].range.to = block.header.height - 1
             }
             rewardCalculation.push({
               address: event.rewardCalculation,
-              range: { from: i.block.height },
+              range: { from: block.header.height },
             })
           }
           break
         case Router.events.RewardTreasurySet.topic:
           {
-            const event = Router.events.RewardTreasurySet.decode(i)
+            const event = Router.events.RewardTreasurySet.decode(log)
             if (rewardTreasury.length > 0) {
-              rewardTreasury[rewardTreasury.length - 1].range.to = i.block.height - 1
+              rewardTreasury[rewardTreasury.length - 1].range.to = block.header.height - 1
             }
             rewardTreasury.push({
               address: event.rewardTreasury,
-              range: { from: i.block.height },
+              range: { from: block.header.height },
             })
           }
           break
         case Router.events.WorkerRegistrationSet.topic:
           {
-            const event = Router.events.WorkerRegistrationSet.decode(i)
+            const event = Router.events.WorkerRegistrationSet.decode(log)
             if (workerRegistration.length > 0) {
-              workerRegistration[workerRegistration.length - 1].range.to = i.block.height - 1
+              workerRegistration[workerRegistration.length - 1].range.to = block.header.height - 1
             }
             workerRegistration.push({
               address: event.workerRegistration,
-              range: { from: i.block.height },
+              range: { from: block.header.height },
             })
           }
           break
         case Router.events.StakingSet.topic: {
-          const event = Router.events.StakingSet.decode(i)
+          const event = Router.events.StakingSet.decode(log)
           if (staking.length > 0) {
-            staking[staking.length - 1].range.to = i.block.height - 1
+            staking[staking.length - 1].range.to = block.header.height - 1
           }
           staking.push({
             address: event.staking,
-            range: { from: i.block.height },
+            range: { from: block.header.height },
           })
         }
       }
