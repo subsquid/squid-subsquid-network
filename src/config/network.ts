@@ -19,6 +19,7 @@ export type NetworkConfig = {
     Multicall3: ContractConfig
     SoftCap: ContractConfig
     TemporaryHoldingFactory: ContractConfig
+    PortalPoolFactory: ContractConfig
   }
   defaultRouterContracts: {
     networkController: string
@@ -74,6 +75,10 @@ function getNetworkConfig(): NetworkConfig {
             address: '0x14926ebf05a904b8e2e2bf05c10ecca9a54d8d0d',
             range: { from: 0 },
           },
+          PortalPoolFactory: {
+            address: '0x18184740ebe24881355e33cec620c44e575f2c70',
+            range: { from: 0 },
+          },
         },
         defaultRouterContracts: {
           networkController: '0x4cf58097d790b193d22ed633bf8b15c9bc4f0da7',
@@ -119,6 +124,10 @@ function getNetworkConfig(): NetworkConfig {
           },
           TemporaryHoldingFactory: {
             address: '0x5eb3c647a423bfb100765cbf0201b5748bbe7bd7',
+            range: { from: 0 },
+          },
+          PortalPoolFactory: {
+            address: '0xa3f66b4649cf1c70776cfe32352cb9b5006528bc',
             range: { from: 0 },
           },
         },

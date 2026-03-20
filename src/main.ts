@@ -32,7 +32,7 @@ import {
   processWorkerStatusApplyQueue,
 } from '~/core/worker/WorkerStatusApply.queue'
 import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
-import { last, toEpochStart, toNextEpochStart } from '~/utils/misc'
+import { last, stopwatch, toEpochStart, toNextEpochStart } from '~/utils/misc'
 import { Task } from '~/utils/queue'
 import {
   ensureTemporaryHoldingUnlockQueue,
@@ -45,13 +45,18 @@ let isMaterializedRefreshRunning = false
 const logger = createLogger('sqd:mapping')
 
 run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
+  const batchSw = stopwatch()
+
   const ctx: ProcessorContext<StoreWithCache> = {
     ..._ctx,
     blocks: _ctx.blocks.map(augmentBlock),
     log: logger,
   }
 
-  if (!isMaterializedRefreshRunning) {
+  const firstBlock = ctx.blocks[0].header
+  const lastBlock = last(ctx.blocks)!.header
+
+  if (!isMaterializedRefreshRunning && ctx.isHead) {
     isMaterializedRefreshRunning = true
     startMaterializedViewRefresh(ctx.store['em'].connection.manager)
   }
@@ -61,13 +66,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
   ctx.store.defer(Settings, network.name)
   tasks.push(() => init(ctx, ctx.blocks[0].header))
 
-  // listenRewardsDistributed(ctx)
-
-  // listenOnlineUpdate(ctx)
-  // listenMetricsUpdate(ctx)
-  // listenRewardMetricsUpdate(ctx)
-  // listenUpdateWorkersCap(ctx)
-
+  let handlerTaskCount = 0
   for (const block of ctx.blocks) {
     const items = sortItems(block)
 
@@ -92,16 +91,27 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
     for (const item of items) {
       for (const handler of handlers) {
         const task = handler(ctx, item)
-        if (task) tasks.push(withBlockContext(task, item.value))
+        if (task) {
+          tasks.push(withBlockContext(task, item.value))
+          handlerTaskCount++
+        }
       }
     }
   }
 
-  tasks.push(() => complete(ctx, last(ctx.blocks)!.header))
+  tasks.push(() => complete(ctx, lastBlock))
+
+  const prepTime = batchSw.get()
 
   for (const task of tasks) {
     await task()
   }
+
+  const execTime = batchSw.get()
+
+  ctx.log.info(
+    `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
+  )
 })
 
 async function init(ctx: MappingContext, block: BlockHeader) {
@@ -120,6 +130,7 @@ async function init(ctx: MappingContext, block: BlockHeader) {
       temporaryHoldingFactory: network.contracts.TemporaryHoldingFactory.address,
       vestingFactory: network.contracts.VestingFactory.address,
       softCap: network.contracts.SoftCap.address,
+      portalPoolFactory: network.contracts.PortalPoolFactory.address,
       networkController: network.defaultRouterContracts.networkController,
       rewardCalculation: network.defaultRouterContracts.rewardCalculation,
       rewardTreasury: network.defaultRouterContracts.rewardTreasury,
@@ -151,7 +162,7 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
     await updateWorkersCap(ctx, block)
   }
 
-  if (blocksPassed > 1000) {
+  if (blocksPassed > 1000 && block.l1BlockNumber) {
     const limit = 50_000
     let offset = 0
     const ids: string[] = []
@@ -173,6 +184,7 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
 
     if (ids.length > 0) {
       await ctx.store.remove(Block, ids)
+      ctx.log.info(`pruned ${ids.length} old blocks`)
     }
 
     blocksPassed = 0
@@ -182,6 +194,7 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
 
 async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
   if (block.height < network.epochsStart) return
+  if (!block.l1BlockNumber) return
 
   const settings = await ctx.store.getOrFail(Settings, network.name)
   const epochLength = settings?.epochLength
@@ -213,6 +226,8 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
     status: EpochStatus.STARTED,
   })
   await ctx.store.insert(currentEpoch)
+
+  ctx.log.info(`epoch ${currentEpoch.number} started [${currentEpoch.start}, ${currentEpoch.end}]`)
 
   settings.currentEpoch = currentEpoch.number
   await ctx.store.upsert(settings)

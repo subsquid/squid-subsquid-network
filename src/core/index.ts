@@ -1,5 +1,6 @@
 import * as Gateway from './gateway'
 import * as NetworkController from './network-controller'
+import * as PortalPool from './portal-pool'
 import * as RewardsTreasury from './reward-treasury'
 import * as RewardsDistributor from './rewards-distributor'
 import * as Router from './router'
@@ -20,4 +21,5 @@ export const handlers = [
   ...Router.handlers,
   ...TemporaryHolding.handlers,
   ...RewardsTreasury.handlers,
+  ...PortalPool.handlers,
 ]

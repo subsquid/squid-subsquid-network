@@ -12,6 +12,7 @@ import { addNetworkControllerQuery } from './queries/networkController'
 import { addRewardTreasuryQuery } from './queries/rewardTreasury'
 import { addRouterQuery } from './queries/router'
 import { addStakingQuery } from './queries/staking'
+import { addPortalPoolsQuery } from './queries/portalPools'
 import { addVestingsQuery } from './queries/vestings'
 import { addWorkersRegistryQuery } from './queries/workersRegistry'
 
@@ -99,6 +100,7 @@ builder
     },
   })
 
+addPortalPoolsQuery(builder)
 addVestingsQuery(builder)
 addWorkersRegistryQuery(builder)
 addNetworkControllerQuery(builder)

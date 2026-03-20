@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: subsquid-network-mainnet 
-slot: v6
+slot: v6-a
 description: Subsquid network indexer
 build:
 deploy:
@@ -42,6 +42,6 @@ scale:
       storage: 40G
       profile: medium
   processor:
-    profile: medium
+    profile: large
   api:
     replicas: 2
