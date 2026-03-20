@@ -62,15 +62,23 @@ function stepInterval(groupSize: GroupSize): string {
   return `${groupSize.days} days`
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+function startOfDayUtc(date: Date): Date {
+  const d = new Date(date)
+  d.setUTCHours(0, 0, 0, 0)
+  return d
+}
 
-function getAlignedDates(
+function buildTimeseries<T extends { timestamp: Date; value: any }>(
+  data: T[],
+  groupSize: GroupSize,
   from: Date,
   to: Date,
-): { alignedFrom: Date; alignedTo: Date } {
+) {
   return {
-    alignedFrom: new Date(Math.floor(from.getTime() / DAY_MS) * DAY_MS),
-    alignedTo: new Date(Math.floor(to.getTime() / DAY_MS) * DAY_MS),
+    data: data,
+    step: groupSize.ms,
+    from: data[0]?.timestamp ?? startOfDayUtc(from),
+    to: data[data.length - 1]?.timestamp ?? startOfDayUtc(to),
   }
 }
 
@@ -78,21 +86,37 @@ function sql(strings: TemplateStringsArray, ...values: any[]): string {
   return String.raw({ raw: strings }, ...values).replace(/[\n\s]+/g, ' ')
 }
 
+function truncDayUtc(expr: string): string {
+  return sql`date_trunc('day', ${expr} AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`
+}
+
+const TRUNC_FROM = truncDayUtc('$1::timestamptz')
+const TRUNC_TO = truncDayUtc('$2::timestamptz')
+
 /**
- * Series from yesterday backwards to alignedFrom, in step-day increments.
- * $1 = alignedFrom, $2 = alignedTo (exclusive, = today midnight).
+ * Period ends, anchored backward from $2 (to). Last period is always a full step;
+ * first period may be shorter. bin_ts = exclusive upper bound of each period.
+ * Generates: to, to-step, to-2*step, … while bin_ts > from, ascending.
  */
 function generateTimeSeries(groupSize: GroupSize): string {
   const interval = stepInterval(groupSize)
-  return sql`generate_series($2::timestamptz - '1 day'::interval, $1::timestamptz, '-${interval}'::interval)`
+  return sql`
+    SELECT bin_ts::timestamptz
+    FROM generate_series(
+      ${TRUNC_TO},
+      ${TRUNC_FROM} + '1 day'::interval,
+      -'${interval}'::interval
+    ) AS bin_ts
+    ORDER BY bin_ts
+  `
 }
 
 /**
- * Range join condition: daily data falls into an N-day series bin.
+ * Bucket join: day falls within [bin_ts - step, bin_ts).
  */
 function binJoin(dayColumn: string, seriesColumn: string, groupSize: GroupSize): string {
   const interval = stepInterval(groupSize)
-  return sql`${dayColumn} >= ${seriesColumn} AND ${dayColumn} < ${seriesColumn} + '${interval}'::interval`
+  return sql`${dayColumn} >= ${seriesColumn} - '${interval}'::interval AND ${dayColumn} < ${seriesColumn}`
 }
 
 function trimNullValues<T extends { value: any }>(data: T[]): T[] {
@@ -165,8 +189,7 @@ async function prepareTimeseriesContext(
 ) {
   const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
   const groupSize = getGroupSizeInfo(from, to, step)
-  const { alignedFrom, alignedTo } = getAlignedDates(from, to)
-  return { groupSize, alignedFrom, alignedTo }
+  return { groupSize, from, to }
 }
 
 /*************************************
@@ -217,23 +240,22 @@ export class HoldersCountTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
           SELECT COALESCE(SUM(delta), 0) AS initial_value
           FROM mv_holders_count_daily
-          WHERE timestamp < $1
+          WHERE timestamp < ${TRUNC_FROM}
         ),
         daily AS (
-          SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+          SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
           FROM mv_holders_count_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         binned AS (
           SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -243,7 +265,7 @@ export class HoldersCountTimeseriesResolver {
         ),
         cumulative_data AS (
           SELECT
-            bin_ts AS timestamp,
+            (bin_ts - interval '1 second') AS timestamp,
             (SELECT initial_value FROM initial_count) +
             SUM(delta) OVER (ORDER BY bin_ts) AS value
           FROM binned
@@ -252,7 +274,7 @@ export class HoldersCountTimeseriesResolver {
         FROM cumulative_data
         ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -264,10 +286,7 @@ export class HoldersCountTimeseriesResolver {
     )
 
     return new HoldersCountTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -331,7 +350,6 @@ export class LockedValueTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     let raw
     if (type) {
@@ -343,18 +361,18 @@ export class LockedValueTimeseriesResolver {
               CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAW' THEN -amount ELSE 0 END
             ), 0) AS initial_locked
             FROM transfer
-            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp < $1 AND ${typeFilter}
+            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp < ${TRUNC_FROM} AND ${typeFilter}
           ),
           daily AS (
             SELECT
-              date_trunc('day', timestamp) as day,
+              ${truncDayUtc('timestamp')} as day,
               SUM(CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAW' THEN -amount ELSE 0 END) as delta
             FROM transfer
-            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp >= $1 AND timestamp < $2 AND ${typeFilter}
+            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} AND ${typeFilter}
             GROUP BY day
           ),
           time_series AS (
-            SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+            ${generateTimeSeries(groupSize)}
           ),
           binned AS (
             SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -364,7 +382,7 @@ export class LockedValueTimeseriesResolver {
           ),
           cumulative_data AS (
             SELECT
-              bin_ts AS timestamp,
+              (bin_ts - interval '1 second') AS timestamp,
               (SELECT initial_locked FROM initial_value) +
               SUM(delta) OVER (ORDER BY bin_ts) AS value
             FROM binned
@@ -373,7 +391,7 @@ export class LockedValueTimeseriesResolver {
           FROM cumulative_data
           ORDER BY timestamp
         `,
-        [alignedFrom, alignedTo],
+        [from, to],
       )
     } else {
       raw = await manager.query(
@@ -381,16 +399,16 @@ export class LockedValueTimeseriesResolver {
           WITH initial_value AS (
             SELECT COALESCE(SUM(delta), 0) AS initial_locked
             FROM mv_locked_value_daily
-            WHERE timestamp < $1
+            WHERE timestamp < ${TRUNC_FROM}
           ),
           daily AS (
-            SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+            SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
             FROM mv_locked_value_daily
-            WHERE timestamp >= $1 AND timestamp < $2
+            WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
             GROUP BY day
           ),
           time_series AS (
-            SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+            ${generateTimeSeries(groupSize)}
           ),
           binned AS (
             SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -400,7 +418,7 @@ export class LockedValueTimeseriesResolver {
           ),
           cumulative_data AS (
             SELECT
-              bin_ts AS timestamp,
+              (bin_ts - interval '1 second') AS timestamp,
               (SELECT initial_locked FROM initial_value) +
               SUM(delta) OVER (ORDER BY bin_ts) AS value
             FROM binned
@@ -409,7 +427,7 @@ export class LockedValueTimeseriesResolver {
           FROM cumulative_data
           ORDER BY timestamp
         `,
-        [alignedFrom, alignedTo],
+        [from, to],
       )
     }
 
@@ -422,10 +440,7 @@ export class LockedValueTimeseriesResolver {
     )
 
     return new LockedValueTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -478,23 +493,22 @@ export class ActiveWorkersTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
           SELECT COALESCE(SUM(delta), 0) AS initial_value
           FROM mv_active_workers_daily
-          WHERE timestamp < $1
+          WHERE timestamp < ${TRUNC_FROM}
         ),
         daily AS (
-          SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+          SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
           FROM mv_active_workers_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         binned AS (
           SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -504,7 +518,7 @@ export class ActiveWorkersTimeseriesResolver {
         ),
         cumulative_data AS (
           SELECT
-            bin_ts AS timestamp,
+            (bin_ts - interval '1 second') AS timestamp,
             (SELECT initial_value FROM initial_count) +
             SUM(delta) OVER (ORDER BY bin_ts) AS value
           FROM binned
@@ -513,7 +527,7 @@ export class ActiveWorkersTimeseriesResolver {
         FROM cumulative_data
         ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -525,10 +539,7 @@ export class ActiveWorkersTimeseriesResolver {
     )
 
     return new ActiveWorkersTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -581,23 +592,22 @@ export class UniqueOperatorsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
           SELECT COALESCE(SUM(delta), 0) AS initial_value
           FROM mv_unique_operators_daily
-          WHERE timestamp < $1
+          WHERE timestamp < ${TRUNC_FROM}
         ),
         daily AS (
-          SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+          SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
           FROM mv_unique_operators_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         binned AS (
           SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -607,7 +617,7 @@ export class UniqueOperatorsTimeseriesResolver {
         ),
         cumulative_data AS (
           SELECT
-            bin_ts AS timestamp,
+            (bin_ts - interval '1 second') AS timestamp,
             (SELECT initial_value FROM initial_count) +
             SUM(delta) OVER (ORDER BY bin_ts) AS value
           FROM binned
@@ -616,7 +626,7 @@ export class UniqueOperatorsTimeseriesResolver {
         FROM cumulative_data
         ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -628,10 +638,7 @@ export class UniqueOperatorsTimeseriesResolver {
     )
 
     return new UniqueOperatorsTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -684,23 +691,22 @@ export class DelegationsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
           SELECT COALESCE(SUM(delta), 0) AS initial_value
           FROM mv_delegations_daily
-          WHERE timestamp < $1
+          WHERE timestamp < ${TRUNC_FROM}
         ),
         daily AS (
-          SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+          SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
           FROM mv_delegations_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         binned AS (
           SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -710,7 +716,7 @@ export class DelegationsTimeseriesResolver {
         ),
         cumulative_data AS (
           SELECT
-            bin_ts AS timestamp,
+            (bin_ts - interval '1 second') AS timestamp,
             (SELECT initial_value FROM initial_count) +
             SUM(delta) OVER (ORDER BY bin_ts) AS value
           FROM binned
@@ -719,7 +725,7 @@ export class DelegationsTimeseriesResolver {
         FROM cumulative_data
         ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -731,10 +737,7 @@ export class DelegationsTimeseriesResolver {
     )
 
     return new DelegationsTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -787,23 +790,22 @@ export class DelegatorsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH initial_count AS (
           SELECT COALESCE(SUM(delta), 0) AS initial_value
           FROM mv_delegators_daily
-          WHERE timestamp < $1
+          WHERE timestamp < ${TRUNC_FROM}
         ),
         daily AS (
-          SELECT date_trunc('day', timestamp) as day, SUM(delta) as delta
+          SELECT ${truncDayUtc('timestamp')} as day, SUM(delta) as delta
           FROM mv_delegators_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         ),
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         binned AS (
           SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -813,7 +815,7 @@ export class DelegatorsTimeseriesResolver {
         ),
         cumulative_data AS (
           SELECT
-            bin_ts AS timestamp,
+            (bin_ts - interval '1 second') AS timestamp,
             (SELECT initial_value FROM initial_count) +
             SUM(delta) OVER (ORDER BY bin_ts) AS value
           FROM binned
@@ -822,7 +824,7 @@ export class DelegatorsTimeseriesResolver {
         FROM cumulative_data
         ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -834,10 +836,7 @@ export class DelegatorsTimeseriesResolver {
     )
 
     return new DelegatorsTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -909,28 +908,27 @@ export class TransfersByTypeTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     const raw = await manager.query(
       sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} as bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         daily AS (
           SELECT 
-            date_trunc('day', timestamp) as day,
+            ${truncDayUtc('timestamp')} as day,
             SUM(deposit) as deposit,
             SUM(withdraw) as withdraw,
             SUM(reward) as reward,
             SUM(release) as release,
             SUM(transfer) as transfer
           FROM mv_transfers_by_type_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         )
         SELECT 
-          ts.bin_ts as date,
+          (ts.bin_ts - interval '1 second') as date,
           COALESCE(SUM(d.deposit), 0) as deposit,
           COALESCE(SUM(d.withdraw), 0) as withdraw,
           COALESCE(SUM(d.transfer), 0) as transfer,
@@ -941,7 +939,7 @@ export class TransfersByTypeTimeseriesResolver {
         GROUP BY ts.bin_ts
         ORDER BY ts.bin_ts
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -959,10 +957,7 @@ export class TransfersByTypeTimeseriesResolver {
     )
 
     return new TransfersByTypeTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1015,7 +1010,6 @@ export class UniqueAccountsTimeseriesResolver {
     const manager = await this.tx()
     const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
-    const { alignedFrom, alignedTo } = getAlignedDates(from, to)
 
     // For daily or larger buckets, use materialized view and sum
     // Note: This is an approximation - actual unique count across days may be lower
@@ -1024,25 +1018,25 @@ export class UniqueAccountsTimeseriesResolver {
       sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} as bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         daily AS (
           SELECT 
-            date_trunc('day', timestamp) as day,
+            ${truncDayUtc('timestamp')} as day,
             SUM(value) as value
           FROM mv_unique_accounts_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         )
         SELECT 
-          ts.bin_ts as date,
+          (ts.bin_ts - interval '1 second') as date,
           COALESCE(SUM(d.value), 0) as value
         FROM time_series ts
         LEFT JOIN daily d ON ${binJoin('d.day', 'ts.bin_ts', groupSize)}
         GROUP BY ts.bin_ts
         ORDER BY ts.bin_ts
       `,
-      [alignedFrom, alignedTo],
+      [from, to],
     )
 
     const data = raw.map(
@@ -1054,10 +1048,7 @@ export class UniqueAccountsTimeseriesResolver {
     )
 
     return new UniqueAccountsTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1108,30 +1099,25 @@ export class QueriesCountTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<QueriesCountTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+    const params = workerId ? [from, to, workerId] : [from, to]
 
     const raw = await manager.query(
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} as bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       daily AS (
-        SELECT date_trunc('day', timestamp) as day, sum(value) as value
+        SELECT ${truncDayUtc('timestamp')} as day, sum(value) as value
         FROM mv_queries_daily
-        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+        WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} ${workerFilter}
         GROUP BY day
       )
       SELECT 
-        ts.bin_ts as date,
+        (ts.bin_ts - interval '1 second') as date,
         COALESCE(SUM(d.value), 0) as value
       FROM time_series ts
       LEFT JOIN daily d ON ${binJoin('d.day', 'ts.bin_ts', groupSize)}
@@ -1150,10 +1136,7 @@ export class QueriesCountTimeseriesResolver {
     )
 
     return new QueriesCountTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1204,30 +1187,25 @@ export class ServedDataTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<ServedDataTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+    const params = workerId ? [from, to, workerId] : [from, to]
 
     const raw = await manager.query(
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} as bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       daily AS (
-        SELECT date_trunc('day', timestamp) as day, sum(value) as value
+        SELECT ${truncDayUtc('timestamp')} as day, sum(value) as value
         FROM mv_served_data_daily
-        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+        WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} ${workerFilter}
         GROUP BY day
       )
       SELECT 
-        ts.bin_ts as date,
+        (ts.bin_ts - interval '1 second') as date,
         COALESCE(SUM(d.value), 0) as value
       FROM time_series ts
       LEFT JOIN daily d ON ${binJoin('d.day', 'ts.bin_ts', groupSize)}
@@ -1246,10 +1224,7 @@ export class ServedDataTimeseriesResolver {
     )
 
     return new ServedDataTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1300,37 +1275,32 @@ export class StoredDataTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<StoredDataTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+    const params = workerId ? [from, to, workerId] : [from, to]
 
     const raw = await manager.query(
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} as bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       daily AS (
         SELECT day, SUM(avg_per_worker) as value
         FROM (
           SELECT 
-            date_trunc('day', timestamp) as day,
+            ${truncDayUtc('timestamp')} as day,
             worker_id,
             AVG(value) as avg_per_worker
           FROM mv_stored_data_daily
-          WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} ${workerFilter}
           GROUP BY day, worker_id
         ) worker_averages
         GROUP BY day
       )
       SELECT 
-        ts.bin_ts as date,
+        (ts.bin_ts - interval '1 second') as date,
         COALESCE(SUM(d.value), COALESCE(LAG(SUM(d.value)) OVER (ORDER BY ts.bin_ts), 0)) as value
       FROM time_series ts
       LEFT JOIN daily d ON ${binJoin('d.day', 'ts.bin_ts', groupSize)}
@@ -1349,10 +1319,7 @@ export class StoredDataTimeseriesResolver {
     )
 
     return new StoredDataTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1403,32 +1370,27 @@ export class UptimeTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<UptimeTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+    const params = workerId ? [from, to, workerId] : [from, to]
 
     const raw = await manager.query(
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} as bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       daily AS (
         SELECT 
-          date_trunc('day', timestamp) as day,
+          ${truncDayUtc('timestamp')} as day,
           AVG(value) as value
         FROM mv_uptime_daily
-        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+        WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} ${workerFilter}
         GROUP BY day
       )
       SELECT 
-        ts.bin_ts as date,
+        (ts.bin_ts - interval '1 second') as date,
         COALESCE(AVG(d.value), 0) as value
       FROM time_series ts
       LEFT JOIN daily d ON ${binJoin('d.day', 'ts.bin_ts', groupSize)}
@@ -1447,10 +1409,7 @@ export class UptimeTimeseriesResolver {
     )
 
     return new UptimeTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1501,12 +1460,7 @@ export class AccountBalanceTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<AccountBalanceTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const raw = await manager.query(
       sql`
@@ -1527,24 +1481,24 @@ export class AccountBalanceTimeseriesResolver {
         FROM account_transfer at
         INNER JOIN transfer t ON at.transfer_id = t.id
         WHERE at.account_id IN (SELECT id FROM owned_accounts)
-          AND t.timestamp < $2
+          AND t.timestamp < ${TRUNC_TO}
           AND t.type NOT IN ('DEPOSIT', 'WITHDRAW')
       ),
       initial_balance AS (
         SELECT COALESCE(SUM(delta), 0) AS initial_value
         FROM all_transfers
-        WHERE timestamp < $1
+        WHERE timestamp < ${TRUNC_FROM}
       ),
       balance_daily AS (
         SELECT
-          date_trunc('day', timestamp) AS day,
+          ${truncDayUtc('timestamp')} AS day,
           SUM(delta) AS delta
         FROM all_transfers
-        WHERE timestamp >= $1
+        WHERE timestamp >= ${TRUNC_FROM}
         GROUP BY day
       ),
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} AS bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       balance_binned AS (
         SELECT ts.bin_ts, COALESCE(SUM(d.delta), 0) as delta
@@ -1554,7 +1508,7 @@ export class AccountBalanceTimeseriesResolver {
       ),
       cumulative_balance AS (
         SELECT
-          bin_ts AS timestamp,
+          (bin_ts - interval '1 second') AS timestamp,
           (SELECT initial_value FROM initial_balance) +
           SUM(delta) OVER (ORDER BY bin_ts) AS value
         FROM balance_binned
@@ -1565,7 +1519,7 @@ export class AccountBalanceTimeseriesResolver {
       FROM cumulative_balance
       ORDER BY timestamp
       `,
-      [alignedFrom, alignedTo, accountId],
+      [from, to, accountId],
     )
 
     const data = raw.map(
@@ -1577,10 +1531,7 @@ export class AccountBalanceTimeseriesResolver {
     )
 
     return new AccountBalanceTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1682,33 +1633,28 @@ export class RewardTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<RewardTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     const workerFilter = workerId ? sql`AND worker_id = $3` : ''
-    const params = workerId ? [alignedFrom, alignedTo, workerId] : [alignedFrom, alignedTo]
+    const params = workerId ? [from, to, workerId] : [from, to]
 
     const raw = await manager.query(
       sql`
       WITH
       time_series AS (
-        SELECT ${generateTimeSeries(groupSize)} as bin_ts
+        ${generateTimeSeries(groupSize)}
       ),
       daily AS (
         SELECT
-          date_trunc('day', timestamp) as day,
+          ${truncDayUtc('timestamp')} as day,
           SUM(worker_value) AS worker_value,
           SUM(staker_value) AS staker_value
         FROM mv_reward_daily
-        WHERE timestamp >= $1 AND timestamp < $2 ${workerFilter}
+        WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} ${workerFilter}
         GROUP BY day
       )
       SELECT 
-        ts.bin_ts as date,
+        (ts.bin_ts - interval '1 second') as date,
         COALESCE(SUM(d.worker_value), 0) as worker_value,
         COALESCE(SUM(d.staker_value), 0) as staker_value
       FROM time_series ts
@@ -1731,10 +1677,7 @@ export class RewardTimeseriesResolver {
     )
 
     return new RewardTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
@@ -1799,35 +1742,30 @@ export class AprTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<AprTimeseries> {
     const manager = await this.tx()
-    const { groupSize, alignedFrom, alignedTo } = await prepareTimeseriesContext(
-      manager,
-      fromArg,
-      toArg,
-      step,
-    )
+    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
 
     let raw
 
     if (workerId) {
       // For specific worker, query raw data (materialized view doesn't have per-worker data)
-      const params = [alignedFrom, alignedTo, workerId]
+      const params = [from, to, workerId]
       raw = await manager.query(
         sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} as bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         daily AS (
           SELECT
-            date_trunc('day', timestamp) as day,
+            ${truncDayUtc('timestamp')} as day,
             COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY apr) FILTER (WHERE apr > 0), 0) AS "workerApr",
             COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY staker_apr) FILTER (WHERE staker_apr > 0), 0) AS "stakerApr"
           FROM worker_reward
-          WHERE timestamp >= $1 AND timestamp < $2 AND worker_id = $3
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO} AND worker_id = $3
           GROUP BY day
         )
         SELECT 
-          ts.bin_ts as date,
+          (ts.bin_ts - interval '1 second') as date,
           COALESCE(AVG(d."workerApr"), 0) as "workerApr",
           COALESCE(AVG(d."stakerApr"), 0) as "stakerApr"
         FROM time_series ts
@@ -1839,24 +1777,24 @@ export class AprTimeseriesResolver {
       )
     } else {
       // For all workers, use materialized view with pre-computed overall median
-      const params = [alignedFrom, alignedTo]
+      const params = [from, to]
       raw = await manager.query(
         sql`
         WITH
         time_series AS (
-          SELECT ${generateTimeSeries(groupSize)} as bin_ts
+          ${generateTimeSeries(groupSize)}
         ),
         daily AS (
           SELECT
-            date_trunc('day', timestamp) as day,
+            ${truncDayUtc('timestamp')} as day,
             AVG(worker_apr) FILTER (WHERE worker_apr > 0) AS "workerApr",
             AVG(staker_apr) FILTER (WHERE staker_apr > 0) AS "stakerApr"
           FROM mv_apr_daily
-          WHERE timestamp >= $1 AND timestamp < $2
+          WHERE timestamp >= ${TRUNC_FROM} AND timestamp < ${TRUNC_TO}
           GROUP BY day
         )
         SELECT 
-          ts.bin_ts as date,
+          (ts.bin_ts - interval '1 second') as date,
           COALESCE(AVG(d."workerApr"), 0) as "workerApr",
           COALESCE(AVG(d."stakerApr"), 0) as "stakerApr"
         FROM time_series ts
@@ -1880,10 +1818,7 @@ export class AprTimeseriesResolver {
     )
 
     return new AprTimeseries({
-      data: trimNullValues(data),
-      step: groupSize.ms,
-      from: alignedFrom,
-      to: alignedTo,
+      ...buildTimeseries(data, groupSize, from, to),
     })
   }
 }
