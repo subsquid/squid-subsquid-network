@@ -13,6 +13,7 @@ export class Contracts {
     private _softCap!: string | undefined | null
     private _vestingFactory!: string | undefined | null
     private _temporaryHoldingFactory!: string | undefined | null
+    private _portalPoolFactory!: string | undefined | null
 
     constructor(props?: Partial<Omit<Contracts, 'toJSON'>>, json?: any) {
         Object.assign(this, props)
@@ -28,6 +29,7 @@ export class Contracts {
             this._softCap = json.softCap == null ? undefined : marshal.string.fromJSON(json.softCap)
             this._vestingFactory = json.vestingFactory == null ? undefined : marshal.string.fromJSON(json.vestingFactory)
             this._temporaryHoldingFactory = json.temporaryHoldingFactory == null ? undefined : marshal.string.fromJSON(json.temporaryHoldingFactory)
+            this._portalPoolFactory = json.portalPoolFactory == null ? undefined : marshal.string.fromJSON(json.portalPoolFactory)
         }
     }
 
@@ -119,6 +121,14 @@ export class Contracts {
         this._temporaryHoldingFactory = value
     }
 
+    get portalPoolFactory(): string | undefined | null {
+        return this._portalPoolFactory
+    }
+
+    set portalPoolFactory(value: string | undefined | null) {
+        this._portalPoolFactory = value
+    }
+
     toJSON(): object {
         return {
             router: this.router,
@@ -132,6 +142,7 @@ export class Contracts {
             softCap: this.softCap,
             vestingFactory: this.vestingFactory,
             temporaryHoldingFactory: this.temporaryHoldingFactory,
+            portalPoolFactory: this.portalPoolFactory,
         }
     }
 }

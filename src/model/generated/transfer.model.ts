@@ -4,6 +4,7 @@ import {Account} from "./account.model"
 import {Delegation} from "./delegation.model"
 import {Worker} from "./worker.model"
 import {GatewayStake} from "./gatewayStake.model"
+import {PortalPool} from "./portalPool.model"
 
 @Index_(["type", "timestamp"], {unique: false})
 @Entity_()
@@ -55,4 +56,8 @@ export class Transfer {
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
     vesting!: Account | undefined | null
+
+    @Index_()
+    @ManyToOne_(() => PortalPool, {nullable: true})
+    portalPool!: PortalPool | undefined | null
 }

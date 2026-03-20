@@ -21,6 +21,6 @@ export class Block {
     timestamp!: Date
 
     @Index_()
-    @IntColumn_({nullable: false})
-    l1BlockNumber!: number
+    @IntColumn_({nullable: true})
+    l1BlockNumber!: number | undefined | null
 }

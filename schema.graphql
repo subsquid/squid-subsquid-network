@@ -72,6 +72,7 @@ type Transfer @entity @index(fields: ["type", "timestamp"]) {
   worker: Worker
   gatewayStake: GatewayStake
   vesting: Account
+  portalPool: PortalPool
 }
 
 type Contracts {
@@ -86,6 +87,7 @@ type Contracts {
   softCap: String
   vestingFactory: String
   temporaryHoldingFactory: String
+  portalPoolFactory: String
 }
 
 type Settings @entity {
@@ -126,7 +128,7 @@ type Block @entity {
   hash: String!
   height: Int! @index
   timestamp: DateTime! @index
-  l1BlockNumber: Int! @index
+  l1BlockNumber: Int @index
 }
 
 enum WorkerStatus {
@@ -395,4 +397,19 @@ type TemporaryHoldingData @entity {
   admin: Account!
   unlockedAt: DateTime!
   locked: Boolean!
+}
+
+type PortalPool @entity {
+  id: ID!
+
+  createdAt: DateTime!
+  createdAtBlock: Int!
+
+  operator: Account!
+  rewardToken: String!
+  capacity: BigInt!
+  distributionRatePerSecond: BigInt!
+  initialDeposit: BigInt!
+  tokenSuffix: String!
+  metadata: String
 }
