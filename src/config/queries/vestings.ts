@@ -1,8 +1,8 @@
-import fs from 'fs'
-
 import { DataSourceBuilder } from '@subsquid/evm-stream'
 
 import { network } from '../network'
+
+import { loadPreindexFile } from './loadPreindex'
 
 import * as Vesting from '~/abi/SubsquidVesting'
 import * as VestingFactory from '~/abi/VestingFactory'
@@ -13,8 +13,7 @@ type VestingsMetadata = {
 }
 
 export function addVestingsQuery(builder: DataSourceBuilder) {
-  const file = fs.readFileSync(`./assets/${network.name}/vestings.json`, 'utf-8')
-  const vestings = JSON.parse(file) as VestingsMetadata
+  const vestings = loadPreindexFile<VestingsMetadata>(`./assets/${network.name}/vestings.json`)
 
   builder.addLog({
     range: network.contracts.VestingFactory.range,
@@ -25,43 +24,61 @@ export function addVestingsQuery(builder: DataSourceBuilder) {
   })
 
   if (network.name === 'tethys') {
-    builder
-      .addLog({
-        range: {
-          from: 0,
-          to: vestings.height,
-        },
+    if (vestings) {
+      builder
+        .addLog({
+          range: {
+            from: 0,
+            to: vestings.height,
+          },
+          where: {
+            address: vestings.addresses,
+            topic0: [Vesting.events.OwnershipTransferred.topic],
+          },
+        })
+        .addLog({
+          range: {
+            from: vestings.height ?? 0,
+          },
+          where: {
+            topic0: [Vesting.events.OwnershipTransferred.topic],
+          },
+        })
+    } else {
+      builder.addLog({
+        range: { from: network.range.from },
         where: {
-          address: vestings.addresses,
           topic0: [Vesting.events.OwnershipTransferred.topic],
         },
       })
-      .addLog({
-        range: {
-          from: vestings.height ?? 0,
-        },
-        where: {
-          topic0: [Vesting.events.OwnershipTransferred.topic],
-        },
-      })
+    }
   }
 
-  builder.addLog({
-    range: {
-      from: 0,
-      to: vestings.height,
-    },
-    where: {
-      address: vestings.addresses,
-      topic0: [Vesting.events.ERC20Released.topic],
-    },
-  })
-  builder.addLog({
-    range: {
-      from: vestings.height ?? 0,
-    },
-    where: {
-      topic0: [Vesting.events.ERC20Released.topic],
-    },
-  })
+  if (vestings) {
+    builder.addLog({
+      range: {
+        from: 0,
+        to: vestings.height,
+      },
+      where: {
+        address: vestings.addresses,
+        topic0: [Vesting.events.ERC20Released.topic],
+      },
+    })
+    builder.addLog({
+      range: {
+        from: vestings.height ?? 0,
+      },
+      where: {
+        topic0: [Vesting.events.ERC20Released.topic],
+      },
+    })
+  } else {
+    builder.addLog({
+      range: { from: network.range.from },
+      where: {
+        topic0: [Vesting.events.ERC20Released.topic],
+      },
+    })
+  }
 }

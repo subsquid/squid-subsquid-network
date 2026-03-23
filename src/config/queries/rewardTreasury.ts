@@ -1,8 +1,8 @@
-import fs from 'fs'
-
 import { DataSourceBuilder } from '@subsquid/evm-stream'
 
 import { ContractConfig, network } from '../network'
+
+import { loadPreindexFile } from './loadPreindex'
 
 import * as RewardTreasury from '~/abi/RewardTreasury'
 
@@ -12,25 +12,28 @@ export type RewardTreasuryMetadata = {
 }
 
 export function addRewardTreasuryQuery(builder: DataSourceBuilder) {
-  const file = fs.readFileSync(`./assets/${network.name}/router.json`, 'utf-8')
-  const metadata = JSON.parse(file) as RewardTreasuryMetadata
+  const metadata = loadPreindexFile<RewardTreasuryMetadata>(
+    `./assets/${network.name}/router.json`,
+  )
 
-  for (const contract of metadata.rewardTreasury) {
-    builder.addLog({
-      range: {
-        from: contract.range.from,
-        to: contract.range.to ? contract.range.to : metadata.height,
-      },
-      where: {
-        address: [contract.address],
-        topic0: [RewardTreasury.events.Claimed.topic],
-      },
-    })
+  if (metadata) {
+    for (const contract of metadata.rewardTreasury) {
+      builder.addLog({
+        range: {
+          from: contract.range.from,
+          to: contract.range.to ? contract.range.to : metadata.height,
+        },
+        where: {
+          address: [contract.address],
+          topic0: [RewardTreasury.events.Claimed.topic],
+        },
+      })
+    }
   }
 
   builder.addLog({
     range: {
-      from: metadata.height + 1,
+      from: metadata ? metadata.height + 1 : network.range.from,
     },
     where: {
       topic0: [RewardTreasury.events.Claimed.topic],

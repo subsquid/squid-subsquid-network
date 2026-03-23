@@ -1,8 +1,8 @@
-import fs from 'fs'
-
 import { DataSourceBuilder } from '@subsquid/evm-stream'
 
 import { network } from '../network'
+
+import { loadPreindexFile } from './loadPreindex'
 
 import * as PortalPoolFactory from '~/abi/PortalPoolFactory'
 import * as PortalPoolImplementation from '~/abi/PortalPoolImplementation'
@@ -13,8 +13,9 @@ type PortalPoolsMetadata = {
 }
 
 export function addPortalPoolsQuery(builder: DataSourceBuilder) {
-  const file = fs.readFileSync(`./assets/${network.name}/portal_pools.json`, 'utf-8')
-  const metadata = JSON.parse(file) as PortalPoolsMetadata
+  const metadata = loadPreindexFile<PortalPoolsMetadata>(
+    `./assets/${network.name}/portal_pools.json`,
+  )
 
   builder.addLog({
     range: network.contracts.PortalPoolFactory.range,
@@ -33,7 +34,7 @@ export function addPortalPoolsQuery(builder: DataSourceBuilder) {
     PortalPoolImplementation.events.ExitClaimed.topic,
   ]
 
-  if (metadata.addresses.length > 0) {
+  if (metadata && metadata.addresses.length > 0) {
     builder.addLog({
       range: {
         from: network.contracts.PortalPoolFactory.range.from,
@@ -51,7 +52,7 @@ export function addPortalPoolsQuery(builder: DataSourceBuilder) {
 
   builder.addLog({
     range: {
-      from: metadata.height + 1,
+      from: metadata ? metadata.height + 1 : network.contracts.PortalPoolFactory.range.from,
     },
     where: {
       topic0: poolEventTopics,
