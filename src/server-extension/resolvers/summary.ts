@@ -106,7 +106,12 @@ export class NetworkSummaryResolver {
         SELECT
           COALESCE(SUM(bond), 0) as "totalBond",
           COALESCE(SUM(total_delegation), 0) as "totalDelegation",
-          COALESCE((SELECT SUM(amount) FROM gateway_stake), 0) as "totalPortalLock",
+          COALESCE((SELECT SUM(amount) FROM gateway_stake), 0) +
+          COALESCE((
+            SELECT SUM(CASE WHEN type = 'DEPOSIT' THEN amount WHEN type = 'WITHDRAW' THEN -amount ELSE 0 END)
+            FROM transfer
+            WHERE type IN ('DEPOSIT', 'WITHDRAW') AND portal_pool_id IS NOT NULL
+          ), 0) as "totalPortalLock",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY apr) FILTER(WHERE apr > 0), 0) as "workerApr",
           COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP(ORDER BY staker_apr) FILTER(WHERE staker_apr > 0), 0) as "stakerApr",
           COALESCE(SUM(queries90_days), 0) as "queries90Days",
