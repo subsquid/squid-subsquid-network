@@ -173,12 +173,10 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
       }
     }
 
-    await ctx.store.insert(rewards)
+    await ctx.store.track(rewards)
 
-    await ctx.store.upsert(activeWorkers)
-    await ctx.store.upsert(delegations)
 
-    await ctx.store.insert(
+    await ctx.store.track(
       new Commitment({
         id: createCommitmentId(event.fromBlock, event.toBlock),
         from: fromBlock?.timestamp,
@@ -227,7 +225,6 @@ async function distributeReward(
     if (delegation.claimableReward === amount) {
       const owner = delegation.owner
       owner.claimableDelegationCount += 1
-      await ctx.store.upsert(owner)
     }
 
     const reward = new DelegationReward({

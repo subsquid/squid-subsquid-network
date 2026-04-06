@@ -3,7 +3,7 @@ import { createHandler } from '../base'
 
 import * as Router from '~/abi/Router'
 import { network } from '~/config/network'
-import { Settings } from '~/model'
+import { Contracts, Settings } from '~/model'
 
 export const rewardCalculationSetHandler = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.Router)) return
@@ -18,9 +18,10 @@ export const rewardCalculationSetHandler = createHandler((ctx, item) => {
   return async () => {
     const settings = await settingsDeferred.getOrFail()
 
-    settings.contracts.rewardCalculation = rewardCalculation
-
-    await ctx.store.upsert(settings)
+    settings.contracts = new Contracts(undefined, {
+      ...settings.contracts.toJSON(),
+      rewardCalculation,
+    })
 
     ctx.log.info(`reward calculation contract address set to ${rewardCalculation}`)
   }

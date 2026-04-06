@@ -28,15 +28,15 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
   const adminDeferred = ctx.store.defer(Account, createAccountId(adminAddress))
 
   return timed(ctx, async (elapsed) => {
-    const beneficiary = await ownerDeferred.getOrInsert((id) => {
+    const beneficiary = await ctx.store.getOrCreate(Account, createAccountId(beneficiaryAddress), (id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
     })
-    const vesting = await vestingDeferred.getOrInsert((id) => {
+    const vesting = await ctx.store.getOrCreate(Account, { id: createAccountId(vestingAddress), relations: { owner: true } }, (id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.TEMPORARY_HOLDING, owner: beneficiary })
     })
-    const admin = await adminDeferred.getOrInsert((id) => {
+    const admin = await ctx.store.getOrCreate(Account, createAccountId(adminAddress), (id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
     })
@@ -45,10 +45,9 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
       vesting.type = AccountType.TEMPORARY_HOLDING
       vesting.owner = beneficiary
 
-      await ctx.store.upsert(vesting)
     }
 
-    await ctx.store.insert(
+    await ctx.store.track(
       new TemporaryHoldingData({
         id: vesting.id,
         account: vesting,

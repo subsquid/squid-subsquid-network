@@ -12,6 +12,7 @@ import {
 
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
+import { STAKING_TEMPLATE_KEY } from '~/config/queries/staking'
 import {
   Delegation,
   DelegationStatus,
@@ -26,6 +27,7 @@ import { saveTransfer } from '../token/Transfer.handler'
 export const handleWithdrawn = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!Staking.events.Withdrawn.is(item.value)) return
+  if (!ctx.templates.has(STAKING_TEMPLATE_KEY, item.address, item.value.block.height)) return
 
   const log = item.value
   const {
@@ -46,14 +48,12 @@ export const handleWithdrawn = createHandler((ctx, item) => {
 
   return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
-    if (settings.contracts.staking !== log.address) return
-
     const delegation = await delegationDeferred.getOrFail()
     delegation.deposit -= amount
 
     if (delegation.deposit === 0n) {
       delegation.status = DelegationStatus.WITHDRAWN
-      await ctx.store.insert(
+      await ctx.store.track(
         new DelegationStatusChange({
           id: createDelegationStatusChangeId(delegation.id, log.block.height),
           delegation,
@@ -65,8 +65,6 @@ export const handleWithdrawn = createHandler((ctx, item) => {
       )
     }
 
-    await ctx.store.upsert(delegation)
-
     const worker = delegation.worker
     assert(worker.id === workerId)
     if (delegation.deposit === 0n) {
@@ -74,13 +72,11 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     }
     worker.totalDelegation -= amount
 
-    await ctx.store.upsert(worker)
-
     await addToWorkerCapQueue(ctx, worker.id)
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       to: accountId,
-      from: settings.contracts.staking,
+      from: log.address,
       amount,
       logIndex: log.logIndex - 1,
     })

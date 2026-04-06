@@ -39,7 +39,6 @@ export const handleUnstaked = createHandler((ctx, item) => {
     stake.lockEnd = null
     stake.computationUnitsPending = null
 
-    await ctx.store.upsert(stake)
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: network.contracts.GatewayRegistry.address,

@@ -1,14 +1,16 @@
-import { LogItem, isContract, isLog } from '../../item'
-import { createHandler, createHandlerOld } from '../base'
+import { isLog } from '../../item'
+import { createHandler } from '../base'
 
 import * as NetworkController from '~/abi/NetworkController'
 import { network } from '~/config/network'
-import { Epoch, Settings } from '~/model'
-import { toNextEpochStart } from '~/utils/misc'
+import { NETWORK_CONTROLLER_TEMPLATE_KEY } from '~/config/queries/networkController'
+import { Settings } from '~/model'
 
 export const handleEpochLengthUpdated = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!NetworkController.events.EpochLengthUpdated.is(item.value)) return
+  if (!ctx.templates.has(NETWORK_CONTROLLER_TEMPLATE_KEY, item.address, item.value.block.height))
+    return
 
   const log = item.value
   const event = NetworkController.events.EpochLengthUpdated.decode(log)
@@ -17,17 +19,7 @@ export const handleEpochLengthUpdated = createHandler((ctx, item) => {
 
   return async () => {
     const settings = await settingsDeferred.getOrFail()
-    if (log.address !== settings.contracts.networkController) return
-
     settings.epochLength = Number(event.epochLength)
-    await ctx.store.upsert(settings)
-
-    // // TODO: remove after contract fix
-    // const currentEpoch = await ctx.store.findOne(Epoch, { where: {}, order: { start: 'DESC' } });
-    // if (currentEpoch) {
-    //   currentEpoch.end = toNextEpochStart(log.block.l1BlockNumber, epochLength) - 1;
-    //   await ctx.store.upsert(currentEpoch);
-    // }
 
     ctx.log.info(`set epoch length to ${settings.epochLength}`)
   }

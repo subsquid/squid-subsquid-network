@@ -1,9 +1,10 @@
-import { LogItem, isContract, isLog } from '../../item'
+import { LogItem, isLog } from '../../item'
 import { createHandlerOld, timed } from '../base'
 import { createWorkerId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
+import { WORKER_REGISTRATION_TEMPLATE_KEY } from '~/config/queries/workersRegistry'
 import { Settings, TransferType, Worker } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
 import { findTransfer } from '../helpers/misc'
@@ -14,6 +15,8 @@ export const handleExcessiveBondReturned = createHandlerOld({
     return isLog(item) && WorkerRegistry.events.ExcessiveBondReturned.is(item.value)
   },
   handle(ctx, { value: log }) {
+    if (!ctx.templates.has(WORKER_REGISTRATION_TEMPLATE_KEY, log.address, log.block.height)) return
+
     const { workerId: workerIndex, amount } =
       WorkerRegistry.events.ExcessiveBondReturned.decode(log)
 
@@ -22,15 +25,13 @@ export const handleExcessiveBondReturned = createHandlerOld({
 
     return timed(ctx, async (elapsed) => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
-      if (log.address !== settings.contracts.workerRegistration) return
 
       const worker = await workerDeferred.getOrFail()
       worker.bond -= amount
-      await ctx.store.upsert(worker)
 
       const transfer = findTransfer(log.transaction?.logs ?? [], {
         to: worker.owner.id,
-        from: settings.contracts.workerRegistration,
+        from: log.address,
         logIndex: log.logIndex - 1,
       })
       if (!transfer) {

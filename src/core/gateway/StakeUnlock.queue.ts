@@ -11,7 +11,7 @@ export type StakeUnlockTask = {
 }
 
 export async function ensureGatewayStakeUnlockQueue(ctx: MappingContext) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<StakeUnlockTask>,
     STAKE_UNLOCK_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -26,9 +26,8 @@ export async function addToGatewayStakeUnlockQueue(ctx: MappingContext, id: stri
   const queue = await ctx.store.getOrFail(Queue<StakeUnlockTask>, STAKE_UNLOCK_QUEUE)
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
+  queue.tasks = [...queue.tasks, { id }]
 
-  await ctx.store.upsert(queue)
 }
 
 export async function removeFromGatewayStakeUnlockQueue(ctx: MappingContext, id: string) {
@@ -36,7 +35,6 @@ export async function removeFromGatewayStakeUnlockQueue(ctx: MappingContext, id:
 
   queue.tasks = queue.tasks.filter((task) => task.id !== id)
 
-  await ctx.store.upsert(queue)
 }
 
 export async function processGatewayStakeUnlockQueue(
@@ -61,14 +59,12 @@ export async function processGatewayStakeUnlockQueue(
     }
 
     stake.locked = false
-    await ctx.store.upsert(stake)
     processed++
 
     ctx.log.info(`stake(${stake.id}) unlocked`)
   }
 
   queue.tasks = tasks
-  await ctx.store.upsert(queue)
 
   if (processed > 0) {
     ctx.log.info(`stake-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)

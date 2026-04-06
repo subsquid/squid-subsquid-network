@@ -33,7 +33,6 @@ export const handleMetadataChanged = createHandlerOld({
       gateway.email = metadata.email
       gateway.endpointUrl = metadata.endpointUrl
 
-      await ctx.store.upsert(gateway)
 
       ctx.log.info(`updated metadata of gateway(${gatewayId}) (${elapsed()}ms)`)
     })

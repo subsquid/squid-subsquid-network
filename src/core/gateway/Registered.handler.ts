@@ -33,9 +33,9 @@ export const handleRegistered = createHandlerOld({
     const gatewayId = parsePeerId(event.peerId)
 
     return timed(ctx, async (elapsed) => {
-      const account = await accountDeferred.getOrInsert((id) => createAccount(id))
+      const account = await ctx.store.getOrCreate(Account, { id: accountId, relations: { owner: true } }, (id) => createAccount(id))
 
-      const stake = await stakeDeferred.getOrInsert(async (id) =>
+      const stake = await ctx.store.getOrCreate(GatewayStake, stakeId, async (id) =>
         createGatewayStake(id, {
           owner: account,
           realOwner: unwrapAccount(account),
@@ -63,10 +63,10 @@ export const handleRegistered = createHandlerOld({
         status: GatewayStatus.REGISTERED,
         timestamp: new Date(log.block.timestamp),
       })
-      await ctx.store.insert(statusChange)
+      await ctx.store.track(statusChange)
 
       gateway.status = statusChange.status
-      await ctx.store.upsert(gateway)
+      await ctx.store.track(gateway, { replace: true })
 
       ctx.log.info(`account(${gateway.owner.id}) registered gateway(${gatewayId}) (${elapsed()}ms)`)
     })

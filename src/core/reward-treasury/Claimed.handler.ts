@@ -1,6 +1,6 @@
 import * as RewardsTreasury from '~/abi/RewardTreasury'
-import { network } from '~/config/network'
-import { Account, Settings, TransferType } from '~/model'
+import { REWARD_TREASURY_TEMPLATE_KEY } from '~/config/queries/rewardTreasury'
+import { Account, TransferType } from '~/model'
 import { isLog } from '../../item'
 import { createHandler, timed } from '../base'
 import { createAccountId } from '../helpers/ids'
@@ -10,6 +10,8 @@ import { saveTransfer } from '../token/Transfer.handler'
 export const handleClaimed = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!RewardsTreasury.events.Claimed.is(item.value)) return
+  if (!ctx.templates.has(REWARD_TREASURY_TEMPLATE_KEY, item.address, item.value.block.height))
+    return
 
   const log = item.value
   const { receiver } = RewardsTreasury.events.Claimed.decode(log)
@@ -17,16 +19,11 @@ export const handleClaimed = createHandler((ctx, item) => {
   const accountId = createAccountId(receiver)
   const accountDeferred = ctx.store.defer(Account, accountId)
 
-  const settingsDeferred = ctx.store.defer(Settings, network.name)
-
   return timed(ctx, async (elapsed) => {
-    const settings = await settingsDeferred.getOrFail()
-    if (settings.contracts.rewardTreasury !== log.address) return
-
     const account = await accountDeferred.getOrFail()
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
-      from: settings.contracts.rewardTreasury,
+      from: log.address,
       to: account.id,
       logIndex: log.logIndex - 1,
     })

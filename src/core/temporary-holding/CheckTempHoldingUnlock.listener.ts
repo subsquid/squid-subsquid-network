@@ -11,7 +11,7 @@ export type TemporaryHoldingUnlockTask = {
 }
 
 export async function ensureTemporaryHoldingUnlockQueue(ctx: MappingContext) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<TemporaryHoldingUnlockTask>,
     TEMPORARY_HOLDING_UNLOCK_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -29,9 +29,8 @@ export async function addToTemporaryHoldingUnlockQueue(ctx: MappingContext, id: 
   )
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
+  queue.tasks = [...queue.tasks, { id }]
 
-  await ctx.store.upsert(queue)
 }
 
 export async function processTemporaryHoldingUnlockQueue(
@@ -61,17 +60,14 @@ export async function processTemporaryHoldingUnlockQueue(
     }
 
     temporaryHolding.locked = false
-    await ctx.store.upsert(temporaryHolding)
 
     temporaryHolding.account.owner = temporaryHolding.admin
-    await ctx.store.upsert(temporaryHolding.account)
     processed++
 
     ctx.log.info(`temporary_holding(${temporaryHolding.id}) unlocked`)
   }
 
   queue.tasks = tasks
-  await ctx.store.upsert(queue)
 
   if (processed > 0) {
     ctx.log.info(`temporary-holding-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)

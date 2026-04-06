@@ -1,9 +1,10 @@
-import { LogItem, isContract, isLog } from '../../item'
+import { LogItem, isLog } from '../../item'
 import { createHandlerOld, timed } from '../base'
 import { createWorkerId, createWorkerStatusId } from '../helpers/ids'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
+import { WORKER_REGISTRATION_TEMPLATE_KEY } from '~/config/queries/workersRegistry'
 import {
   Account,
   Settings,
@@ -23,6 +24,8 @@ export const handleWorkerWithdrawn = createHandlerOld({
     return isLog(item) && WorkerRegistry.events.WorkerWithdrawn.is(item.value)
   },
   handle(ctx, { value: log }) {
+    if (!ctx.templates.has(WORKER_REGISTRATION_TEMPLATE_KEY, log.address, log.block.height)) return
+
     const { workerId: workerIndex } = WorkerRegistry.events.WorkerWithdrawn.decode(log)
 
     const workerId = createWorkerId(workerIndex)
@@ -33,7 +36,6 @@ export const handleWorkerWithdrawn = createHandlerOld({
 
     return timed(ctx, async (elapsed) => {
       const settings = await ctx.store.getOrFail(Settings, network.name)
-      if (log.address !== settings.contracts.workerRegistration) return
 
       const worker = await workerDeferred.getOrFail()
 
@@ -45,16 +47,14 @@ export const handleWorkerWithdrawn = createHandlerOld({
         status: WorkerStatus.WITHDRAWN,
         pending: false,
       })
-      await ctx.store.insert(statusChange)
+      await ctx.store.track(statusChange)
 
       worker.status = statusChange.status
       worker.bond = 0n
 
-      await ctx.store.upsert(worker)
-
       const transfer = findTransfer(log.transaction?.logs ?? [], {
         to: worker.owner.id,
-        from: settings.contracts.workerRegistration,
+        from: log.address,
         logIndex: log.logIndex - 1,
       })
       if (!transfer) {

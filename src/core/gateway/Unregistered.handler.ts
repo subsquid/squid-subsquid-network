@@ -33,10 +33,9 @@ export const handleUnregistered = createHandler((ctx, item) => {
       status: GatewayStatus.DEREGISTERED,
       timestamp: new Date(log.block.timestamp),
     })
-    await ctx.store.insert(statusChange)
+    await ctx.store.track(statusChange)
 
     gateway.status = statusChange.status
-    await ctx.store.upsert(gateway)
 
     ctx.log.info(`account(${owner.id}) deregistered gateway(${gatewayId}) (${elapsed()}ms)`)
   })

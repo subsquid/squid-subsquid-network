@@ -4,8 +4,8 @@ import { createAccount } from '../helpers/entities'
 import { createAccountId, createDelegationId, createWorkerId } from '../helpers/ids'
 
 import * as Staking from '~/abi/Staking'
-import { network } from '~/config/network'
-import { Account, Delegation, Settings, TransferType } from '~/model'
+import { STAKING_TEMPLATE_KEY } from '~/config/queries/staking'
+import { Account, Delegation } from '~/model'
 import { toHumanSQD } from '~/utils/misc'
 
 export const handleClaimed = createHandlerOld({
@@ -13,6 +13,8 @@ export const handleClaimed = createHandlerOld({
     return isLog(item) && Staking.events.Claimed.is(item.value)
   },
   handle(ctx, { value: log }) {
+    if (!ctx.templates.has(STAKING_TEMPLATE_KEY, log.address, log.block.height)) return
+
     const { staker: stakerAccount, workerIds: workerIndexes } = Staking.events.Claimed.decode(log)
 
     const accountId = createAccountId(stakerAccount)
@@ -29,13 +31,8 @@ export const handleClaimed = createHandlerOld({
       }),
     )
 
-    const settingsDeferred = ctx.store.defer(Settings, network.name)
-
     return timed(ctx, async (elapsed) => {
-      const settings = await settingsDeferred.getOrFail()
-      if (settings.contracts.staking !== log.address) return
-
-      const account = await accountDeferred.getOrInsert((id) => createAccount(id))
+      const account = await ctx.store.getOrCreate(Account, accountId, (id) => createAccount(id))
 
       let delegations: Delegation[]
       if (account.claimableDelegationCount > delegationsDeferred.length || ctx.isHead) {
@@ -62,15 +59,12 @@ export const handleClaimed = createHandlerOld({
         delegation.claimableReward = 0n
         delegation.claimedReward += amount
 
-        await ctx.store.upsert(delegation)
-
         ctx.log.info(
           `account(${delegation.owner.id}) claimed ${toHumanSQD(amount)} from delegation(${delegation.id})`,
         )
       }
 
       account.claimableDelegationCount = 0
-      await ctx.store.upsert(account)
 
       ctx.log.info(`staking claims processed for account(${account.id}) (${elapsed()}ms)`)
     })

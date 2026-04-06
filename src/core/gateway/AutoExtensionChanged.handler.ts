@@ -50,7 +50,6 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
     stake.locked = true
     stake.lockEnd = lockEnd
 
-    await ctx.store.upsert(stake)
 
     if (lockEnd) {
       await removeFromGatewayStakeUnlockQueue(ctx, stake.id)

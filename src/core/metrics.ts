@@ -106,7 +106,6 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
         worker.version = stats.version
       }
 
-      await ctx.store.upsert(activeWorkers)
     }
 
     const schedulerStatus:
@@ -138,7 +137,6 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
         worker.jailReason = worker.jailed ? data.status : null
       }
 
-      await ctx.store.upsert(activeWorkers)
 
       const {
         recommended_worker_versions: recommendedWorkerVersion,
@@ -150,7 +148,6 @@ export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeade
       settings.minimalWorkerVersion = minimalWorkerVersion || null
       settings.recommendedWorkerVersion = recommendedWorkerVersion || null
 
-      await ctx.store.upsert(settings)
     }
 
     lastOnlineUpdateTimestamp = new Date(onlineStatus.timestamp).getTime()
@@ -295,7 +292,7 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
       }
     }
 
-    await ctx.store.upsert(workerMetrics)
+    await ctx.store.track(workerMetrics, { replace: true })
     if (!complete) return
 
     lastMetricsUpdateTimestamp = snapshotTimestamp
@@ -383,7 +380,6 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
     worker.uptime90Days = uptimeCount90d > 0 ? uptimeSum90d / uptimeCount90d : null
   }
 
-  await ctx.store.upsert(workers)
   ctx.log.info(`aggregated metrics updated for ${workers.length} workers`)
 }
 
@@ -474,7 +470,6 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       worker.liveness = data?.liveness.livenessCoefficient ?? null
     }
 
-    await ctx.store.upsert(activeWorkers)
 
     const settings = await ctx.store.getOrFail(Settings, network.name)
 
@@ -496,7 +491,6 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
     }
 
     settings.baseApr = currentApy.apy / 10000
-    await ctx.store.upsert(settings)
 
     lastRewardMetricsUpdateTimestamp = snapshotTimestamp
     lastRewardMetricsUpdateOffset = 0
@@ -538,7 +532,6 @@ export async function calculateAprs(ctx: MappingContext) {
   //   worker.apr = workerApr;
   //   worker.stakerApr = stakerApr;
   // }
-  // await ctx.store.upsert(activeWorkers);
   // ctx.log.info(`workers aprs of ${activeWorkers.length} updated`);
 }
 

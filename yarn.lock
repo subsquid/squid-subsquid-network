@@ -170,19 +170,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@belopash/typeorm-store@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@belopash/typeorm-store@npm:1.6.0"
+"@belopash/typeorm-store@npm:2.0.0-rc.6":
+  version: 2.0.0-rc.6
+  resolution: "@belopash/typeorm-store@npm:2.0.0-rc.6"
   dependencies:
     "@subsquid/util-internal": "npm:^3.2.0"
-    fast-copy: "npm:^3.0.2"
   peerDependencies:
     "@subsquid/logger": ^1
     "@subsquid/typeorm-config": ^4
-    "@subsquid/typeorm-store": ^1
+    "@subsquid/typeorm-store": ^1.8.0
     pg: ^8.11.3
     typeorm: ^0.3.20
-  checksum: 10c0/6e61d73360dc73564c597010034b5a866488cf234de175bb954b0a6cf12aa0a1d1f9fea4ad370a8bcb8f10a525abeb54464ee24f465365378da37aaf50439814
+  checksum: 10c0/616579cceefd9d667f4cd9a85db900783725303137578f907f71a545ffd397a43a649d654295ac113c5c1d54b897adcd2759cea3fb742562a6c54c96e006e4b1
   languageName: node
   linkType: hard
 
@@ -666,18 +665,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@subsquid/batch-processor@npm:^0.1.0-portal-api.d0738f":
-  version: 0.1.0-portal-api.d0738f
-  resolution: "@subsquid/batch-processor@npm:0.1.0-portal-api.d0738f"
+"@subsquid/batch-processor@npm:0.2.0-portal-api.d5861e":
+  version: 0.2.0-portal-api.d5861e
+  resolution: "@subsquid/batch-processor@npm:0.2.0-portal-api.d5861e"
   dependencies:
-    "@subsquid/logger": "npm:^1.4.0"
+    "@subsquid/logger": "npm:^1.5.0"
     "@subsquid/util-internal": "npm:^3.2.0"
     "@subsquid/util-internal-counters": "npm:^1.3.2"
-    "@subsquid/util-internal-data-source": "npm:0.0.1-portal-api.d0738f"
+    "@subsquid/util-internal-data-source": "npm:0.0.1-portal-api.d5861e"
+    "@subsquid/util-internal-processor-tools": "npm:^4.4.0"
     "@subsquid/util-internal-prometheus-server": "npm:^1.3.0"
     "@subsquid/util-internal-range": "npm:^0.3.0"
-    prom-client: "npm:^14.2.0"
-  checksum: 10c0/5883b7802a346cf284f1946959458999cf0e1a88ccb7bdddeb0ce6bd656af35aa6e37dd71ee7309039fa0a9a2834cd5a7f9728bf2cce85ab5cc9a17891fcdfb3
+  checksum: 10c0/897c2c152cec4ff29a7e797a05f99099f05f49bb105d71957815c5a6af8d2eb3959d23100788fd8d5a1f314557687eb778cd15af573e3c1c9ba72816e192d250
   languageName: node
   linkType: hard
 
@@ -709,35 +708,35 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@subsquid/evm-objects@npm:^0.0.2-portal-api.d0738f":
-  version: 0.0.2-portal-api.d0738f
-  resolution: "@subsquid/evm-objects@npm:0.0.2-portal-api.d0738f"
+"@subsquid/evm-objects@npm:0.0.2-portal-api.d5861e":
+  version: 0.0.2-portal-api.d5861e
+  resolution: "@subsquid/evm-objects@npm:0.0.2-portal-api.d5861e"
   dependencies:
     "@subsquid/util-internal": "npm:^3.2.0"
   peerDependencies:
-    "@subsquid/evm-stream": 0.0.1-portal-api.d0738f
-  checksum: 10c0/d5442d772160633450ae29dfc6e09bdb42a36a72cf36dd6de5e85b895a7b066ae2f6bb3c48d2fe8869e5880386279adcc4e0731841f3562925afbcf8d8bda28c
+    "@subsquid/evm-stream": 0.0.1-portal-api.d5861e
+  checksum: 10c0/e874db29b8ebe6a369d4de779a7624b0bee7a0a7d393a81a51753ee9e1f2a2ffe919b6b5f13e4a6a2ed23091fafe343e0a3d511f5d5c31ab406e908e50e0f209
   languageName: node
   linkType: hard
 
-"@subsquid/evm-stream@npm:^0.0.1-portal-api.d0738f":
-  version: 0.0.1-portal-api.d0738f
-  resolution: "@subsquid/evm-stream@npm:0.0.1-portal-api.d0738f"
+"@subsquid/evm-stream@npm:0.0.1-portal-api.d5861e":
+  version: 0.0.1-portal-api.d5861e
+  resolution: "@subsquid/evm-stream@npm:0.0.1-portal-api.d5861e"
   dependencies:
     "@subsquid/http-client": "npm:^1.8.0"
-    "@subsquid/logger": "npm:^1.4.0"
+    "@subsquid/logger": "npm:^1.5.0"
     "@subsquid/portal-client": "npm:^0.4.0"
     "@subsquid/rpc-client": "npm:^4.14.0"
     "@subsquid/util-internal": "npm:^3.2.0"
     "@subsquid/util-internal-archive-client": "npm:^0.1.2"
-    "@subsquid/util-internal-data-source": "npm:0.0.1-portal-api.d0738f"
+    "@subsquid/util-internal-data-source": "npm:0.0.1-portal-api.d5861e"
     "@subsquid/util-internal-hex": "npm:^1.2.2"
     "@subsquid/util-internal-ingest-tools": "npm:^1.1.4"
-    "@subsquid/util-internal-processor-tools": "npm:^4.2.1"
+    "@subsquid/util-internal-processor-tools": "npm:^4.4.0"
     "@subsquid/util-internal-range": "npm:^0.3.0"
     "@subsquid/util-internal-validation": "npm:^0.8.0"
     "@subsquid/util-timeout": "npm:^2.3.2"
-  checksum: 10c0/630cd101fe36760e87cf7e62a6a6719716ae26829d86f07d60387c4f95e1d6cb0dc78b1e571c1d3ba94ae2cc215ff9bae5927f3ef7b55b2aea5fd31ae3ed45e9
+  checksum: 10c0/cb4e2313f0ac59449a54f6d9f2696300d874772e4850899f686c929b474731599a79af1e760bbb75068564d132a237f87a8f7aa4d0ab32064d50c52f5868d6aa
   languageName: node
   linkType: hard
 
@@ -857,6 +856,17 @@ __metadata:
     "@subsquid/util-internal-json": "npm:^1.2.3"
     supports-color: "npm:^8.1.1"
   checksum: 10c0/651258af1ac89cfc7b1c4cdbcb5f603c082c1b86f257df518cee76abe386f2680a1983fb955ec79b4f955338e56adb68f5bebce8830fbedef20ad7bec8f445a8
+  languageName: node
+  linkType: hard
+
+"@subsquid/logger@npm:^1.5.0":
+  version: 1.5.0
+  resolution: "@subsquid/logger@npm:1.5.0"
+  dependencies:
+    "@subsquid/util-internal-hex": "npm:^1.2.2"
+    "@subsquid/util-internal-json": "npm:^1.2.3"
+    supports-color: "npm:^8.1.1"
+  checksum: 10c0/911887864612430ccb26f58688ff56b3f82245601c5ea9f3a7aa24fb616756fadf85cad1879e5b173937609091e6f6999d0efee58ececb577cc96360d26ce874
   languageName: node
   linkType: hard
 
@@ -985,16 +995,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@subsquid/typeorm-store@npm:^1.5.1":
-  version: 1.5.1
-  resolution: "@subsquid/typeorm-store@npm:1.5.1"
+"@subsquid/typeorm-store@npm:^1.8.0":
+  version: 1.8.0
+  resolution: "@subsquid/typeorm-store@npm:1.8.0"
   dependencies:
     "@subsquid/typeorm-config": "npm:^4.1.1"
     "@subsquid/util-internal": "npm:^3.2.0"
   peerDependencies:
     "@subsquid/big-decimal": ^1.0.0
     typeorm: ^0.3.17
-  checksum: 10c0/6e8f84b75d8cc8cc0a8cc4773db4848fb4e510ae36d6d35f2902ab5d41489d50a7d5e335e97cfee213ef658d6a0492c27a8f89d3774cded1502a7a9dfbcac263
+  checksum: 10c0/490c94b89bf5ab6475e5b310143c328420c7abff3c81ddfe5e9b915156bcfe96d4b865aab79c5c1b1e15cd70681e7fb61e39dfa4ea04c583f622bc4605017553
   languageName: node
   linkType: hard
 
@@ -1044,12 +1054,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@subsquid/util-internal-data-source@npm:0.0.1-portal-api.d0738f":
-  version: 0.0.1-portal-api.d0738f
-  resolution: "@subsquid/util-internal-data-source@npm:0.0.1-portal-api.d0738f"
+"@subsquid/util-internal-data-source@npm:0.0.1-portal-api.d5861e":
+  version: 0.0.1-portal-api.d5861e
+  resolution: "@subsquid/util-internal-data-source@npm:0.0.1-portal-api.d5861e"
   dependencies:
     "@subsquid/util-internal-range": "npm:^0.3.0"
-  checksum: 10c0/0f8ff13a022e05514b1aca74a8bcdfc37ccdf9e1ab2c844a5fc37f5743aac8303cc94eb30adcf84d673ff8de787b5496e53e53bb870a8df4205a1543de1236a9
+  checksum: 10c0/86d4a9298805492ada44182a6b9dc497f96649a74d6135df9b8f9fee39b5cd9e036eed2a684f7be7f40d8ee12b78594a2c0a714263e57ea9a6ba7c82d3daf62a
   languageName: node
   linkType: hard
 
@@ -1102,18 +1112,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@subsquid/util-internal-processor-tools@npm:^4.2.1":
-  version: 4.2.1
-  resolution: "@subsquid/util-internal-processor-tools@npm:4.2.1"
+"@subsquid/util-internal-processor-tools@npm:^4.4.0":
+  version: 4.4.0
+  resolution: "@subsquid/util-internal-processor-tools@npm:4.4.0"
   dependencies:
-    "@subsquid/logger": "npm:^1.3.3"
+    "@subsquid/logger": "npm:^1.5.0"
     "@subsquid/util-internal": "npm:^3.2.0"
     "@subsquid/util-internal-counters": "npm:^1.3.2"
     "@subsquid/util-internal-prometheus-server": "npm:^1.3.0"
     "@subsquid/util-internal-range": "npm:^0.3.0"
     "@subsquid/util-internal-squid-id": "npm:^0.0.0"
     prom-client: "npm:^14.2.0"
-  checksum: 10c0/27cf5f711daffecf33d00c7823f6dc79930a465dc6b52b012703ab538b6e47e24a9fd7ea50cc5955f08b1dff35522b39db9ee97de76ad9a6e17a249f3cd19762
+  checksum: 10c0/19cd32edb8b08836e208f427da6f2027e01ec91a04b3ff1b90d69fa6ed532ecf676fec7b045e618c4fcab435c2608e674869febe58159b554eb7d335ed146184
   languageName: node
   linkType: hard
 
@@ -2409,13 +2419,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-copy@npm:^3.0.2":
-  version: 3.0.2
-  resolution: "fast-copy@npm:3.0.2"
-  checksum: 10c0/02e8b9fd03c8c024d2987760ce126456a0e17470850b51e11a1c3254eed6832e4733ded2d93316c82bc0b36aeb991ad1ff48d1ba95effe7add7c3ab8d8eb554a
-  languageName: node
-  linkType: hard
-
 "fast-glob@npm:^3.2.9":
   version: 3.3.3
   resolution: "fast-glob@npm:3.3.3"
@@ -2758,13 +2761,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "gravatar-squid@workspace:."
   dependencies:
-    "@belopash/typeorm-store": "npm:^1.6.0"
+    "@belopash/typeorm-store": "npm:2.0.0-rc.6"
     "@biomejs/biome": "npm:^1.9.4"
     "@subsquid/archive-registry": "npm:^3.3.2"
-    "@subsquid/batch-processor": "npm:^0.1.0-portal-api.d0738f"
+    "@subsquid/batch-processor": "npm:0.2.0-portal-api.d5861e"
     "@subsquid/big-decimal": "npm:^1.0.0"
-    "@subsquid/evm-objects": "npm:^0.0.2-portal-api.d0738f"
-    "@subsquid/evm-stream": "npm:^0.0.1-portal-api.d0738f"
+    "@subsquid/evm-objects": "npm:0.0.2-portal-api.d5861e"
+    "@subsquid/evm-stream": "npm:0.0.1-portal-api.d5861e"
     "@subsquid/evm-typegen": "npm:4.4.0"
     "@subsquid/file-store": "npm:^2.0.0"
     "@subsquid/graphql-server": "npm:^4.11.0"
@@ -2773,7 +2776,7 @@ __metadata:
     "@subsquid/rpc-client": "npm:^4.14.0"
     "@subsquid/typeorm-codegen": "npm:2.0.2"
     "@subsquid/typeorm-migration": "npm:^1.3.0"
-    "@subsquid/typeorm-store": "npm:^1.5.1"
+    "@subsquid/typeorm-store": "npm:^1.8.0"
     "@subsquid/util-internal": "npm:^3.2.0"
     "@types/lodash": "npm:^4.17.0"
     "@types/node": "npm:^20.11.28"

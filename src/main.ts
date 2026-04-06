@@ -16,6 +16,10 @@ import { augmentBlock } from '@subsquid/evm-objects'
 import { createLogger } from '@subsquid/logger'
 import { network } from '~/config/network'
 import { BlockHeader, type ProcessorContext, processor } from '~/config/processor'
+import { NETWORK_CONTROLLER_TEMPLATE_KEY } from '~/config/queries/networkController'
+import { REWARD_TREASURY_TEMPLATE_KEY } from '~/config/queries/rewardTreasury'
+import { STAKING_TEMPLATE_KEY } from '~/config/queries/staking'
+import { WORKER_REGISTRATION_TEMPLATE_KEY } from '~/config/queries/workersRegistry'
 import { handlers } from '~/core'
 import {
   ensureGatewayStakeUnlockQueue,
@@ -73,7 +77,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
     tasks.push(
       withBlockContext(
         async () => {
-          await ctx.store.insert(createBlock(block.header))
+          await ctx.store.track(createBlock(block.header))
 
           await checkForNewEpoch(ctx, block.header)
 
@@ -116,7 +120,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
 async function init(ctx: MappingContext, block: BlockHeader) {
   // ensure settings
-  await ctx.store.getOrInsert(Settings, network.name, (id) => {
+  await ctx.store.getOrCreate(Settings, network.name, (id) => {
     const settings = createSettings(id)
     settings.delegationLimitCoefficient = 0.2
     settings.bondAmount = 10n ** 23n
@@ -140,6 +144,20 @@ async function init(ctx: MappingContext, block: BlockHeader) {
 
     return settings
   })
+
+  // seed default router contract templates on first run
+  const defaultFrom = network.range.from
+  const defaults = [
+    [WORKER_REGISTRATION_TEMPLATE_KEY, network.defaultRouterContracts.workerRegistration],
+    [NETWORK_CONTROLLER_TEMPLATE_KEY, network.defaultRouterContracts.networkController],
+    [STAKING_TEMPLATE_KEY, network.defaultRouterContracts.staking],
+    [REWARD_TREASURY_TEMPLATE_KEY, network.defaultRouterContracts.rewardTreasury],
+  ] as const
+  for (const [key, address] of defaults) {
+    if (!ctx.templates.has(key, address, defaultFrom)) {
+      ctx.templates.add(key, address, defaultFrom)
+    }
+  }
 
   await ensureWorkerUnlock(ctx)
   await ensureWorkerStatusApplyQueue(ctx)
@@ -193,7 +211,7 @@ async function complete(ctx: MappingContext, block: BlockHeader) {
 }
 
 async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
-  if (block.height < network.epochsStart) return
+  if (block.number < network.epochsStart) return
   if (!block.l1BlockNumber) return
 
   const settings = await ctx.store.getOrFail(Settings, network.name)
@@ -212,7 +230,6 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
   if (currentEpoch) {
     currentEpoch.status = EpochStatus.ENDED
     currentEpoch.endedAt = new Date(block.timestamp)
-    await ctx.store.upsert(currentEpoch)
 
     ctx.log.info(`epoch ${currentEpoch.number} ended`)
   }
@@ -225,12 +242,11 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
     end: epochStart + epochLength - 1,
     status: EpochStatus.STARTED,
   })
-  await ctx.store.insert(currentEpoch)
+  await ctx.store.track(currentEpoch)
 
   ctx.log.info(`epoch ${currentEpoch.number} started [${currentEpoch.start}, ${currentEpoch.end}]`)
 
   settings.currentEpoch = currentEpoch.number
-  await ctx.store.upsert(settings)
 }
 
 function withBlockContext<T>(fn: () => T, ctx: { block: { height: number; hash: string } }) {

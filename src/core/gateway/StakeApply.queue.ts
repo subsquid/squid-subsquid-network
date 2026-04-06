@@ -11,7 +11,7 @@ export type StakeApplyTask = {
 }
 
 export async function ensureGatewayStakeApplyQueue(ctx: MappingContext) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<StakeApplyTask>,
     STAKE_APPLY_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -26,9 +26,8 @@ export async function addToGatewayStakeApplyQueue(ctx: MappingContext, id: strin
   const queue = await ctx.store.getOrFail(Queue<StakeApplyTask>, STAKE_APPLY_QUEUE)
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
+  queue.tasks = [...queue.tasks, { id }]
 
-  await ctx.store.upsert(queue)
 }
 
 export async function processGatewayStakeApplyQueue(
@@ -57,14 +56,12 @@ export async function processGatewayStakeApplyQueue(
 
     stake.computationUnits = stake.computationUnitsPending
     stake.computationUnitsPending = null
-    await ctx.store.upsert(stake)
     processed++
 
     ctx.log.info(`stake(${stake.id}) applied`)
   }
 
   queue.tasks = tasks
-  await ctx.store.upsert(queue)
 
   if (processed > 0) {
     ctx.log.info(`stake-apply queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)

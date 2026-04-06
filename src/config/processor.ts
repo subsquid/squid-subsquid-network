@@ -1,4 +1,4 @@
-import { DataHandlerContext } from '@subsquid/batch-processor'
+import { DataHandlerContext, type TemplateManager } from '@subsquid/batch-processor'
 import {
   Block as _BlockData,
   BlockHeader as _BlockHeader,
@@ -9,10 +9,10 @@ import { type Block, DataSourceBuilder, GetDataSourceBlock } from '@subsquid/evm
 
 import { network } from './network'
 import { addNetworkControllerQuery } from './queries/networkController'
+import { addPortalPoolsQuery } from './queries/portalPools'
 import { addRewardTreasuryQuery } from './queries/rewardTreasury'
 import { addRouterQuery } from './queries/router'
 import { addStakingQuery } from './queries/staking'
-import { addPortalPoolsQuery } from './queries/portalPools'
 import { addVestingsQuery } from './queries/vestings'
 import { addWorkersRegistryQuery } from './queries/workersRegistry'
 
@@ -115,6 +115,8 @@ export type BlockData = _BlockData<Fields>
 export type BlockHeader = _BlockHeader<Fields>
 export type Log = _Log<Fields>
 export type Transaction = _Transaction<Fields>
+
+export type { TemplateManager }
 
 export type ProcessorContext<Store> = DataHandlerContext<BlockData, Store> & {
   log: Logger

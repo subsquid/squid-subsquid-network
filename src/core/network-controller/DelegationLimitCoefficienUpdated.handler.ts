@@ -25,7 +25,7 @@
 
 //       settings.delegationLimitCoefficient = Number(newDelegationLimitCoefficientInBP) / 10_000;
 
-//       await ctx.store.upsert(settings);
+//       await ctx.store.track(settings, { replace: true });
 
 //       ctx.log.info(`set delegation limit coefficient ${settings.delegationLimitCoefficient}`);
 //     });

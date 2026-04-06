@@ -1,60 +1,50 @@
-import { LogItem, isLog } from '../../item'
-import { createHandlerOld, timed } from '../base'
+import { isLog } from '../../item'
+import { createHandler, timed } from '../base'
 import { createAccount } from '../helpers/entities'
 import { createAccountId } from '../helpers/ids'
 
 import * as Vesting from '~/abi/SubsquidVesting'
+import { VESTING_TEMPLATE_KEY } from '~/config/queries/vestings'
 import { Account, AccountType, Delegation, Worker } from '~/model'
 
-export const handleVestingTransfered = createHandlerOld({
-  filter(_, item): item is LogItem {
-    return (
-      isLog(item) &&
-      Vesting.events.OwnershipTransferred.is(item.value) &&
-      item.value.topics.length === 3
-    )
-  },
-  handle(ctx, { value: log }) {
-    const { newOwner } = Vesting.events.OwnershipTransferred.decode(log)
+export const handleVestingTransfered = createHandler((ctx, item) => {
+  if (!isLog(item)) return
+  if (!Vesting.events.OwnershipTransferred.is(item.value)) return
+  if (item.value.topics.length !== 3) return
+  if (!ctx.templates.has(VESTING_TEMPLATE_KEY, item.address, item.value.block.height)) return
 
-    const ownerDeferred = ctx.store.defer(Account, createAccountId(newOwner))
-    const vestingDeferred = ctx.store.defer(Account, {
-      id: createAccountId(log.address),
+  const { newOwner } = Vesting.events.OwnershipTransferred.decode(item.value)
+
+  const ownerDeferred = ctx.store.defer(Account, createAccountId(newOwner))
+  const vestingDeferred = ctx.store.defer(Account, {
+    id: createAccountId(item.address),
+  })
+
+  return timed(ctx, async (elapsed) => {
+    const vesting = await vestingDeferred.get()
+    if (!vesting) return
+
+    const owner = await ownerDeferred.getOrCreate((id) => {
+      ctx.log.info(`created account(${id})`)
+      return createAccount(id, { type: AccountType.USER })
     })
 
-    return timed(ctx, async (elapsed) => {
-      const vesting = await vestingDeferred.get()
-      if (!vesting) {
-        ctx.log.info(`skipped OwnershipTransferred: unknown vesting ${createAccountId(log.address)} (${elapsed()}ms)`)
-        return
-      }
+    vesting.owner = owner
 
-      const owner = await ownerDeferred.getOrInsert((id) => {
-        ctx.log.info(`created account(${id})`)
-        return createAccount(id, { type: AccountType.USER })
-      })
-
-      vesting.owner = owner
-
-      await ctx.store.upsert(vesting)
-
-      const workers = await ctx.store.find(Worker, {
-        where: { owner: { id: vesting.id } },
-      })
-      for (const worker of workers) {
-        worker.realOwner = owner
-      }
-      await ctx.store.upsert(workers)
-
-      const delegations = await ctx.store.find(Delegation, {
-        where: { worker: { owner: { id: vesting.id } } },
-      })
-      for (const delegation of delegations) {
-        delegation.realOwner = owner
-      }
-      await ctx.store.upsert(delegations)
-
-      ctx.log.info(`transferred vesting(${vesting.id}) to account(${owner.id}) (${elapsed()}ms)`)
+    const workers = await ctx.store.find(Worker, {
+      where: { owner: { id: vesting.id } },
     })
-  },
+    for (const worker of workers) {
+      worker.realOwner = owner
+    }
+
+    const delegations = await ctx.store.find(Delegation, {
+      where: { worker: { owner: { id: vesting.id } } },
+    })
+    for (const delegation of delegations) {
+      delegation.realOwner = owner
+    }
+
+    ctx.log.info(`transferred vesting(${vesting.id}) to account(${owner.id}) (${elapsed()}ms)`)
+  })
 })

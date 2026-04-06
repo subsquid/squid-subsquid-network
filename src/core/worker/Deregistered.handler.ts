@@ -7,11 +7,14 @@ import { addToWorkerUnlockQueue } from './WorkerUnlock.queue'
 
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
+import { WORKER_REGISTRATION_TEMPLATE_KEY } from '~/config/queries/workersRegistry'
 import { Settings, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 
 export const handleWorkerDeregistered = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!WorkerRegistry.events.WorkerDeregistered.is(item.value)) return
+  if (!ctx.templates.has(WORKER_REGISTRATION_TEMPLATE_KEY, item.address, item.value.block.height))
+    return
 
   const log = item.value
   const { workerId: workerIndex, deregistedAt } =
@@ -25,7 +28,6 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
 
   return timed(ctx, async (elapsed) => {
     const settings = await ctx.store.getOrFail(Settings, network.name)
-    if (log.address !== settings.contracts.workerRegistration) return
 
     const worker = await workerDeferred.getOrFail()
     if (worker.status === WorkerStatus.DEREGISTERING) return // handle contract bug with duplicated deregistering calls
@@ -38,7 +40,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
       status: WorkerStatus.DEREGISTERING,
       pending: false,
     })
-    await ctx.store.insert(statusChange)
+    await ctx.store.track(statusChange)
 
     worker.status = statusChange.status
     if (settings.epochLength) {
@@ -48,7 +50,6 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
       worker.locked = true
       worker.lockEnd = Number(deregistedAt)
     }
-    await ctx.store.upsert(worker)
     await addToWorkerUnlockQueue(ctx, worker.id)
 
     const pendingStatusChange = new WorkerStatusChange({
@@ -58,7 +59,7 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
       status: WorkerStatus.DEREGISTERED,
       pending: true,
     })
-    await ctx.store.insert(pendingStatusChange)
+    await ctx.store.track(pendingStatusChange)
     await addToWorkerStatusApplyQueue(ctx, pendingStatusChange.id)
 
     ctx.log.info(`account(${worker.owner.id}) deregistered worker(${worker.id}) (${elapsed()}ms)`)

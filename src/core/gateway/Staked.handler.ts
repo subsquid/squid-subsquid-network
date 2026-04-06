@@ -39,7 +39,7 @@ export const gatewayStakedHandler = createHandler((ctx, item) => {
 
     const account = await accountDeferred.getOrFail()
 
-    const stake = await stakeDeferred.getOrInsert(async (id) =>
+    const stake = await ctx.store.getOrCreate(GatewayStake, stakeId, async (id) =>
       createGatewayStake(id, {
         owner: account,
         realOwner: unwrapAccount(account),
@@ -53,7 +53,6 @@ export const gatewayStakedHandler = createHandler((ctx, item) => {
     stake.lockEnd = event.lockEnd > INT32_MAX ? INT32_MAX : Number(event.lockEnd)
     stake.locked = true
 
-    await ctx.store.upsert(stake)
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       to: network.contracts.GatewayRegistry.address,

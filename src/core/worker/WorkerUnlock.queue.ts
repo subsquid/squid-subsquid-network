@@ -11,7 +11,7 @@ export type WorkerUnlockTask = {
 }
 
 export async function ensureWorkerUnlock(ctx: MappingContext) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<WorkerUnlockTask>,
     WORKER_UNLOCK_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -26,17 +26,13 @@ export async function addToWorkerUnlockQueue(ctx: MappingContext, id: string) {
   const queue = await ctx.store.getOrFail(Queue<WorkerUnlockTask>, WORKER_UNLOCK_QUEUE)
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
-
-  await ctx.store.upsert(queue)
+  queue.tasks = [...queue.tasks, { id }]
 }
 
 export async function removeFromWorkerUnlockQueue(ctx: MappingContext, id: string) {
   const queue = await ctx.store.getOrFail(Queue<WorkerUnlockTask>, WORKER_UNLOCK_QUEUE)
 
   queue.tasks = queue.tasks.filter((task) => task.id !== id)
-
-  await ctx.store.upsert(queue)
 }
 
 export async function processWorkerUnlockQueue(
@@ -61,16 +57,16 @@ export async function processWorkerUnlockQueue(
 
     worker.locked = false
 
-    await ctx.store.upsert(worker)
     processed++
 
     ctx.log.info(`worker(${worker.id}) unlocked`)
   }
 
   queue.tasks = tasks
-  await ctx.store.upsert(queue)
 
   if (processed > 0) {
-    ctx.log.info(`worker-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+    ctx.log.info(
+      `worker-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`,
+    )
   }
 }

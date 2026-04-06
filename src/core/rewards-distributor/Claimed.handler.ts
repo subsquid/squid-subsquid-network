@@ -40,7 +40,6 @@ export const handleClaimed = createHandlerOld({
       worker.claimableReward = 0n
       worker.claimedReward += amount
 
-      await ctx.store.upsert(worker)
 
       ctx.log.info(
         `account(${worker.owner.id}) claimed ${toHumanSQD(amount)} from worker(${worker.id}) (${elapsed()}ms)`,

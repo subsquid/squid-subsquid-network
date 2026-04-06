@@ -1,6 +1,6 @@
 import assert from 'assert'
 
-import { isContract, isLog } from '../../item'
+import { isLog } from '../../item'
 import { createHandler, timed } from '../base'
 import { addToWorkerCapQueue } from '../cap'
 import { createDelegation } from '../helpers/entities'
@@ -15,6 +15,7 @@ import { addToDelegationUnlockQueue } from './CheckDelegationUnlock.listener'
 
 import * as Staking from '~/abi/Staking'
 import { network } from '~/config/network'
+import { STAKING_TEMPLATE_KEY } from '~/config/queries/staking'
 import {
   Account,
   Delegation,
@@ -31,6 +32,7 @@ import { saveTransfer } from '../token/Transfer.handler'
 export const handleDeposited = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!Staking.events.Deposited.is(item.value)) return
+  if (!ctx.templates.has(STAKING_TEMPLATE_KEY, item.address, item.value.block.height)) return
 
   const log = item.value
   const {
@@ -59,20 +61,23 @@ export const handleDeposited = createHandler((ctx, item) => {
 
   return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
-    if (settings.contracts.staking !== log.address) return
 
-    const delegation = await delegationDeferred.getOrInsert(async (id) => {
-      const worker = await workerDeferred.getOrFail()
-      const owner = await accountDeferred.getOrFail()
+    const delegation = await ctx.store.getOrCreate(
+      Delegation,
+      { id: delegationId, relations: { worker: true, owner: true } },
+      async (id) => {
+        const worker = await workerDeferred.getOrFail()
+        const owner = await accountDeferred.getOrFail()
 
-      ctx.log.info(`created delegation(${id})`)
+        ctx.log.info(`created delegation(${id})`)
 
-      return createDelegation(id, {
-        owner,
-        realOwner: owner.owner || owner,
-        worker,
-      })
-    })
+        return createDelegation(id, {
+          owner,
+          realOwner: owner.owner || owner,
+          worker,
+        })
+      },
+    )
 
     delegation.deposit += amount
     if (settings.epochLength) {
@@ -88,7 +93,7 @@ export const handleDeposited = createHandler((ctx, item) => {
 
     if (delegation.status !== DelegationStatus.ACTIVE) {
       delegation.status = DelegationStatus.ACTIVE
-      await ctx.store.insert(
+      await ctx.store.track(
         new DelegationStatusChange({
           id: createDelegationStatusChangeId(delegation.id, log.block.height),
           delegation,
@@ -100,21 +105,18 @@ export const handleDeposited = createHandler((ctx, item) => {
       )
     }
 
-    await ctx.store.upsert(delegation)
-
     const worker = delegation.worker
     assert(worker.id === workerId)
     if (delegation.deposit === amount) {
       worker.delegationCount += 1
     }
     worker.totalDelegation += amount
-    await ctx.store.upsert(worker)
 
     await addToWorkerCapQueue(ctx, worker.id)
 
     const transfer = findTransfer(log.transaction?.logs ?? [], {
       from: accountId,
-      to: settings.contracts.staking,
+      to: log.address,
       amount,
       logIndex: log.logIndex - 1,
     })

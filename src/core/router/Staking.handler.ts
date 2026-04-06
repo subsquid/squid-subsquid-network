@@ -3,7 +3,8 @@ import { createHandler } from '../base'
 
 import * as Router from '~/abi/Router'
 import { network } from '~/config/network'
-import { Settings } from '~/model'
+import { STAKING_TEMPLATE_KEY } from '~/config/queries/staking'
+import { Contracts, Settings } from '~/model'
 
 export const stakingSetHandler = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.Router)) return
@@ -12,15 +13,18 @@ export const stakingSetHandler = createHandler((ctx, item) => {
 
   const log = item.value
   const { staking } = Router.events.StakingSet.decode(log)
+  const blockHeight = item.value.block.height
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
 
   return async () => {
     const settings = await settingsDeferred.getOrFail()
 
-    settings.contracts.staking = staking
+    const oldAddress = settings.contracts.staking
+    if (oldAddress) ctx.templates.remove(STAKING_TEMPLATE_KEY, oldAddress, blockHeight)
+    ctx.templates.add(STAKING_TEMPLATE_KEY, staking, blockHeight)
 
-    await ctx.store.upsert(settings)
+    settings.contracts = new Contracts(undefined, { ...settings.contracts.toJSON(), staking })
 
     ctx.log.info(`staking contract address set to ${staking}`)
   }

@@ -10,6 +10,7 @@ import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
 import * as SQD from '~/abi/SQD'
 import * as WorkerRegistry from '~/abi/WorkerRegistration'
 import { network } from '~/config/network'
+import { WORKER_REGISTRATION_TEMPLATE_KEY } from '~/config/queries/workersRegistry'
 import {
   Account,
   Settings,
@@ -26,6 +27,8 @@ import { saveTransfer } from '../token/Transfer.handler'
 export const handleWorkerRegistered = createHandler((ctx, item) => {
   if (!isLog(item)) return
   if (!WorkerRegistry.events.WorkerRegistered.is(item.value)) return
+  if (!ctx.templates.has(WORKER_REGISTRATION_TEMPLATE_KEY, item.address, item.value.block.height))
+    return
 
   const log = item.value
   const event = WorkerRegistry.events.WorkerRegistered.decode(log)
@@ -45,14 +48,13 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
 
   return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
-    if (log.address !== settings.contracts.workerRegistration) return
-
     const bond = assertNotNull(settings.bondAmount, `bond amount is not defined`)
     const metadata = parseWorkerMetadata(ctx, event.metadata)
 
     const owner = await ownerDeferred.getOrFail()
 
     let worker = await workerDeferred.get()
+    const isNewWorker = worker == null
     if (worker != null) {
       worker.owner = owner
       worker.realOwner = owner.owner ? owner.owner : owner
@@ -81,13 +83,13 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       status: WorkerStatus.REGISTERING,
       pending: false,
     })
-    await ctx.store.insert(statusChange)
+    await ctx.store.track(statusChange)
 
     worker.status = statusChange.status
     worker.bond = bond
     worker.locked = true
     worker.lockStart = log.block.l1BlockNumber
-    await ctx.store.upsert(worker)
+    if (isNewWorker) await ctx.store.track(worker)
 
     const pendingStatus = new WorkerStatusChange({
       id: createWorkerStatusId(workerId, event.registeredAt),
@@ -96,12 +98,12 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       status: WorkerStatus.ACTIVE,
       pending: true,
     })
-    await ctx.store.insert(pendingStatus)
+    await ctx.store.track(pendingStatus)
     await addToWorkerStatusApplyQueue(ctx, pendingStatus.id)
 
     const transfer = findTransfer(log.getTransaction().logs, {
       from: ownerId,
-      to: settings.contracts.workerRegistration,
+      to: log.address,
       logIndex: log.logIndex - 1,
     })
     if (!transfer) {

@@ -22,7 +22,7 @@ export type WorkerCapTask = {
 let INIT_CAPS = false
 
 export async function ensureWorkerCapQueue(ctx: MappingContext, block: BlockHeader) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<WorkerCapTask>,
     WORKER_CAP_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -43,9 +43,8 @@ export async function addToWorkerCapQueue(ctx: MappingContext, id: string) {
   const queue = await ctx.store.getOrFail(Queue<WorkerCapTask>, WORKER_CAP_QUEUE)
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
+  queue.tasks = [...queue.tasks, { id }]
 
-  await ctx.store.upsert(queue)
 }
 
 export async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, all = false) {
@@ -77,13 +76,11 @@ export async function updateWorkersCap(ctx: MappingContext, block: BlockHeader, 
       const capedDelegation = capedDelegations[i]
       w.capedDelegation = capedDelegation
     })
-    await ctx.store.upsert(workers)
 
     await recalculateWorkerAprs(ctx)
   }
 
   queue.tasks = []
-  await ctx.store.upsert(queue)
 }
 
 // export function scheduleUpdateWorkerAprs(ctx: MappingContext) {
@@ -159,6 +156,4 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
     worker.stakerApr = allStakerAprs.reduce((sum, apr) => sum + apr, 0) / allStakerAprs.length
   }
 
-  await ctx.store.upsert(workers)
-  await ctx.store.upsert(settings)
 }

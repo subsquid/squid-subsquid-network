@@ -48,11 +48,9 @@ export const handleTransfer = createHandlerOld({
       if (from.id !== to.id) {
         from.balance -= event.value
         to.balance += event.value
-
-        await ctx.store.upsert([from, to])
       }
 
-      await ctx.store.insert([
+      await ctx.store.track([
         new AccountTransfer({
           id: `${transfer.id}-from`,
           direction: TransferDirection.FROM,
@@ -98,18 +96,13 @@ export async function saveTransfer(
   }
 
   if (transfer) {
-    transfer = new Transfer({
-      ...transfer,
-      ...extra,
-    })
-
-    await ctx.store.upsert(transfer)
+    Object.assign(transfer, extra)
   } else {
-    const from = await ctx.store.getOrInsert(Account, event.from, (id) => {
+    const from = await ctx.store.getOrCreate(Account, event.from, (id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
     })
-    const to = await ctx.store.getOrInsert(Account, event.to, (id) => {
+    const to = await ctx.store.getOrCreate(Account, event.to, (id) => {
       ctx.log.info(`created account(${id})`)
       return createAccount(id, { type: AccountType.USER })
     })
@@ -126,7 +119,7 @@ export async function saveTransfer(
       ...extra,
     })
 
-    await ctx.store.insert(transfer)
+    await ctx.store.track(transfer)
   }
 
   return transfer

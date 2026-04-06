@@ -11,7 +11,7 @@ export type DelegationUnlockTask = {
 }
 
 export async function ensureDelegationUnlockQueue(ctx: MappingContext) {
-  const queue = await ctx.store.getOrInsert(
+  const queue = await ctx.store.getOrCreate(
     Queue<DelegationUnlockTask>,
     DELEGATION_UNLOCK_QUEUE,
     (id) => new Queue({ id, tasks: [] }),
@@ -26,9 +26,7 @@ export async function addToDelegationUnlockQueue(ctx: MappingContext, id: string
   const queue = await ctx.store.getOrFail(Queue<DelegationUnlockTask>, DELEGATION_UNLOCK_QUEUE)
 
   if (queue.tasks.some((task) => task.id === id)) return
-  queue.tasks.push({ id })
-
-  await ctx.store.upsert(queue)
+  queue.tasks = [...queue.tasks, { id }]
 }
 
 export async function processDelegationUnlockQueue(
@@ -52,16 +50,16 @@ export async function processDelegationUnlockQueue(
     }
 
     delegation.locked = false
-    await ctx.store.upsert(delegation)
     processed++
 
     ctx.log.info(`delegation(${delegation.id}) unlocked`)
   }
 
   queue.tasks = tasks
-  await ctx.store.upsert(queue)
 
   if (processed > 0) {
-    ctx.log.info(`delegation-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+    ctx.log.info(
+      `delegation-unlock queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`,
+    )
   }
 }
