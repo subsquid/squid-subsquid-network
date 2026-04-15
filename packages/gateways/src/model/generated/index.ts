@@ -1,0 +1,5 @@
+export * from "./gateway.model"
+export * from "./_gatewayStatus"
+export * from "./gatewayStatusChange.model"
+export * from "./gatewayStake.model"
+export * from "./portalPool.model"

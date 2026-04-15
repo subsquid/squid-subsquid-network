@@ -1,0 +1,39 @@
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, StringColumn as StringColumn_, Index as Index_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+
+@Entity_()
+export class PortalPool {
+    constructor(props?: Partial<PortalPool>) {
+        Object.assign(this, props)
+    }
+
+    @PrimaryColumn_()
+    id!: string
+
+    @DateTimeColumn_({nullable: false})
+    createdAt!: Date
+
+    @IntColumn_({nullable: false})
+    createdAtBlock!: number
+
+    @Index_()
+    @StringColumn_({nullable: false})
+    operator!: string
+
+    @StringColumn_({nullable: false})
+    rewardToken!: string
+
+    @BigIntColumn_({nullable: false})
+    capacity!: bigint
+
+    @BigIntColumn_({nullable: false})
+    distributionRatePerSecond!: bigint
+
+    @BigIntColumn_({nullable: false})
+    initialDeposit!: bigint
+
+    @StringColumn_({nullable: false})
+    tokenSuffix!: string
+
+    @StringColumn_({nullable: true})
+    metadata!: string | undefined | null
+}
