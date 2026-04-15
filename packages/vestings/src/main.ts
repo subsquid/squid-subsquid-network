@@ -23,7 +23,7 @@ import {
   processTemporaryHoldingUnlockQueue,
 } from './handlers'
 
-const logger = createLogger('sqd:accounts')
+const logger = createLogger('sqd:vestings')
 
 run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
   const batchSw = stopwatch()

@@ -1,5 +1,5 @@
 {
-  "name": "@subsquid-network/accounts",
+  "name": "@subsquid-network/vestings",
   "version": "0.0.1",
   "private": true,
   "scripts": {
