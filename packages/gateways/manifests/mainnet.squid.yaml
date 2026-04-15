@@ -1,0 +1,42 @@
+manifestVersion: subsquid.io/v0.1
+name: subsquid-network-gateways-mainnet
+slot: v1
+description: Subsquid network gateways indexer
+build:
+deploy:
+  addons:
+    postgres:
+  env:
+    NETWORK: mainnet
+    RPC_ENDPOINT: ${{ secrets.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc' }}
+    PORTAL_ENDPOINT: ${{ 'https://portal.sqd.dev/datasets/arbitrum-one'}}
+  processor:
+    cmd:
+      - node
+      - lib/main.js
+  api:
+    cmd:
+      - npx
+      - squid-graphql-server
+      - --dumb-cache
+      - in-memory
+      - --dumb-cache-ttl
+      - "1000"
+      - --dumb-cache-size
+      - "100"
+      - --dumb-cache-max-age
+      - "1000"
+      - --no-squid-status
+  init:
+    cmd:
+      - npx
+      - squid-typeorm-migration
+      - apply
+scale:
+  dedicated: true
+  addons:
+    postgres:
+      storage: 10G
+      profile: small
+  processor:
+    profile: medium

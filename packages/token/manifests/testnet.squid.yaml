@@ -1,0 +1,42 @@
+manifestVersion: subsquid.io/v0.1
+name: subsquid-network-token-testnet
+slot: v1
+description: Subsquid network token indexer
+build:
+deploy:
+  addons:
+    postgres:
+  env:
+    NETWORK: tethys
+    RPC_ENDPOINT: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL || 'https://api.zan.top/arb-sepolia' }}
+    PORTAL_ENDPOINT: ${{ 'https://portal.sqd.dev/datasets/arbitrum-sepolia'}}
+  processor:
+    cmd:
+      - node
+      - lib/main.js
+  api:
+    cmd:
+      - npx
+      - squid-graphql-server
+      - --dumb-cache
+      - in-memory
+      - --dumb-cache-ttl
+      - "1000"
+      - --dumb-cache-size
+      - "100"
+      - --dumb-cache-max-age
+      - "1000"
+      - --no-squid-status
+  init:
+    cmd:
+      - npx
+      - squid-typeorm-migration
+      - apply
+scale:
+  dedicated: true
+  addons:
+    postgres:
+      storage: 10G
+      profile: small
+  processor:
+    profile: small
