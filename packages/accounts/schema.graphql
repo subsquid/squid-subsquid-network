@@ -1,0 +1,13 @@
+type Vesting @entity {
+  id: ID!
+  beneficiary: String! @index
+  createdAt: DateTime!
+}
+
+type TemporaryHolding @entity {
+  id: ID!
+  beneficiary: String! @index
+  admin: String!
+  unlockedAt: DateTime!
+  locked: Boolean!
+}

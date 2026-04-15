@@ -1,0 +1,11 @@
+export declare const SECOND_MS = 1000;
+export declare const MINUTE_MS: number;
+export declare const HOUR_MS: number;
+export declare const DAY_MS: number;
+export declare const YEAR_MS: number;
+export declare function toStartOfMinute(timestamp: number): number;
+export declare function toStartOfHour(timestamp: number): number;
+export declare function toStartOfDay(timestamp: number): number;
+export declare function toEndOfDay(timestamp: number): number;
+export declare function toStartOfInterval(timestamp: number, interval: number): number;
+export declare function toEndOfInterval(timestamp: number, interval: number): number;
