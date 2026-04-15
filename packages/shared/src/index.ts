@@ -3,20 +3,19 @@ export { network } from './config/network'
 export type { ContractConfig, NetworkConfig } from './config/network'
 export { client } from './config/rpc-client'
 
-// Processor
+// Template keys
 export {
-  createBaseBuilder,
-  DataSourceBuilder,
-} from './processor'
-export type {
-  Fields,
-  BlockData,
-  BlockHeader,
-  Log,
-  Transaction,
-  ProcessorContext,
-  TemplateManager,
-} from './processor'
+  STAKING_TEMPLATE_KEY,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
+  NETWORK_CONTROLLER_TEMPLATE_KEY,
+  REWARD_TREASURY_TEMPLATE_KEY,
+  VESTING_TEMPLATE_KEY,
+  PORTAL_POOL_TEMPLATE_KEY,
+} from './config/templates'
+
+// Processor
+export { DataSourceBuilder } from './processor'
+export type { ProcessorContext, TemplateManager } from './processor'
 
 // Item
 export {
@@ -68,6 +67,9 @@ export {
 export type { Task } from './utils/queue'
 export { TaskQueue } from './utils/queue'
 
+export { getGroupSize } from './utils/groupSize'
+export type { GroupSize } from './utils/groupSize'
+
 // Helpers
 export {
   createWorkerId,
@@ -83,14 +85,3 @@ export {
 } from './helpers/ids'
 
 export { findTransfer, findTransferInTx } from './helpers/transfer'
-
-// Query builders
-export { addRouterQuery } from './config/queries/router'
-export { addStakingQuery, STAKING_TEMPLATE_KEY } from './config/queries/staking'
-export { addWorkersRegistryQuery, WORKER_REGISTRATION_TEMPLATE_KEY } from './config/queries/workersRegistry'
-export { addNetworkControllerQuery, NETWORK_CONTROLLER_TEMPLATE_KEY } from './config/queries/networkController'
-export { addRewardTreasuryQuery, REWARD_TREASURY_TEMPLATE_KEY } from './config/queries/rewardTreasury'
-export { addVestingsQuery, VESTING_TEMPLATE_KEY } from './config/queries/vestings'
-export { addPortalPoolsQuery, PORTAL_POOL_TEMPLATE_KEY } from './config/queries/portalPools'
-export { addRewardCalculationQuery } from './config/queries/rewardCalculation'
-export { loadPreindexFile } from './config/queries/loadPreindex'

@@ -5,49 +5,21 @@ import {
   Log as _Log,
   Transaction as _Transaction,
 } from '@subsquid/evm-objects'
-import { DataSourceBuilder, type GetDataSourceBlock, type Block } from '@subsquid/evm-stream'
+import { DataSourceBuilder, type FieldSelection } from '@subsquid/evm-stream'
 import type { Logger } from '@subsquid/logger'
-import { assertNotNull } from '@subsquid/util-internal'
-
-import { network } from './config/network'
 
 export { DataSourceBuilder }
+export type { FieldSelection }
 
-export function createBaseBuilder() {
-  const builder = new DataSourceBuilder()
-    .setFields({
-      block: {
-        timestamp: true,
-        l1BlockNumber: true,
-      },
-      log: {
-        address: true,
-        topics: true,
-        data: true,
-        transactionHash: true,
-      },
-    })
-    .includeAllBlocks()
-    .setBlockRange(network.range)
-
-  if (process.env.PORTAL_ENDPOINT) {
-    builder.setPortal({
-      url: assertNotNull(process.env.PORTAL_ENDPOINT),
-      minBytes: 40 * 1024 * 1024,
-    })
-  }
-
-  return builder
+type DefaultFields = {
+  block: { timestamp: true; l1BlockNumber: true }
+  log: { address: true; topics: true; data: true; transactionHash: true }
 }
 
-type BaseBuilder = ReturnType<typeof createBaseBuilder>
-type BaseProcessor = ReturnType<BaseBuilder['build']>
-export type Fields = GetDataSourceBlock<BaseProcessor> extends Block<infer F> ? F : never
-
-export type BlockData = _BlockData<Fields>
-export type BlockHeader = _BlockHeader<Fields>
-export type Log = _Log<Fields>
-export type Transaction = _Transaction<Fields>
+export type BlockData = _BlockData<DefaultFields>
+export type BlockHeader = _BlockHeader<DefaultFields>
+export type Log = _Log<DefaultFields>
+export type Transaction = _Transaction<DefaultFields>
 
 export type { TemplateManager }
 
