@@ -1,19 +1,9 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2020",
     "outDir": "lib",
     "rootDir": "src",
     "baseUrl": ".",
-    "strict": true,
-    "declaration": false,
-    "sourceMap": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "allowJs": true,
     "paths": {
       "~/model": ["./src/model"],
       "~/model/*": ["./src/model/*"]

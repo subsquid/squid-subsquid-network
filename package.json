@@ -1,12 +1,18 @@
 {
   "name": "squid-subsquid-network",
   "private": true,
+  "packageManager": "pnpm@10.30.2",
   "scripts": {
-    "build": "pnpm -r run build",
+    "build": "turbo run build",
+    "clean": "turbo run clean",
+    "codegen": "turbo run codegen",
+    "db:migrate": "turbo run db:migrate",
     "lint": "biome check --fix --unsafe ."
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "dotenv-cli": "^11.0.0",
+    "turbo": "^2.9.6",
     "typescript": "~5.4.2"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@subsquid-network/shared",
+  "name": "@sqd/shared",
   "version": "0.0.1",
   "private": true,
   "main": "lib/index.js",
@@ -11,6 +11,8 @@
   "dependencies": {
     "@subsquid/batch-processor": "0.2.0-portal-api.d5861e",
     "@subsquid/big-decimal": "^1.0.0",
+    "@subsquid/evm-abi": "^0.3.1",
+    "@subsquid/evm-codec": "^0.3.0",
     "@subsquid/evm-objects": "0.0.2-portal-api.d5861e",
     "@subsquid/evm-stream": "0.0.1-portal-api.d5861e",
     "@subsquid/http-client": "^1.6.0",
@@ -18,7 +20,8 @@
     "@subsquid/rpc-client": "^4.14.0",
     "@subsquid/util-internal": "^3.2.0",
     "@belopash/typeorm-store": "2.0.0-rc.6",
-    "bs58": "^5.0.0"
+    "bs58": "^5.0.0",
+    "date-fns": "^3.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.28",
