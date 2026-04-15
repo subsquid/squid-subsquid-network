@@ -1,5 +1,5 @@
 manifestVersion: subsquid.io/v0.1
-name: subsquid-network-vestings-mainnet
+name: sqd-vestings-mainnet
 slot: v1
 description: Subsquid network vestings indexer
 build:
@@ -36,7 +36,7 @@ scale:
   dedicated: true
   addons:
     postgres:
-      storage: 5G
+      storage: 2G
       profile: small
   processor:
     profile: small

@@ -1,5 +1,5 @@
 manifestVersion: subsquid.io/v0.1
-name: subsquid-network-token-mainnet
+name: sqd-token-mainnet
 slot: v1
 description: Subsquid network token indexer
 build:
@@ -36,9 +36,9 @@ scale:
   dedicated: true
   addons:
     postgres:
-      storage: 20G
-      profile: medium
+      storage: 10G
+      profile: small
   processor:
-    profile: medium
+    profile: small
   api:
     replicas: 2

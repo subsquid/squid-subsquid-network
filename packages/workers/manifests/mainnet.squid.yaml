@@ -1,5 +1,5 @@
 manifestVersion: subsquid.io/v0.1
-name: subsquid-network-workers-mainnet
+name: sqd-workers-mainnet
 slot: v1
 description: Subsquid network workers indexer
 build:
@@ -39,9 +39,7 @@ scale:
   dedicated: true
   addons:
     postgres:
-      storage: 40G
-      profile: medium
+      storage: 10G
+      profile: small
   processor:
-    profile: large
-  api:
-    replicas: 2
+    profile: medium
