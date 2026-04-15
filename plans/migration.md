@@ -322,7 +322,7 @@ package.json                  # root: private, scripts for build/lint
 .npmrc                        # shamefully-hoist=true (needed for typeorm decorators)
 biome.json                    # shared lint config (kept at root)
 packages/
-  shared/                     # @subsquid-network/shared
+  shared/                     # @sqd/shared
     package.json
     tsconfig.json
     src/
@@ -340,8 +340,8 @@ packages/
       helpers/
         ids.ts                # ID creation helpers (createWorkerId, etc.)
         misc.ts               # findTransfer, findTransferInTx
-  token/                      # @subsquid-network/token
-    package.json              # depends on @subsquid-network/shared (workspace:*)
+  token/                      # @sqd/token
+    package.json              # depends on @sqd/shared (workspace:*)
     tsconfig.json
     schema.graphql
     commands.json
@@ -352,7 +352,7 @@ packages/
       handlers/
       model/                  # generated from schema.graphql
       server-extension/
-  workers/                    # @subsquid-network/workers
+  workers/                    # @sqd/workers
     package.json
     tsconfig.json
     schema.graphql
@@ -364,7 +364,7 @@ packages/
       handlers/
       model/
       server-extension/
-  gateways/                   # @subsquid-network/gateways
+  gateways/                   # @sqd/gateways
     package.json
     tsconfig.json
     schema.graphql
@@ -376,7 +376,7 @@ packages/
       handlers/
       model/
       server-extension/
-  accounts/                   # @subsquid-network/accounts
+  accounts/                   # @sqd/accounts
     package.json
     tsconfig.json
     schema.graphql
@@ -390,7 +390,7 @@ packages/
       server-extension/
 ```
 
-Each indexer package has its own `schema.graphql` -> `squid-typeorm-codegen` -> `src/model/generated/`, its own migrations, and its own `main.ts` entry point. They all depend on `@subsquid-network/shared` via `workspace:*`.
+Each indexer package has its own `schema.graphql` -> `squid-typeorm-codegen` -> `src/model/generated/`, its own migrations, and its own `main.ts` entry point. They all depend on `@sqd/shared` via `workspace:*`.
 
 ## Migration Approach
 
