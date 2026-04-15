@@ -1,12 +1,12 @@
 import {
-  isLog,
-  createHandler,
-  timed,
-  createAccountId,
-  findTransferInTx,
   PORTAL_POOL_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as PortalPoolImplementation from '@subsquid-network/shared/lib/abi/PortalPoolImplementation'
+  createAccountId,
+  createHandler,
+  findTransferInTx,
+  isLog,
+  timed,
+} from '@sqd/shared'
+import * as PortalPoolImplementation from '@sqd/shared/lib/abi/PortalPoolImplementation'
 
 import { TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'

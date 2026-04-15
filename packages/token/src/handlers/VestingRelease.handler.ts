@@ -1,12 +1,12 @@
 import {
-  isLog,
-  createHandler,
-  timed,
-  createAccountId,
-  findTransfer,
   VESTING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Vesting from '@subsquid-network/shared/lib/abi/SubsquidVesting'
+  createAccountId,
+  createHandler,
+  findTransfer,
+  isLog,
+  timed,
+} from '@sqd/shared'
+import * as Vesting from '@sqd/shared/lib/abi/SubsquidVesting'
 
 import { Account, TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'

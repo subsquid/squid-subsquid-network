@@ -1,10 +1,5 @@
-import {
-  isContract,
-  isLog,
-  createHandler,
-  network,
-} from '@subsquid-network/shared'
-import * as Router from '@subsquid-network/shared/lib/abi/Router'
+import { createHandler, isContract, isLog, network } from '@sqd/shared'
+import * as Router from '@sqd/shared/lib/abi/Router'
 
 import { Contracts, Settings } from '~/model'
 

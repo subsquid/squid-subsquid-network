@@ -1,15 +1,15 @@
 import {
-  isContract,
-  isLog,
-  createHandler,
-  timed,
   createAccountId,
   createGatewayOperatorId,
+  createHandler,
   findTransfer,
-  toHumanSQD,
+  isContract,
+  isLog,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'

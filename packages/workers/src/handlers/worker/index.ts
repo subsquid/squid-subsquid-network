@@ -12,5 +12,8 @@ export const handlers = [
   handleWorkerWithdrawn,
 ]
 
-export { ensureWorkerStatusApplyQueue, processWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
+export {
+  ensureWorkerStatusApplyQueue,
+  processWorkerStatusApplyQueue,
+} from './WorkerStatusApply.queue'
 export { ensureWorkerUnlock, processWorkerUnlockQueue } from './WorkerUnlock.queue'

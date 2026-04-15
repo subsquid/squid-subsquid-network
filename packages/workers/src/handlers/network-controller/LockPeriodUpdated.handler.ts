@@ -1,10 +1,5 @@
-import {
-  isLog,
-  createHandler,
-  network,
-  NETWORK_CONTROLLER_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as NetworkController from '@subsquid-network/shared/lib/abi/NetworkController'
+import { NETWORK_CONTROLLER_TEMPLATE_KEY, createHandler, isLog, network } from '@sqd/shared'
+import * as NetworkController from '@sqd/shared/lib/abi/NetworkController'
 
 import { Settings } from '~/model'
 

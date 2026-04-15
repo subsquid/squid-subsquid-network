@@ -1,13 +1,13 @@
 import {
-  isLog,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
   createHandler,
-  timed,
   createWorkerId,
   createWorkerStatusId,
+  isLog,
   network,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as WorkerRegistry from '@subsquid-network/shared/lib/abi/WorkerRegistration'
+  timed,
+} from '@sqd/shared'
+import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { Settings, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'

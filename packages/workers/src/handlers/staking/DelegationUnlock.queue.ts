@@ -1,5 +1,5 @@
 import assert from 'assert'
-import type { MappingContext } from '@subsquid-network/shared'
+import type { MappingContext } from '@sqd/shared'
 import { Delegation, Queue } from '~/model'
 
 export const DELEGATION_UNLOCK_QUEUE = 'delegation-unlock'

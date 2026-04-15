@@ -1,7 +1,7 @@
 import assert from 'assert'
-import type { MappingContext } from '@subsquid-network/shared'
-import { resetWorkerStats } from '../../helpers'
+import type { MappingContext } from '@sqd/shared'
 import { Queue, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
+import { resetWorkerStats } from '../../helpers'
 
 export const WORKER_STATUS_APPLY_QUEUE = 'worker-status-apply'
 

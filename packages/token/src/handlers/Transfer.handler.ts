@@ -1,16 +1,16 @@
 import {
   type LogItem,
+  type MappingContext,
+  createAccountId,
+  createHandlerOld,
   isContract,
   isLog,
-  createHandlerOld,
-  timed,
-  createAccountId,
-  toHumanSQD,
   network,
-  type MappingContext,
-  type Log,
-} from '@subsquid-network/shared'
-import * as SQD from '@subsquid-network/shared/lib/abi/SQD'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as SQD from '@sqd/shared/lib/abi/SQD'
+import type { Log } from '../types'
 
 import {
   Account,

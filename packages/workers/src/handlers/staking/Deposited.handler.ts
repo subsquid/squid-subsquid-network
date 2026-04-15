@@ -1,27 +1,21 @@
 import assert from 'assert'
 
 import {
-  isLog,
-  createHandler,
-  timed,
+  STAKING_TEMPLATE_KEY,
   createAccountId,
   createDelegationId,
   createDelegationStatusChangeId,
+  createHandler,
   createWorkerId,
+  isLog,
+  network,
+  timed,
   toHumanSQD,
   toNextEpochStart,
-  network,
-  STAKING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Staking from '@subsquid-network/shared/lib/abi/Staking'
+} from '@sqd/shared'
+import * as Staking from '@sqd/shared/lib/abi/Staking'
 
-import {
-  Delegation,
-  DelegationStatus,
-  DelegationStatusChange,
-  Settings,
-  Worker,
-} from '~/model'
+import { Delegation, DelegationStatus, DelegationStatusChange, Settings, Worker } from '~/model'
 import { createDelegation } from '../../helpers'
 import { addToWorkerCapQueue } from '../cap'
 import { addToDelegationUnlockQueue } from './DelegationUnlock.queue'
@@ -64,7 +58,7 @@ export const handleDeposited = createHandler((ctx, item) => {
         ctx.log.info(`created delegation(${id})`)
 
         return createDelegation(id, {
-          owner: accountId,
+          ownerId: accountId,
           worker,
         })
       },

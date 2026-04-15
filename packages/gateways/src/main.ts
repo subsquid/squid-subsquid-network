@@ -5,21 +5,16 @@ import { run } from '@subsquid/batch-processor'
 import { augmentBlock } from '@subsquid/evm-objects'
 import { createLogger } from '@subsquid/logger'
 
-import {
-  type ProcessorContext,
-  type Task,
-  last,
-  sortItems,
-  stopwatch,
-} from '@subsquid-network/shared'
 import type { StoreWithCache } from '@belopash/typeorm-store'
+import { type ProcessorContext, type Task, last, sortItems, stopwatch } from '@sqd/shared'
+import type { BlockData } from './types'
 
 import { processor } from './config/processor'
 import {
-  handlers,
   ensureGatewayStakeApplyQueue,
-  processGatewayStakeApplyQueue,
   ensureGatewayStakeUnlockQueue,
+  handlers,
+  processGatewayStakeApplyQueue,
   processGatewayStakeUnlockQueue,
 } from './handlers'
 
@@ -30,7 +25,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const ctx: ProcessorContext<StoreWithCache> = {
     ..._ctx,
-    blocks: _ctx.blocks.map(augmentBlock),
+    blocks: _ctx.blocks.map(augmentBlock) as BlockData[],
     log: logger,
   }
 
@@ -72,7 +67,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const execTime = batchSw.get()
 
-  ctx.log.info(
+  ctx.log.debug(
     `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
   )
 })

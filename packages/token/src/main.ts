@@ -5,30 +5,39 @@ import { run } from '@subsquid/batch-processor'
 import { augmentBlock } from '@subsquid/evm-objects'
 import { createLogger } from '@subsquid/logger'
 
+import type { StoreWithCache } from '@belopash/typeorm-store'
 import {
   type ProcessorContext,
+  REWARD_TREASURY_TEMPLATE_KEY,
+  STAKING_TEMPLATE_KEY,
   type Task,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
   last,
+  network,
   sortItems,
   stopwatch,
-  network,
-  STAKING_TEMPLATE_KEY,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-  REWARD_TREASURY_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import type { StoreWithCache } from '@belopash/typeorm-store'
+} from '@sqd/shared'
+import type { BlockData } from './types'
 
 import { processor } from './config/processor'
 import { handlers } from './handlers'
 
 const logger = createLogger('sqd:token')
 
+let isMaterializedRefreshRunning = false
+
 run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
+  if (!isMaterializedRefreshRunning) {
+    isMaterializedRefreshRunning = true
+    const { startMaterializedViewRefresh } = await import('./materialized-view-refresh')
+    startMaterializedViewRefresh((_ctx.store as any).em.connection.manager)
+  }
+
   const batchSw = stopwatch()
 
   const ctx: ProcessorContext<StoreWithCache> = {
     ..._ctx,
-    blocks: _ctx.blocks.map(augmentBlock),
+    blocks: _ctx.blocks.map(augmentBlock) as BlockData[],
     log: logger,
   }
 
@@ -74,7 +83,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const execTime = batchSw.get()
 
-  ctx.log.info(
+  ctx.log.debug(
     `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
   )
 })

@@ -1,5 +1,5 @@
 import assert from 'assert'
-import type { MappingContext } from '@subsquid-network/shared'
+import type { MappingContext } from '@sqd/shared'
 import { Queue, Worker } from '~/model'
 
 export const WORKER_UNLOCK_QUEUE = 'worker-unlock'

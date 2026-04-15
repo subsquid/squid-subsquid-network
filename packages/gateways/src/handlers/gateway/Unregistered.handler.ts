@@ -1,13 +1,13 @@
 import {
+  createHandler,
+  createWorkerStatusId,
   isContract,
   isLog,
-  createHandler,
-  timed,
-  createWorkerStatusId,
-  parsePeerId,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  parsePeerId,
+  timed,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { Gateway, GatewayStatus, GatewayStatusChange } from '~/model'
 

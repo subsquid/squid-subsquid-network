@@ -1,13 +1,20 @@
-import { autoExtensionChangedHandler } from './AutoExtensionChanged.handler'
-import { handleDeposited } from './Deposited.handler'
-import { handleExitClaimed } from './ExitClaimed.handler'
-import { handleMetadataChanged } from './MetadataChanged.handler'
-import { handlePoolCreated } from './PoolCreated.handler'
-import { handleRegistered } from './Registered.handler'
-import { gatewayStakedHandler } from './Staked.handler'
-import { handleUnregistered } from './Unregistered.handler'
-import { handleUnstaked } from './Unstaked.handler'
-import { handleWithdrawn } from './Withdrawn.handler'
+import { autoExtensionChangedHandler } from './gateway/AutoExtensionChanged.handler'
+import { handleMetadataChanged } from './gateway/MetadataChanged.handler'
+import { handleRegistered } from './gateway/Registered.handler'
+import { gatewayStakedHandler } from './gateway/Staked.handler'
+import { handleUnregistered } from './gateway/Unregistered.handler'
+import { handleUnstaked } from './gateway/Unstaked.handler'
+
+import { handleCapacityUpdated } from './pool/CapacityUpdated.handler'
+import { handleDeposited } from './pool/Deposited.handler'
+import { handleDistributionRateChanged } from './pool/DistributionRateChanged.handler'
+import { handleExitClaimed } from './pool/ExitClaimed.handler'
+import { handleExitRequested } from './pool/ExitRequested.handler'
+import { handlePoolClosed } from './pool/PoolClosed.handler'
+import { handlePoolCreated } from './pool/PoolCreated.handler'
+import { handleRewardsClaimed } from './pool/RewardsClaimed.handler'
+import { handleRewardsToppedUp } from './pool/RewardsToppedUp.handler'
+import { handleWithdrawn } from './pool/Withdrawn.handler'
 
 export const handlers = [
   handleRegistered,
@@ -17,10 +24,22 @@ export const handlers = [
   handleMetadataChanged,
   autoExtensionChangedHandler,
   handlePoolCreated,
+  handlePoolClosed,
   handleDeposited,
   handleWithdrawn,
+  handleExitRequested,
   handleExitClaimed,
+  handleRewardsToppedUp,
+  handleRewardsClaimed,
+  handleCapacityUpdated,
+  handleDistributionRateChanged,
 ]
 
-export { ensureGatewayStakeApplyQueue, processGatewayStakeApplyQueue } from './StakeApply.queue'
-export { ensureGatewayStakeUnlockQueue, processGatewayStakeUnlockQueue } from './StakeUnlock.queue'
+export {
+  ensureGatewayStakeApplyQueue,
+  processGatewayStakeApplyQueue,
+} from './gateway/StakeApply.queue'
+export {
+  ensureGatewayStakeUnlockQueue,
+  processGatewayStakeUnlockQueue,
+} from './gateway/StakeUnlock.queue'

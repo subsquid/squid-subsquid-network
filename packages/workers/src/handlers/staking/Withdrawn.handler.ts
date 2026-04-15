@@ -1,25 +1,20 @@
 import assert from 'assert'
 
 import {
-  isLog,
-  createHandler,
-  timed,
+  STAKING_TEMPLATE_KEY,
   createAccountId,
   createDelegationId,
   createDelegationStatusChangeId,
+  createHandler,
   createWorkerId,
-  toHumanSQD,
+  isLog,
   network,
-  STAKING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Staking from '@subsquid-network/shared/lib/abi/Staking'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as Staking from '@sqd/shared/lib/abi/Staking'
 
-import {
-  Delegation,
-  DelegationStatus,
-  DelegationStatusChange,
-  Settings,
-} from '~/model'
+import { Delegation, DelegationStatus, DelegationStatusChange, Settings } from '~/model'
 import { addToWorkerCapQueue } from '../cap'
 
 export const handleWithdrawn = createHandler((ctx, item) => {

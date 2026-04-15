@@ -7,47 +7,55 @@ import { createLogger } from '@subsquid/logger'
 import { LessThanOrEqual } from 'typeorm'
 
 import {
+  NETWORK_CONTROLLER_TEMPLATE_KEY,
   type ProcessorContext,
-  type BlockHeader,
+  REWARD_TREASURY_TEMPLATE_KEY,
+  STAKING_TEMPLATE_KEY,
   type Task,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
+  createEpochId,
   last,
+  network,
   sortItems,
   stopwatch,
-  network,
   toEpochStart,
-  createEpochId,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-  NETWORK_CONTROLLER_TEMPLATE_KEY,
-  STAKING_TEMPLATE_KEY,
-  REWARD_TREASURY_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
+} from '@sqd/shared'
+import type { BlockData, BlockHeader } from './types'
 
+import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
 import { processor } from './config/processor'
 import {
-  handlers,
-  ensureWorkerStatusApplyQueue,
-  processWorkerStatusApplyQueue,
-  ensureWorkerUnlock,
-  processWorkerUnlockQueue,
   ensureDelegationUnlockQueue,
-  processDelegationUnlockQueue,
   ensureWorkerCapQueue,
-  updateWorkersCap,
-  updateWorkersOnline,
-  updateWorkersMetrics,
+  ensureWorkerStatusApplyQueue,
+  ensureWorkerUnlock,
+  handlers,
+  processDelegationUnlockQueue,
+  processWorkerStatusApplyQueue,
+  processWorkerUnlockQueue,
   updateWorkerRewardStats,
+  updateWorkersCap,
+  updateWorkersMetrics,
+  updateWorkersOnline,
 } from './handlers'
 import { createBlock, createSettings } from './helpers'
-import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
 
 const logger = createLogger('sqd:workers')
 
+let isMaterializedRefreshRunning = false
+
 run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
+  if (!isMaterializedRefreshRunning) {
+    isMaterializedRefreshRunning = true
+    const { startMaterializedViewRefresh } = await import('./materialized-view-refresh')
+    startMaterializedViewRefresh((_ctx.store as any).em.connection.manager)
+  }
+
   const batchSw = stopwatch()
 
   const ctx: ProcessorContext<StoreWithCache> = {
     ..._ctx,
-    blocks: _ctx.blocks.map(augmentBlock),
+    blocks: _ctx.blocks.map(augmentBlock) as BlockData[],
     log: logger,
   }
 
@@ -94,7 +102,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const execTime = batchSw.get()
 
-  ctx.log.info(
+  ctx.log.debug(
     `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
   )
 })
@@ -131,8 +139,8 @@ async function init(ctx: MappingContext, block: BlockHeader) {
     [REWARD_TREASURY_TEMPLATE_KEY, network.defaultRouterContracts.rewardTreasury],
   ] as const
   for (const [key, address] of defaults) {
-    if (!ctx.templates.has(key, address, defaultFrom)) {
-      ctx.templates.add(key, address, defaultFrom)
+    if (!ctx.templates.has(key, address, 208420430)) {
+      ctx.templates.add(key, address, 208420430)
     }
   }
 

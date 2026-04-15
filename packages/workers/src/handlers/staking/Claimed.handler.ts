@@ -1,15 +1,15 @@
 import {
   type LogItem,
-  isLog,
-  createHandlerOld,
-  timed,
+  STAKING_TEMPLATE_KEY,
   createAccountId,
   createDelegationId,
+  createHandlerOld,
   createWorkerId,
+  isLog,
+  timed,
   toHumanSQD,
-  STAKING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Staking from '@subsquid-network/shared/lib/abi/Staking'
+} from '@sqd/shared'
+import * as Staking from '@sqd/shared/lib/abi/Staking'
 
 import { Delegation } from '~/model'
 
@@ -26,9 +26,7 @@ export const handleClaimed = createHandlerOld({
 
     const workerIds = workerIndexes.map((i) => createWorkerId(i))
     const delegationIds = workerIds.map((workerId) => createDelegationId(workerId, accountId))
-    const delegationsDeferred = delegationIds.map((id) =>
-      ctx.store.defer(Delegation, id),
-    )
+    const delegationsDeferred = delegationIds.map((id) => ctx.store.defer(Delegation, id))
 
     return timed(ctx, async (elapsed) => {
       const delegations = await Promise.all(delegationsDeferred.map((d) => d.get())).then((ds) =>

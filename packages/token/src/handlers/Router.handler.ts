@@ -1,13 +1,13 @@
 import {
-  isContract,
-  isLog,
-  createHandler,
-  network,
+  REWARD_TREASURY_TEMPLATE_KEY,
   STAKING_TEMPLATE_KEY,
   WORKER_REGISTRATION_TEMPLATE_KEY,
-  REWARD_TREASURY_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Router from '@subsquid-network/shared/lib/abi/Router'
+  createHandler,
+  isContract,
+  isLog,
+  network,
+} from '@sqd/shared'
+import * as Router from '@sqd/shared/lib/abi/Router'
 
 export const stakingSetHandler = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.Router)) return

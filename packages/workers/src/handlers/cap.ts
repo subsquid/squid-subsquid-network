@@ -1,10 +1,11 @@
 import { BigDecimal } from '@subsquid/big-decimal'
 import { In, MoreThanOrEqual } from 'typeorm'
 
-import type { MappingContext, BlockHeader } from '@subsquid-network/shared'
-import { network, DAY_MS, client } from '@subsquid-network/shared'
-import * as SoftCap from '@subsquid-network/shared/lib/abi/SoftCap'
-import { Multicall } from '@subsquid-network/shared/lib/abi/multicall'
+import type { MappingContext } from '@sqd/shared'
+import { DAY_MS, client, network } from '@sqd/shared'
+import * as SoftCap from '@sqd/shared/lib/abi/SoftCap'
+import { Multicall } from '@sqd/shared/lib/abi/multicall'
+import type { BlockHeader } from '../types'
 
 import { Queue, Settings, Worker, WorkerReward, WorkerStatus } from '~/model'
 

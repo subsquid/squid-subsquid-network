@@ -1,13 +1,13 @@
 import {
+  createGatewayOperatorId,
+  createHandler,
   isContract,
   isLog,
-  createHandler,
-  timed,
-  createGatewayOperatorId,
-  toHumanSQD,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { GatewayStake, PortalPool } from '~/model'
 

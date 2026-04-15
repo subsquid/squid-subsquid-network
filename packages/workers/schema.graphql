@@ -76,7 +76,7 @@ type Worker
   id: ID!
 
   peerId: String! @index
-  owner: String! @index
+  ownerId: String! @index
   bond: BigInt!
   createdAt: DateTime!
 
@@ -189,7 +189,7 @@ type WorkerMetrics @entity @index(fields: ["timestamp"]) @index(fields: ["worker
 type Delegation @entity {
   id: ID!
 
-  owner: String! @index
+  ownerId: String! @index
   worker: Worker!
 
   status: DelegationStatus!

@@ -1,16 +1,16 @@
 import {
-  isLog,
-  createHandler,
-  timed,
+  STAKING_TEMPLATE_KEY,
   createAccountId,
   createDelegationId,
+  createHandler,
   createWorkerId,
   findTransfer,
-  toHumanSQD,
+  isLog,
   network,
-  STAKING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Staking from '@subsquid-network/shared/lib/abi/Staking'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as Staking from '@sqd/shared/lib/abi/Staking'
 
 import { TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'
@@ -21,7 +21,11 @@ export const handleStakingDeposited = createHandler((ctx, item) => {
   if (!ctx.templates.has(STAKING_TEMPLATE_KEY, item.address, item.value.block.height)) return
 
   const log = item.value
-  const { worker: workerIndex, staker: stakerAccount, amount } = Staking.events.Deposited.decode(log)
+  const {
+    worker: workerIndex,
+    staker: stakerAccount,
+    amount,
+  } = Staking.events.Deposited.decode(log)
   if (amount === 0n) return
 
   const workerId = createWorkerId(workerIndex)
@@ -53,7 +57,11 @@ export const handleStakingWithdrawn = createHandler((ctx, item) => {
   if (!ctx.templates.has(STAKING_TEMPLATE_KEY, item.address, item.value.block.height)) return
 
   const log = item.value
-  const { worker: workerIndex, staker: stakerAccount, amount } = Staking.events.Withdrawn.decode(log)
+  const {
+    worker: workerIndex,
+    staker: stakerAccount,
+    amount,
+  } = Staking.events.Withdrawn.decode(log)
 
   const workerId = createWorkerId(workerIndex)
   const accountId = createAccountId(stakerAccount)

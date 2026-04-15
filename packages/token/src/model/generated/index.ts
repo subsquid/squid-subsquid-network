@@ -1,3 +1,5 @@
+export * from "./contract.model"
+export * from "./_contractType"
 export * from "./account.model"
 export * from "./_accountType"
 export * from "./accountTransfer.model"

@@ -24,7 +24,7 @@ export class Worker {
 
     @Index_()
     @StringColumn_({nullable: false})
-    owner!: string
+    ownerId!: string
 
     @BigIntColumn_({nullable: false})
     bond!: bigint

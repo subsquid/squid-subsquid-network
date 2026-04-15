@@ -17,7 +17,7 @@ export class Gateway {
 
     @Index_()
     @StringColumn_({nullable: false})
-    owner!: string
+    ownerId!: string
 
     @Index_()
     @ManyToOne_(() => GatewayStake, {nullable: true})

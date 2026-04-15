@@ -7,7 +7,7 @@ enum GatewayStatus {
 type Gateway @entity {
   id: ID!
   createdAt: DateTime!
-  owner: String! @index
+  ownerId: String! @index
   stake: GatewayStake!
   status: GatewayStatus!
   statusHistory: [GatewayStatusChange!]! @derivedFrom(field: "gateway")
@@ -27,7 +27,7 @@ type GatewayStatusChange @entity {
 
 type GatewayStake @entity {
   id: ID!
-  owner: String! @index
+  ownerId: String! @index
   autoExtension: Boolean!
   gateways: [Gateway!]! @derivedFrom(field: "stake")
   amount: BigInt!
@@ -38,15 +38,82 @@ type GatewayStake @entity {
   lockEnd: Int
 }
 
-type PortalPool @entity {
+type PortalPool
+  @entity
+  @index(fields: ["createdAt"])
+  @index(fields: ["tvlTotal"])
+  @index(fields: ["tvlStable"])
+{
   id: ID!
+
   createdAt: DateTime!
   createdAtBlock: Int!
+  closedAt: DateTime
+  closedAtBlock: Int
+
   operator: String! @index
   rewardToken: String!
-  capacity: BigInt!
-  distributionRatePerSecond: BigInt!
-  initialDeposit: BigInt!
   tokenSuffix: String!
   metadata: String
+
+  capacity: BigInt!
+  rewardRate: BigInt!
+  totalRewardsToppedUp: BigInt!
+
+  tvlTotal: BigInt!
+  tvlStable: BigInt!
+
+  events: [PoolEvent!]! @derivedFrom(field: "pool")
+  distributionRateHistory: [PoolDistributionRateChange!]! @derivedFrom(field: "pool")
+  capacityHistory: [PoolCapacityChange!]! @derivedFrom(field: "pool")
+}
+
+enum PoolEventType {
+  DEPOSIT
+  WITHDRAWAL
+  EXIT
+  TOPUP
+  CLAIM
+}
+
+type PoolEvent
+  @entity
+  @index(fields: ["pool", "timestamp"])
+  @index(fields: ["pool", "eventType", "timestamp"])
+{
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  eventType: PoolEventType!
+
+  amount: BigInt!
+  providerId: String
+}
+
+type PoolDistributionRateChange @entity @index(fields: ["pool", "timestamp"]) {
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  oldRate: BigInt!
+  newRate: BigInt!
+}
+
+type PoolCapacityChange @entity @index(fields: ["pool", "timestamp"]) {
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  oldCapacity: BigInt!
+  newCapacity: BigInt!
 }

@@ -1,14 +1,14 @@
 import {
   type LogItem,
-  isLog,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
   createHandlerOld,
-  timed,
   createWorkerId,
   createWorkerStatusId,
+  isLog,
+  timed,
   toHumanSQD,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as WorkerRegistry from '@subsquid-network/shared/lib/abi/WorkerRegistration'
+} from '@sqd/shared'
+import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 

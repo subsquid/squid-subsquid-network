@@ -1,19 +1,19 @@
 import {
   type LogItem,
-  isContract,
-  isLog,
-  createHandlerOld,
-  timed,
   createAccountId,
   createGatewayOperatorId,
+  createHandlerOld,
   createWorkerStatusId,
-  parsePeerId,
+  isContract,
+  isLog,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  parsePeerId,
+  timed,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { Gateway, GatewayStake, GatewayStatus, GatewayStatusChange } from '~/model'
-import { createGatewayStake } from '../helpers'
+import { createGatewayStake } from '../../helpers'
 
 export const handleRegistered = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -40,7 +40,7 @@ export const handleRegistered = createHandlerOld({
         id: gatewayId,
         status: GatewayStatus.UNKNOWN,
         createdAt: new Date(log.block.timestamp),
-        owner: ownerId,
+        ownerId: ownerId,
         stake,
         description: null,
         email: null,

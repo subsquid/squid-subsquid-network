@@ -1,21 +1,15 @@
-import type { WorkerMetadata } from '@subsquid-network/shared'
-import {
-  Block,
-  Worker,
-  WorkerStatus,
-  Delegation,
-  Settings,
-} from '~/model'
+import type { WorkerMetadata } from '@sqd/shared'
+import { Block, Delegation, Settings, Worker, WorkerStatus } from '~/model'
 
 export function createWorker(
   id: string,
   {
-    owner,
+    ownerId,
     metadata,
     peerId,
     createdAt,
   }: {
-    owner: string
+    ownerId: string
     metadata: WorkerMetadata
     peerId: string
     createdAt: Date
@@ -24,7 +18,7 @@ export function createWorker(
   const worker = new Worker({
     id,
     bond: 0n,
-    owner,
+    ownerId,
     peerId,
     createdAt,
     claimableReward: 0n,
@@ -65,10 +59,7 @@ export function resetWorkerStats(worker: Worker) {
   } satisfies Partial<Worker>)
 }
 
-export function createDelegation(
-  id: string,
-  opts: { owner: string; worker: Worker },
-) {
+export function createDelegation(id: string, opts: { ownerId: string; worker: Worker }) {
   return new Delegation({
     id,
     deposit: 0n,

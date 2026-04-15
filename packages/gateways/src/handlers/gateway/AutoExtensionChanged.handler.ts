@@ -1,19 +1,19 @@
 import {
+  createGatewayOperatorId,
+  createHandler,
   isContract,
   isLog,
-  createHandler,
-  timed,
-  createGatewayOperatorId,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  timed,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { GatewayStake } from '~/model'
-import { INT32_MAX } from './Staked.handler'
 import {
   addToGatewayStakeUnlockQueue,
   removeFromGatewayStakeUnlockQueue,
 } from './StakeUnlock.queue'
+import { INT32_MAX } from './Staked.handler'
 
 export const autoExtensionChangedHandler = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.GatewayRegistry)) return
@@ -45,7 +45,9 @@ export const autoExtensionChangedHandler = createHandler((ctx, item) => {
   return timed(ctx, async (elapsed) => {
     const stake = await stakeDeferred.get()
     if (!stake) {
-      ctx.log.info(`skipped AutoExtensionChanged: no stake for operator ${stakeId} (${elapsed()}ms)`)
+      ctx.log.info(
+        `skipped AutoExtensionChanged: no stake for operator ${stakeId} (${elapsed()}ms)`,
+      )
       return
     }
 

@@ -4,19 +4,19 @@ import { BigDecimal } from '@subsquid/big-decimal'
 import { LessThanOrEqual, Not } from 'typeorm'
 
 import {
+  type MappingContext,
+  YEAR_MS,
+  createCommitmentId,
+  createHandler,
+  createWorkerId,
   isContract,
   isLog,
-  createHandler,
-  createCommitmentId,
-  createWorkerId,
+  network,
   stopwatch,
   toPercent,
-  YEAR_MS,
-  network,
-  type MappingContext,
-  type Log,
-} from '@subsquid-network/shared'
-import * as RewardsDistribution from '@subsquid-network/shared/lib/abi/DistributedRewardsDistribution'
+} from '@sqd/shared'
+import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
+import type { Log } from '../../types'
 
 import {
   Block,

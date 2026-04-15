@@ -1,11 +1,11 @@
 import {
+  NETWORK_CONTROLLER_TEMPLATE_KEY,
+  createHandler,
   isContract,
   isLog,
-  createHandler,
   network,
-  NETWORK_CONTROLLER_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as Router from '@subsquid-network/shared/lib/abi/Router'
+} from '@sqd/shared'
+import * as Router from '@sqd/shared/lib/abi/Router'
 
 import { Contracts, Settings } from '~/model'
 

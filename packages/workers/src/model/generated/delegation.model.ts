@@ -15,7 +15,7 @@ export class Delegation {
 
     @Index_()
     @StringColumn_({nullable: false})
-    owner!: string
+    ownerId!: string
 
     @Index_()
     @ManyToOne_(() => Worker, {nullable: true})

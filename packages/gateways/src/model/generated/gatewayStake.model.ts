@@ -12,7 +12,7 @@ export class GatewayStake {
 
     @Index_()
     @StringColumn_({nullable: false})
-    owner!: string
+    ownerId!: string
 
     @BooleanColumn_({nullable: false})
     autoExtension!: boolean

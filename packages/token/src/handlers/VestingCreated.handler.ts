@@ -1,13 +1,13 @@
 import {
-  isLog,
-  createHandler,
-  timed,
-  createAccountId,
-  normalizeAddress,
-  network,
   VESTING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as VestingFactory from '@subsquid-network/shared/lib/abi/VestingFactory'
+  createAccountId,
+  createHandler,
+  isLog,
+  network,
+  normalizeAddress,
+  timed,
+} from '@sqd/shared'
+import * as VestingFactory from '@sqd/shared/lib/abi/VestingFactory'
 
 import { Account, AccountType } from '~/model'
 

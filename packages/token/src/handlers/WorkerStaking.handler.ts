@@ -1,16 +1,16 @@
 import {
   type LogItem,
-  isLog,
-  createHandlerOld,
-  timed,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
   createAccountId,
+  createHandlerOld,
   createWorkerId,
   findTransfer,
-  toHumanSQD,
+  isLog,
   network,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as WorkerRegistry from '@subsquid-network/shared/lib/abi/WorkerRegistration'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'

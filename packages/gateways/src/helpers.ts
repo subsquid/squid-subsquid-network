@@ -1,9 +1,9 @@
 import { GatewayStake } from '~/model'
 
-export function createGatewayStake(id: string, owner: string) {
+export function createGatewayStake(id: string, ownerId: string) {
   return new GatewayStake({
     id,
-    owner,
+    ownerId,
     autoExtension: false,
     amount: 0n,
     computationUnits: 0n,

@@ -1,5 +1,5 @@
 import assert from 'assert'
-import type { MappingContext } from '@subsquid-network/shared'
+import type { MappingContext } from '@sqd/shared'
 import { GatewayStake, Queue } from '~/model'
 
 export const STAKE_APPLY_QUEUE = 'stake-apply'
@@ -61,6 +61,8 @@ export async function processGatewayStakeApplyQueue(
   queue.tasks = tasks
 
   if (processed > 0) {
-    ctx.log.info(`stake-apply queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`)
+    ctx.log.info(
+      `stake-apply queue: processed ${processed}/${total} tasks (${(performance.now() - start).toFixed(1)}ms)`,
+    )
   }
 }

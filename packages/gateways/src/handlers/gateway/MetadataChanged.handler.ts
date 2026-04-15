@@ -1,14 +1,14 @@
 import {
   type LogItem,
+  createHandlerOld,
   isContract,
   isLog,
-  createHandlerOld,
-  timed,
+  network,
   parseGatewayMetadata,
   parsePeerId,
-  network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  timed,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { Gateway } from '~/model'
 

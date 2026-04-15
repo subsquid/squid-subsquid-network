@@ -1,13 +1,13 @@
 import {
+  VESTING_TEMPLATE_KEY,
+  createAccountId,
   createHandler,
-  timed,
   isLog,
   network,
   normalizeAddress,
-  createAccountId,
-  VESTING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as VestingFactory from '@subsquid-network/shared/lib/abi/VestingFactory'
+  timed,
+} from '@sqd/shared'
+import * as VestingFactory from '@sqd/shared/lib/abi/VestingFactory'
 import { Vesting } from '~/model'
 
 export const handleVestingCreated = createHandler((ctx, item) => {

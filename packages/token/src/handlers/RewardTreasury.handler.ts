@@ -1,13 +1,13 @@
 import {
-  isLog,
-  createHandler,
-  timed,
-  createAccountId,
-  findTransfer,
-  network,
   REWARD_TREASURY_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as RewardsTreasury from '@subsquid-network/shared/lib/abi/RewardTreasury'
+  createAccountId,
+  createHandler,
+  findTransfer,
+  isLog,
+  network,
+  timed,
+} from '@sqd/shared'
+import * as RewardsTreasury from '@sqd/shared/lib/abi/RewardTreasury'
 
 import { TransferType } from '~/model'
 import { saveTransfer } from './Transfer.handler'

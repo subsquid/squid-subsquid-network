@@ -1,17 +1,17 @@
 import {
-  isContract,
-  isLog,
-  createHandler,
-  timed,
   createAccountId,
   createGatewayOperatorId,
-  toHumanSQD,
+  createHandler,
+  isContract,
+  isLog,
   network,
-} from '@subsquid-network/shared'
-import * as GatewayRegistry from '@subsquid-network/shared/lib/abi/GatewayRegistry'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 
 import { GatewayStake, PortalPool } from '~/model'
-import { createGatewayStake } from '../helpers'
+import { createGatewayStake } from '../../helpers'
 import { addToGatewayStakeApplyQueue } from './StakeApply.queue'
 import { addToGatewayStakeUnlockQueue } from './StakeUnlock.queue'
 

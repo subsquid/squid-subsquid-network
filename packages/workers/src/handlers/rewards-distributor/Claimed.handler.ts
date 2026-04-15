@@ -2,16 +2,16 @@ import assert from 'assert'
 
 import {
   type LogItem,
+  createAccountId,
+  createHandlerOld,
+  createWorkerId,
   isContract,
   isLog,
-  createHandlerOld,
-  timed,
-  createAccountId,
-  createWorkerId,
-  toHumanSQD,
   network,
-} from '@subsquid-network/shared'
-import * as RewardsDistribution from '@subsquid-network/shared/lib/abi/DistributedRewardsDistribution'
+  timed,
+  toHumanSQD,
+} from '@sqd/shared'
+import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
 
 import { Worker } from '~/model'
 
@@ -36,7 +36,7 @@ export const handleRewardsClaimed = createHandlerOld({
 
     return timed(ctx, async (elapsed) => {
       const worker = await workerDeferred.getOrFail()
-      assert(worker.owner === accountId)
+      assert(worker.ownerId === accountId)
 
       worker.claimableReward = 0n
       worker.claimedReward += amount

@@ -1,19 +1,19 @@
 import { assertNotNull } from '@subsquid/util-internal'
 
 import {
-  isLog,
-  createHandler,
-  timed,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
   createAccountId,
+  createHandler,
   createWorkerId,
   createWorkerStatusId,
+  isLog,
+  network,
   parsePeerId,
   parseWorkerMetadata,
+  timed,
   toHumanSQD,
-  network,
-  WORKER_REGISTRATION_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import * as WorkerRegistry from '@subsquid-network/shared/lib/abi/WorkerRegistration'
+} from '@sqd/shared'
+import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { Settings, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 import { createWorker } from '../../helpers'
@@ -42,7 +42,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
     let worker = await workerDeferred.get()
     const isNewWorker = worker == null
     if (worker != null) {
-      worker.owner = ownerId
+      worker.ownerId = ownerId
       worker.peerId = parsePeerId(event.peerId)
       worker.name = metadata.name
       worker.email = metadata.email
@@ -50,7 +50,7 @@ export const handleWorkerRegistered = createHandler((ctx, item) => {
       worker.description = metadata.description
     } else {
       worker = createWorker(workerId, {
-        owner: ownerId,
+        ownerId: ownerId,
         peerId: parsePeerId(event.peerId),
         createdAt: new Date(log.block.timestamp),
         metadata,

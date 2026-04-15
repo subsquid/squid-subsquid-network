@@ -5,21 +5,22 @@ import { run } from '@subsquid/batch-processor'
 import { augmentBlock } from '@subsquid/evm-objects'
 import { createLogger } from '@subsquid/logger'
 
+import type { StoreWithCache } from '@belopash/typeorm-store'
 import {
   type ProcessorContext,
   type Task,
+  VESTING_TEMPLATE_KEY,
   last,
+  network,
   sortItems,
   stopwatch,
-  network,
-  VESTING_TEMPLATE_KEY,
-} from '@subsquid-network/shared'
-import type { StoreWithCache } from '@belopash/typeorm-store'
+} from '@sqd/shared'
+import type { BlockData } from './types'
 
 import { processor } from './config/processor'
 import {
-  handlers,
   ensureTemporaryHoldingUnlockQueue,
+  handlers,
   processTemporaryHoldingUnlockQueue,
 } from './handlers'
 
@@ -30,7 +31,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const ctx: ProcessorContext<StoreWithCache> = {
     ..._ctx,
-    blocks: _ctx.blocks.map(augmentBlock),
+    blocks: _ctx.blocks.map(augmentBlock) as BlockData[],
     log: logger,
   }
 
@@ -70,7 +71,7 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
 
   const execTime = batchSw.get()
 
-  ctx.log.info(
+  ctx.log.debug(
     `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
   )
 })

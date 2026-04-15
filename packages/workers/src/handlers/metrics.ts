@@ -1,26 +1,14 @@
 import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client'
-import { In, MoreThanOrEqual } from 'typeorm'
 import { compareAsc, startOfDay } from 'date-fns'
+import { In, MoreThanOrEqual } from 'typeorm'
 
-import type { MappingContext, BlockHeader } from '@subsquid-network/shared'
-import {
-  network,
-  joinUrl,
-  toPercent,
-  toStartOfInterval,
-  DAY_MS,
-  MINUTE_MS,
-} from '@subsquid-network/shared'
+import type { MappingContext } from '@sqd/shared'
+import { DAY_MS, MINUTE_MS, joinUrl, network, toPercent, toStartOfInterval } from '@sqd/shared'
+import type { BlockHeader } from '../types'
 
 import { recalculateWorkerAprs } from './cap'
 
-import {
-  Block,
-  Settings,
-  Worker,
-  WorkerMetrics,
-  WorkerStatus,
-} from '~/model'
+import { Block, Settings, Worker, WorkerMetrics, WorkerStatus } from '~/model'
 
 const client = new HttpClient({
   baseUrl: process.env.NETWORK_STATS_URL,
@@ -309,11 +297,18 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
       cacheEntities: false,
     })
 
-    let totalQueries24h = 0n, totalServedData24h = 0n, totalScannedData24h = 0n
-    let uptimeSum24h = 0, uptimeCount24h = 0, maxStoredData = 0n
+    let totalQueries24h = 0n,
+      totalServedData24h = 0n,
+      totalScannedData24h = 0n
+    let uptimeSum24h = 0,
+      uptimeCount24h = 0,
+      maxStoredData = 0n
 
-    let totalQueries90d = 0n, totalServedData90d = 0n, totalScannedData90d = 0n
-    let uptimeSum90d = 0, uptimeCount90d = 0
+    let totalQueries90d = 0n,
+      totalServedData90d = 0n,
+      totalScannedData90d = 0n
+    let uptimeSum90d = 0,
+      uptimeCount90d = 0
 
     for (const metric of workerMetrics) {
       const isIn24h = metric.timestamp >= oneDayAgo
