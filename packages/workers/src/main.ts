@@ -1,0 +1,223 @@
+import 'dotenv/config'
+
+import { type StoreWithCache, TypeormDatabaseWithCache } from '@belopash/typeorm-store'
+import { run } from '@subsquid/batch-processor'
+import { augmentBlock } from '@subsquid/evm-objects'
+import { createLogger } from '@subsquid/logger'
+import { LessThanOrEqual } from 'typeorm'
+
+import {
+  type ProcessorContext,
+  type BlockHeader,
+  type Task,
+  last,
+  sortItems,
+  stopwatch,
+  network,
+  toEpochStart,
+  createEpochId,
+  WORKER_REGISTRATION_TEMPLATE_KEY,
+  NETWORK_CONTROLLER_TEMPLATE_KEY,
+  STAKING_TEMPLATE_KEY,
+  REWARD_TREASURY_TEMPLATE_KEY,
+} from '@subsquid-network/shared'
+
+import { processor } from './config/processor'
+import {
+  handlers,
+  ensureWorkerStatusApplyQueue,
+  processWorkerStatusApplyQueue,
+  ensureWorkerUnlock,
+  processWorkerUnlockQueue,
+  ensureDelegationUnlockQueue,
+  processDelegationUnlockQueue,
+  ensureWorkerCapQueue,
+  updateWorkersCap,
+  updateWorkersOnline,
+  updateWorkersMetrics,
+  updateWorkerRewardStats,
+} from './handlers'
+import { createBlock, createSettings } from './helpers'
+import { Block, Contracts, Epoch, EpochStatus, Settings } from '~/model'
+
+const logger = createLogger('sqd:workers')
+
+run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (_ctx) => {
+  const batchSw = stopwatch()
+
+  const ctx: ProcessorContext<StoreWithCache> = {
+    ..._ctx,
+    blocks: _ctx.blocks.map(augmentBlock),
+    log: logger,
+  }
+
+  const firstBlock = ctx.blocks[0].header
+  const lastBlock = last(ctx.blocks)!.header
+
+  const tasks: Task[] = []
+
+  ctx.store.defer(Settings, network.name)
+  tasks.push(() => init(ctx, ctx.blocks[0].header))
+
+  let handlerTaskCount = 0
+  for (const block of ctx.blocks) {
+    const items = sortItems(block)
+
+    tasks.push(async () => {
+      await ctx.store.track(createBlock(block.header))
+
+      await checkForNewEpoch(ctx, block.header)
+
+      await processWorkerUnlockQueue(ctx, block.header)
+      await processWorkerStatusApplyQueue(ctx, block.header)
+      await processDelegationUnlockQueue(ctx, block.header)
+    })
+
+    for (const item of items) {
+      for (const handler of handlers) {
+        const task = handler(ctx, item)
+        if (task) {
+          tasks.push(task)
+          handlerTaskCount++
+        }
+      }
+    }
+  }
+
+  tasks.push(() => complete(ctx, lastBlock))
+
+  const prepTime = batchSw.get()
+
+  for (const task of tasks) {
+    await task()
+  }
+
+  const execTime = batchSw.get()
+
+  ctx.log.info(
+    `batch ${firstBlock.height}..${lastBlock.height}: ${ctx.blocks.length} blocks, ${handlerTaskCount} handler tasks, ${prepTime + execTime}ms (prep: ${prepTime}ms, exec: ${execTime}ms)`,
+  )
+})
+
+type MappingContext = ProcessorContext<StoreWithCache>
+
+async function init(ctx: MappingContext, block: BlockHeader) {
+  await ctx.store.getOrCreate(Settings, network.name, (id) => {
+    const settings = createSettings(id)
+
+    settings.contracts = new Contracts({
+      gatewayRegistry: network.contracts.GatewayRegistry.address,
+      distributedRewardsDistribution: network.contracts.RewardsDistribution.address,
+      router: network.contracts.Router.address,
+      temporaryHoldingFactory: network.contracts.TemporaryHoldingFactory.address,
+      vestingFactory: network.contracts.VestingFactory.address,
+      softCap: network.contracts.SoftCap.address,
+      portalPoolFactory: network.contracts.PortalPoolFactory.address,
+      networkController: network.defaultRouterContracts.networkController,
+      rewardCalculation: network.defaultRouterContracts.rewardCalculation,
+      rewardTreasury: network.defaultRouterContracts.rewardTreasury,
+      staking: network.defaultRouterContracts.staking,
+      workerRegistration: network.defaultRouterContracts.workerRegistration,
+    })
+
+    return settings
+  })
+
+  const defaultFrom = network.range.from
+  const defaults = [
+    [WORKER_REGISTRATION_TEMPLATE_KEY, network.defaultRouterContracts.workerRegistration],
+    [NETWORK_CONTROLLER_TEMPLATE_KEY, network.defaultRouterContracts.networkController],
+    [STAKING_TEMPLATE_KEY, network.defaultRouterContracts.staking],
+    [REWARD_TREASURY_TEMPLATE_KEY, network.defaultRouterContracts.rewardTreasury],
+  ] as const
+  for (const [key, address] of defaults) {
+    if (!ctx.templates.has(key, address, defaultFrom)) {
+      ctx.templates.add(key, address, defaultFrom)
+    }
+  }
+
+  await ensureWorkerUnlock(ctx)
+  await ensureWorkerStatusApplyQueue(ctx)
+  await ensureDelegationUnlockQueue(ctx)
+  await ensureWorkerCapQueue(ctx, block)
+
+  if (ctx.isHead) {
+    await updateWorkersOnline(ctx, block)
+    await updateWorkersMetrics(ctx, block)
+    await updateWorkerRewardStats(ctx, block)
+  }
+}
+
+let blocksPassed = Infinity
+async function complete(ctx: MappingContext, block: BlockHeader) {
+  if (ctx.isHead) {
+    await updateWorkersCap(ctx, block)
+  }
+
+  if (blocksPassed > 1000 && block.l1BlockNumber) {
+    const limit = 50_000
+    let offset = 0
+    const ids: string[] = []
+
+    while (true) {
+      const batch = await ctx.store.find(Block, {
+        where: { l1BlockNumber: LessThanOrEqual(block.l1BlockNumber - 50_000) },
+        order: { l1BlockNumber: 'ASC' },
+        skip: offset,
+        take: limit,
+        cacheEntities: false,
+      })
+
+      ids.push(...batch.map((b) => b.id))
+
+      if (batch.length < limit) break
+      offset += limit
+    }
+
+    if (ids.length > 0) {
+      await ctx.store.remove(Block, ids)
+      ctx.log.info(`pruned ${ids.length} old blocks`)
+    }
+
+    blocksPassed = 0
+  }
+  blocksPassed += ctx.blocks.length
+}
+
+async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
+  if (block.height < network.epochsStart) return
+  if (!block.l1BlockNumber) return
+
+  const settings = await ctx.store.getOrFail(Settings, network.name)
+  const epochLength = settings?.epochLength
+  if (epochLength == null) return
+
+  let currentEpoch: Epoch | undefined
+  if (settings.currentEpoch != null) {
+    currentEpoch = await ctx.store.getOrFail(Epoch, createEpochId(settings.currentEpoch))
+  }
+
+  const epochStart =
+    currentEpoch == null ? toEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
+  if (block.l1BlockNumber < epochStart) return
+
+  if (currentEpoch) {
+    currentEpoch.status = EpochStatus.ENDED
+    currentEpoch.endedAt = new Date(block.timestamp)
+    ctx.log.info(`epoch ${currentEpoch.number} ended`)
+  }
+
+  const newEpochNumber = settings.currentEpoch == null ? 0 : settings.currentEpoch + 1
+  currentEpoch = new Epoch({
+    id: createEpochId(newEpochNumber),
+    number: newEpochNumber,
+    start: epochStart,
+    end: epochStart + epochLength - 1,
+    status: EpochStatus.STARTED,
+  })
+  await ctx.store.track(currentEpoch)
+
+  ctx.log.info(`epoch ${currentEpoch.number} started [${currentEpoch.start}, ${currentEpoch.end}]`)
+
+  settings.currentEpoch = currentEpoch.number
+}
