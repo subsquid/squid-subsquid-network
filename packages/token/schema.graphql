@@ -1,0 +1,69 @@
+enum AccountType {
+  USER
+  VESTING
+  TEMPORARY_HOLDING
+}
+
+type Account @entity {
+  id: ID!
+
+  type: AccountType!
+  balance: BigInt!
+
+  owner: Account
+  owned: [Account!]! @derivedFrom(field: "owner")
+
+  transfers: [AccountTransfer!] @derivedFrom(field: "account")
+  transfersTo: [Transfer!] @derivedFrom(field: "to")
+  transfersFrom: [Transfer!] @derivedFrom(field: "from")
+
+  claimableDelegationCount: Int!
+}
+
+enum TransferDirection {
+  FROM
+  TO
+}
+
+type AccountTransfer @entity @index(fields: ["account", "transfer"]) {
+  id: ID!
+
+  direction: TransferDirection!
+  account: Account!
+  transfer: Transfer!
+  balance: BigInt!
+}
+
+enum TransferType {
+  TRANSFER
+  DEPOSIT
+  WITHDRAW
+  CLAIM
+  RELEASE
+}
+
+type Transfer @entity @index(fields: ["type", "timestamp"]) {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  type: TransferType!
+
+  from: Account!
+  to: Account!
+
+  amount: BigInt!
+
+  "String reference to delegation in workers indexer"
+  delegationId: String
+  "String reference to worker in workers indexer"
+  workerId: String
+  "String reference to gateway stake in gateways indexer"
+  gatewayStakeId: String
+  "String reference to vesting account in accounts indexer"
+  vestingId: String
+  "String reference to portal pool in gateways indexer"
+  portalPoolId: String
+}
