@@ -8,7 +8,7 @@ import {
 } from '@sqd/shared'
 import * as PortalPoolImplementation from '@sqd/shared/lib/abi/PortalPoolImplementation'
 
-import { PoolEvent, PoolEventType, PortalPool } from '~/model'
+import { PoolEvent, PoolEventType, PoolProvider, PortalPool } from '~/model'
 
 export const handleExitRequested = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -20,12 +20,18 @@ export const handleExitRequested = createHandler((ctx, item) => {
   const event = PortalPoolImplementation.events.ExitRequested.decode(log)
   const providerId = createAccountId(event.provider)
   const poolDeferred = ctx.store.defer(PortalPool, poolAddress)
+  const providerEntityId = `${poolAddress}-${providerId}`
 
   return timed(ctx, async (elapsed) => {
     const pool = await poolDeferred.get()
     if (!pool) return
 
     pool.tvlStable -= event.amount
+
+    const provider = await ctx.store.defer(PoolProvider, providerEntityId).get()
+    if (provider) {
+      provider.deposited -= event.amount
+    }
 
     const poolEvent = new PoolEvent({
       id: `${log.getTransaction().hash}-${log.logIndex}-request`,

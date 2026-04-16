@@ -1,5 +1,6 @@
 import { handleStakingDeposited, handleStakingWithdrawn } from './DelegationStaking.handler'
 import { handleGatewayStaked, handleGatewayUnstaked } from './GatewayStaking.handler'
+import { handlePoolCreated } from './PoolCreated.handler'
 import {
   handlePortalPoolDeposited,
   handlePortalPoolExitClaimed,
@@ -29,6 +30,7 @@ export const handlers = [
   handleStakingWithdrawn,
   handleGatewayStaked,
   handleGatewayUnstaked,
+  handlePoolCreated,
   handlePortalPoolDeposited,
   handlePortalPoolWithdrawn,
   handlePortalPoolExitClaimed,

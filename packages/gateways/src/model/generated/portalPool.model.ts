@@ -1,4 +1,5 @@
 import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, DateTimeColumn as DateTimeColumn_, Index as Index_, IntColumn as IntColumn_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_, OneToMany as OneToMany_} from "@subsquid/typeorm-store"
+import {PoolProvider} from "./poolProvider.model"
 import {PoolEvent} from "./poolEvent.model"
 import {PoolDistributionRateChange} from "./poolDistributionRateChange.model"
 import {PoolCapacityChange} from "./poolCapacityChange.model"
@@ -54,6 +55,9 @@ export class PortalPool {
     @Index_()
     @BigIntColumn_({nullable: false})
     tvlStable!: bigint
+
+    @OneToMany_(() => PoolProvider, e => e.pool)
+    providers!: PoolProvider[]
 
     @OneToMany_(() => PoolEvent, e => e.pool)
     events!: PoolEvent[]

@@ -28,7 +28,6 @@ const builder = new DataSourceBuilder()
     },
   })
   .setBlockRange({ from: 208420430 })
-//.includeAllBlocks()
 
 if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({

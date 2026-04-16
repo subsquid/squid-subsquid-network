@@ -63,9 +63,21 @@ type PortalPool
   tvlTotal: BigInt!
   tvlStable: BigInt!
 
+  providers: [PoolProvider!]! @derivedFrom(field: "pool")
   events: [PoolEvent!]! @derivedFrom(field: "pool")
   distributionRateHistory: [PoolDistributionRateChange!]! @derivedFrom(field: "pool")
   capacityHistory: [PoolCapacityChange!]! @derivedFrom(field: "pool")
+}
+
+type PoolProvider
+  @entity
+  @index(fields: ["pool", "providerId"])
+{
+  "pool address + provider address"
+  id: ID!
+  pool: PortalPool!
+  providerId: String! @index
+  deposited: BigInt!
 }
 
 enum PoolEventType {

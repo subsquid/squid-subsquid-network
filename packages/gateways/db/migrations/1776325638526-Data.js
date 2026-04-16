@@ -1,5 +1,5 @@
-module.exports = class Data1776262583156 {
-    name = 'Data1776262583156'
+module.exports = class Data1776325638526 {
+    name = 'Data1776325638526'
 
     async up(db) {
         await db.query(`CREATE TABLE "gateway_stake" ("id" character varying NOT NULL, "owner_id" text NOT NULL, "auto_extension" boolean NOT NULL, "amount" numeric NOT NULL, "computation_units" numeric NOT NULL, "computation_units_pending" numeric, "locked" boolean NOT NULL, "lock_start" integer, "lock_end" integer, CONSTRAINT "PK_3ee2bb729914d8b6ae595b47d35" PRIMARY KEY ("id"))`)
@@ -9,6 +9,9 @@ module.exports = class Data1776262583156 {
         await db.query(`CREATE TABLE "gateway" ("id" character varying NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL, "owner_id" text NOT NULL, "status" character varying(12) NOT NULL, "name" text, "website" text, "email" text, "description" text, "endpoint_url" text, "stake_id" character varying, CONSTRAINT "PK_22c5b7ecdd6313de143815f9991" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_96e763858e395ca5d21257543b" ON "gateway" ("owner_id") `)
         await db.query(`CREATE INDEX "IDX_3ee2bb729914d8b6ae595b47d3" ON "gateway" ("stake_id") `)
+        await db.query(`CREATE TABLE "pool_provider" ("id" character varying NOT NULL, "provider_id" text NOT NULL, "deposited" numeric NOT NULL, "pool_id" character varying, CONSTRAINT "PK_4f98d4e74779cd1bb97a87f0f75" PRIMARY KEY ("id"))`)
+        await db.query(`CREATE INDEX "IDX_95f4b1a145aa2b1da00c699626" ON "pool_provider" ("provider_id") `)
+        await db.query(`CREATE INDEX "IDX_586d5e37ff4f4f4c0873dd3005" ON "pool_provider" ("pool_id", "provider_id") `)
         await db.query(`CREATE TABLE "pool_event" ("id" character varying NOT NULL, "block_number" integer NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "tx_hash" text NOT NULL, "event_type" character varying(10) NOT NULL, "amount" numeric NOT NULL, "provider_id" text, "pool_id" character varying, CONSTRAINT "PK_d84dbf06888f1aca5ee6501c700" PRIMARY KEY ("id"))`)
         await db.query(`CREATE INDEX "IDX_1e5829a1fcfcc9eb70bc88b809" ON "pool_event" ("block_number") `)
         await db.query(`CREATE INDEX "IDX_dc2b5791a04113831e53dbd356" ON "pool_event" ("timestamp") `)
@@ -33,6 +36,7 @@ module.exports = class Data1776262583156 {
         await db.query(`CREATE TABLE "queue" ("id" character varying NOT NULL, "tasks" jsonb NOT NULL, CONSTRAINT "PK_4adefbd9c73b3f9a49985a5529f" PRIMARY KEY ("id"))`)
         await db.query(`ALTER TABLE "gateway_status_change" ADD CONSTRAINT "FK_70339c4e33f0eea17598ebd218d" FOREIGN KEY ("gateway_id") REFERENCES "gateway"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "gateway" ADD CONSTRAINT "FK_3ee2bb729914d8b6ae595b47d35" FOREIGN KEY ("stake_id") REFERENCES "gateway_stake"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
+        await db.query(`ALTER TABLE "pool_provider" ADD CONSTRAINT "FK_efa181abc3ea86244a47048a5b8" FOREIGN KEY ("pool_id") REFERENCES "portal_pool"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "pool_event" ADD CONSTRAINT "FK_eb1548c8a81dc16b4ae985e80d4" FOREIGN KEY ("pool_id") REFERENCES "portal_pool"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "pool_distribution_rate_change" ADD CONSTRAINT "FK_e974a7bb8f77fd32fafba420e87" FOREIGN KEY ("pool_id") REFERENCES "portal_pool"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
         await db.query(`ALTER TABLE "pool_capacity_change" ADD CONSTRAINT "FK_d57fdb7fcee8175ecf497cfe7b9" FOREIGN KEY ("pool_id") REFERENCES "portal_pool"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`)
@@ -46,6 +50,9 @@ module.exports = class Data1776262583156 {
         await db.query(`DROP TABLE "gateway"`)
         await db.query(`DROP INDEX "public"."IDX_96e763858e395ca5d21257543b"`)
         await db.query(`DROP INDEX "public"."IDX_3ee2bb729914d8b6ae595b47d3"`)
+        await db.query(`DROP TABLE "pool_provider"`)
+        await db.query(`DROP INDEX "public"."IDX_95f4b1a145aa2b1da00c699626"`)
+        await db.query(`DROP INDEX "public"."IDX_586d5e37ff4f4f4c0873dd3005"`)
         await db.query(`DROP TABLE "pool_event"`)
         await db.query(`DROP INDEX "public"."IDX_1e5829a1fcfcc9eb70bc88b809"`)
         await db.query(`DROP INDEX "public"."IDX_dc2b5791a04113831e53dbd356"`)
@@ -70,6 +77,7 @@ module.exports = class Data1776262583156 {
         await db.query(`DROP TABLE "queue"`)
         await db.query(`ALTER TABLE "gateway_status_change" DROP CONSTRAINT "FK_70339c4e33f0eea17598ebd218d"`)
         await db.query(`ALTER TABLE "gateway" DROP CONSTRAINT "FK_3ee2bb729914d8b6ae595b47d35"`)
+        await db.query(`ALTER TABLE "pool_provider" DROP CONSTRAINT "FK_efa181abc3ea86244a47048a5b8"`)
         await db.query(`ALTER TABLE "pool_event" DROP CONSTRAINT "FK_eb1548c8a81dc16b4ae985e80d4"`)
         await db.query(`ALTER TABLE "pool_distribution_rate_change" DROP CONSTRAINT "FK_e974a7bb8f77fd32fafba420e87"`)
         await db.query(`ALTER TABLE "pool_capacity_change" DROP CONSTRAINT "FK_d57fdb7fcee8175ecf497cfe7b9"`)

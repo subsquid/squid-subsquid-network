@@ -1,5 +1,5 @@
-module.exports = class MaterializedViews1776244000000 {
-    name = 'MaterializedViews1776244000000'
+module.exports = class MaterializedViews1776262500000 {
+    name = 'MaterializedViews1776262500000'
 
     async up(db) {
         // Active workers daily

@@ -205,27 +205,29 @@ async function checkForNewEpoch(ctx: MappingContext, block: BlockHeader) {
     currentEpoch = await ctx.store.getOrFail(Epoch, createEpochId(settings.currentEpoch))
   }
 
-  const epochStart =
-    currentEpoch == null ? toEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
-  if (block.l1BlockNumber < epochStart) return
+  while (true) {
+    const epochStart =
+      currentEpoch == null ? toEpochStart(block.l1BlockNumber, epochLength) : currentEpoch.end + 1
+    if (block.l1BlockNumber < epochStart) break
 
-  if (currentEpoch) {
-    currentEpoch.status = EpochStatus.ENDED
-    currentEpoch.endedAt = new Date(block.timestamp)
-    ctx.log.info(`epoch ${currentEpoch.number} ended`)
+    if (currentEpoch) {
+      currentEpoch.status = EpochStatus.ENDED
+      currentEpoch.endedAt = new Date(block.timestamp)
+      ctx.log.info(`epoch ${currentEpoch.number} ended`)
+    }
+
+    const newEpochNumber = settings.currentEpoch == null ? 0 : settings.currentEpoch + 1
+    currentEpoch = new Epoch({
+      id: createEpochId(newEpochNumber),
+      number: newEpochNumber,
+      start: epochStart,
+      end: epochStart + epochLength - 1,
+      status: EpochStatus.STARTED,
+    })
+    await ctx.store.track(currentEpoch)
+
+    ctx.log.info(`epoch ${currentEpoch.number} started [${currentEpoch.start}, ${currentEpoch.end}]`)
+
+    settings.currentEpoch = currentEpoch.number
   }
-
-  const newEpochNumber = settings.currentEpoch == null ? 0 : settings.currentEpoch + 1
-  currentEpoch = new Epoch({
-    id: createEpochId(newEpochNumber),
-    number: newEpochNumber,
-    start: epochStart,
-    end: epochStart + epochLength - 1,
-    status: EpochStatus.STARTED,
-  })
-  await ctx.store.track(currentEpoch)
-
-  ctx.log.info(`epoch ${currentEpoch.number} started [${currentEpoch.start}, ${currentEpoch.end}]`)
-
-  settings.currentEpoch = currentEpoch.number
 }
