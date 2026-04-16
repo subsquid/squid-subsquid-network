@@ -131,7 +131,6 @@ async function init(ctx: MappingContext, block: BlockHeader) {
     return settings
   })
 
-  const defaultFrom = network.range.from
   const defaults = [
     [WORKER_REGISTRATION_TEMPLATE_KEY, network.defaultRouterContracts.workerRegistration],
     [NETWORK_CONTROLLER_TEMPLATE_KEY, network.defaultRouterContracts.networkController],
@@ -139,8 +138,8 @@ async function init(ctx: MappingContext, block: BlockHeader) {
     [REWARD_TREASURY_TEMPLATE_KEY, network.defaultRouterContracts.rewardTreasury],
   ] as const
   for (const [key, address] of defaults) {
-    if (!ctx.templates.has(key, address, 208420430)) {
-      ctx.templates.add(key, address, 208420430)
+    if (!ctx.templates.has(key, address, network.range.from)) {
+      ctx.templates.add(key, address, network.range.from)
     }
   }
 
@@ -156,35 +155,29 @@ async function init(ctx: MappingContext, block: BlockHeader) {
   }
 }
 
-let blocksPassed = Infinity
+let blocksPassed = 0
 async function complete(ctx: MappingContext, block: BlockHeader) {
   if (ctx.isHead) {
     await updateWorkersCap(ctx, block)
   }
 
   if (blocksPassed > 1000 && block.l1BlockNumber) {
-    const limit = 50_000
-    let offset = 0
-    const ids: string[] = []
+    const cutoff = block.l1BlockNumber - 50_000
+    const chunkSize = 10_000
 
     while (true) {
       const batch = await ctx.store.find(Block, {
-        where: { l1BlockNumber: LessThanOrEqual(block.l1BlockNumber - 50_000) },
+        where: { l1BlockNumber: LessThanOrEqual(cutoff) },
         order: { l1BlockNumber: 'ASC' },
-        skip: offset,
-        take: limit,
+        take: chunkSize,
         cacheEntities: false,
       })
+      if (batch.length === 0) break
 
-      ids.push(...batch.map((b) => b.id))
+      await ctx.store.remove(Block, batch.map((b) => b.id))
+      ctx.log.info(`pruned ${batch.length} old blocks`)
 
-      if (batch.length < limit) break
-      offset += limit
-    }
-
-    if (ids.length > 0) {
-      await ctx.store.remove(Block, ids)
-      ctx.log.info(`pruned ${ids.length} old blocks`)
+      if (batch.length < chunkSize) break
     }
 
     blocksPassed = 0

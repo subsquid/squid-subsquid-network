@@ -287,58 +287,73 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
     cacheEntities: false,
   })
 
+  const rows: {
+    worker_id: string
+    total_queries_24h: string
+    total_served_data_24h: string
+    total_scanned_data_24h: string
+    uptime_sum_24h: string
+    uptime_count_24h: string
+    max_stored_data_24h: string
+    total_queries_90d: string
+    total_served_data_90d: string
+    total_scanned_data_90d: string
+    uptime_sum_90d: string
+    uptime_count_90d: string
+  }[] = await (ctx.store as any).em.query(
+    `SELECT
+      worker_id,
+      COALESCE(SUM(queries)      FILTER (WHERE timestamp >= $1), 0) AS total_queries_24h,
+      COALESCE(SUM(served_data)  FILTER (WHERE timestamp >= $1), 0) AS total_served_data_24h,
+      COALESCE(SUM(scanned_data) FILTER (WHERE timestamp >= $1), 0) AS total_scanned_data_24h,
+      COALESCE(SUM(uptime)       FILTER (WHERE timestamp >= $1), 0) AS uptime_sum_24h,
+      COUNT(*)                   FILTER (WHERE timestamp >= $1)      AS uptime_count_24h,
+      COALESCE(MAX(stored_data)  FILTER (WHERE timestamp >= $1), 0) AS max_stored_data_24h,
+      COALESCE(SUM(queries), 0)                                      AS total_queries_90d,
+      COALESCE(SUM(served_data), 0)                                  AS total_served_data_90d,
+      COALESCE(SUM(scanned_data), 0)                                 AS total_scanned_data_90d,
+      COALESCE(SUM(uptime), 0)                                       AS uptime_sum_90d,
+      COUNT(*)                                                       AS uptime_count_90d
+    FROM worker_metrics
+    WHERE timestamp >= $2
+    GROUP BY worker_id`,
+    [oneDayAgo, ninetyDaysAgo],
+  )
+
+  const workerMap = new Map(workers.map((w) => [w.id, w]))
+  const seenWorkerIds = new Set<string>()
+
+  for (const row of rows) {
+    const worker = workerMap.get(row.worker_id)
+    if (!worker) continue
+    seenWorkerIds.add(worker.id)
+
+    const count24h = Number(row.uptime_count_24h)
+    const count90d = Number(row.uptime_count_90d)
+
+    worker.storedData = count24h > 0 ? BigInt(row.max_stored_data_24h) : null
+    worker.queries24Hours = count24h > 0 ? BigInt(row.total_queries_24h) : null
+    worker.servedData24Hours = count24h > 0 ? BigInt(row.total_served_data_24h) : null
+    worker.scannedData24Hours = count24h > 0 ? BigInt(row.total_scanned_data_24h) : null
+    worker.uptime24Hours = count24h > 0 ? Number(row.uptime_sum_24h) / count24h : null
+
+    worker.queries90Days = count90d > 0 ? BigInt(row.total_queries_90d) : null
+    worker.servedData90Days = count90d > 0 ? BigInt(row.total_served_data_90d) : null
+    worker.scannedData90Days = count90d > 0 ? BigInt(row.total_scanned_data_90d) : null
+    worker.uptime90Days = count90d > 0 ? Number(row.uptime_sum_90d) / count90d : null
+  }
+
   for (const worker of workers) {
-    const workerMetrics = await ctx.store.find(WorkerMetrics, {
-      where: {
-        worker: { id: worker.id },
-        timestamp: MoreThanOrEqual(ninetyDaysAgo),
-      },
-      order: { timestamp: 'DESC' },
-      cacheEntities: false,
-    })
-
-    let totalQueries24h = 0n,
-      totalServedData24h = 0n,
-      totalScannedData24h = 0n
-    let uptimeSum24h = 0,
-      uptimeCount24h = 0,
-      maxStoredData = 0n
-
-    let totalQueries90d = 0n,
-      totalServedData90d = 0n,
-      totalScannedData90d = 0n
-    let uptimeSum90d = 0,
-      uptimeCount90d = 0
-
-    for (const metric of workerMetrics) {
-      const isIn24h = metric.timestamp >= oneDayAgo
-
-      totalQueries90d += BigInt(metric.queries)
-      totalServedData90d += metric.servedData
-      totalScannedData90d += metric.scannedData
-      uptimeSum90d += metric.uptime
-      uptimeCount90d += 1
-
-      if (isIn24h) {
-        totalQueries24h += BigInt(metric.queries)
-        totalServedData24h += metric.servedData
-        totalScannedData24h += metric.scannedData
-        uptimeSum24h += metric.uptime
-        uptimeCount24h += 1
-        if (metric.storedData > maxStoredData) maxStoredData = metric.storedData
-      }
-    }
-
-    worker.storedData = uptimeCount24h > 0 ? maxStoredData : null
-    worker.queries24Hours = uptimeCount24h > 0 ? totalQueries24h : null
-    worker.servedData24Hours = uptimeCount24h > 0 ? totalServedData24h : null
-    worker.scannedData24Hours = uptimeCount24h > 0 ? totalScannedData24h : null
-    worker.uptime24Hours = uptimeCount24h > 0 ? uptimeSum24h / uptimeCount24h : null
-
-    worker.queries90Days = uptimeCount90d > 0 ? totalQueries90d : null
-    worker.servedData90Days = uptimeCount90d > 0 ? totalServedData90d : null
-    worker.scannedData90Days = uptimeCount90d > 0 ? totalScannedData90d : null
-    worker.uptime90Days = uptimeCount90d > 0 ? uptimeSum90d / uptimeCount90d : null
+    if (seenWorkerIds.has(worker.id)) continue
+    worker.storedData = null
+    worker.queries24Hours = null
+    worker.servedData24Hours = null
+    worker.scannedData24Hours = null
+    worker.uptime24Hours = null
+    worker.queries90Days = null
+    worker.servedData90Days = null
+    worker.scannedData90Days = null
+    worker.uptime90Days = null
   }
 
   ctx.log.info(`aggregated metrics updated for ${workers.length} workers`)

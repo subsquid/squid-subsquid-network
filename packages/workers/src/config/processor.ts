@@ -27,7 +27,7 @@ const builder = new DataSourceBuilder()
       transactionHash: true,
     },
   })
-  .setBlockRange({ from: 208420430 })
+  .setBlockRange({ from: network.range.from })
 
 if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({

@@ -1,10 +1,9 @@
 import assert from 'assert'
 
 import { BigDecimal } from '@subsquid/big-decimal'
-import { LessThanOrEqual, Not } from 'typeorm'
+import { In, LessThanOrEqual, Not } from 'typeorm'
 
 import {
-  type MappingContext,
   YEAR_MS,
   createCommitmentId,
   createHandler,
@@ -95,6 +94,30 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
         >(),
       )
 
+    const workerIdsWithStakerReward = activeWorkers
+      .filter((w) => (payouts.get(w.id)?.stakerReward ?? 0n) > 0n)
+      .map((w) => w.id)
+
+    const allDelegations =
+      workerIdsWithStakerReward.length > 0
+        ? await ctx.store.find(Delegation, {
+            where: {
+              worker: { id: In(workerIdsWithStakerReward) },
+              status: Not(DelegationStatus.WITHDRAWN),
+            },
+          })
+        : []
+    const delegationsByWorker = new Map<string, Delegation[]>()
+    for (const d of allDelegations) {
+      const wid = d.worker.id
+      let arr = delegationsByWorker.get(wid)
+      if (!arr) {
+        arr = []
+        delegationsByWorker.set(wid, arr)
+      }
+      arr.push(d)
+    }
+
     for (const worker of activeWorkers) {
       if (worker.createdAt.getTime() >= toBlock.timestamp.getTime()) continue
 
@@ -142,8 +165,12 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
           ? (payout.stakerReward * 10n ** 18n) / worker.totalDelegation
           : 0n
 
-        const dr = await distributeReward(ctx, log, {
-          workerId: worker.id,
+        const workerDelegations = delegationsByWorker.get(worker.id) ?? []
+        if (workerDelegations.length === 0) {
+          ctx.log.warn(`missing delegation for worker(${worker.id})`)
+        }
+
+        const dr = distributeReward(log, workerDelegations, {
           rewardsPerShare,
           apr: payout.stakerApr,
         })
@@ -190,26 +217,17 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
   }
 })
 
-async function distributeReward(
-  ctx: MappingContext,
+function distributeReward(
   log: Log,
+  delegations: Delegation[],
   {
-    workerId,
     rewardsPerShare,
     apr,
   }: {
-    workerId: string
     rewardsPerShare: bigint
     apr: number
   },
 ) {
-  const delegations = await ctx.store.find(Delegation, {
-    where: { worker: { id: workerId }, status: Not(DelegationStatus.WITHDRAWN) },
-  })
-  if (delegations.length === 0) {
-    ctx.log.warn(`missing delegation for worker(${workerId})`)
-  }
-
   const rewards: DelegationReward[] = []
 
   for (let i = 0; i < delegations.length; i++) {
@@ -219,7 +237,7 @@ async function distributeReward(
     delegation.claimableReward += amount
 
     const reward = new DelegationReward({
-      id: `${log.id}-${workerId.padStart(5, '0')}-${i.toString().padStart(5, '0')}`,
+      id: `${log.id}-${delegation.worker.id.padStart(5, '0')}-${i.toString().padStart(5, '0')}`,
       blockNumber: log.block.height,
       timestamp: new Date(log.block.timestamp),
       delegation,

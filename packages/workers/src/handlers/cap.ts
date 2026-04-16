@@ -93,6 +93,23 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * DAY_MS)
 
+  const allRewards = await ctx.store.find(WorkerReward, {
+    where: {
+      worker: { id: In(workers.map((w) => w.id)) },
+      timestamp: MoreThanOrEqual(ninetyDaysAgo),
+    },
+  })
+  const rewardsByWorker = new Map<string, WorkerReward[]>()
+  for (const r of allRewards) {
+    const wid = r.worker.id
+    let arr = rewardsByWorker.get(wid)
+    if (!arr) {
+      arr = []
+      rewardsByWorker.set(wid, arr)
+    }
+    arr.push(r)
+  }
+
   for (const worker of workers) {
     const supplyRatio =
       utilizedStake === 0n
@@ -121,12 +138,7 @@ export async function recalculateWorkerAprs(ctx: MappingContext) {
       ? stakerReward.div(worker.totalDelegation).mul(100).toNumber()
       : currentApr / 2
 
-    const workerHistoricalRewards = await ctx.store.find(WorkerReward, {
-      where: {
-        worker: { id: worker.id },
-        timestamp: MoreThanOrEqual(ninetyDaysAgo),
-      },
-    })
+    const workerHistoricalRewards = rewardsByWorker.get(worker.id) ?? []
 
     const historicalAprs = workerHistoricalRewards.map((r) => r.apr)
     const historicalStakerAprs = workerHistoricalRewards.map((r) => r.stakerApr)
