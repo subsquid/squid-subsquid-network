@@ -9,7 +9,6 @@ import { LessThanOrEqual } from 'typeorm'
 import {
   NETWORK_CONTROLLER_TEMPLATE_KEY,
   type ProcessorContext,
-  REWARD_TREASURY_TEMPLATE_KEY,
   STAKING_TEMPLATE_KEY,
   type Task,
   WORKER_REGISTRATION_TEMPLATE_KEY,
@@ -135,7 +134,6 @@ async function init(ctx: MappingContext, block: BlockHeader) {
     [WORKER_REGISTRATION_TEMPLATE_KEY, network.defaultRouterContracts.workerRegistration],
     [NETWORK_CONTROLLER_TEMPLATE_KEY, network.defaultRouterContracts.networkController],
     [STAKING_TEMPLATE_KEY, network.defaultRouterContracts.staking],
-    [REWARD_TREASURY_TEMPLATE_KEY, network.defaultRouterContracts.rewardTreasury],
   ] as const
   for (const [key, address] of defaults) {
     if (!ctx.templates.has(key, address, network.range.from)) {

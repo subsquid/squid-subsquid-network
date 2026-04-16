@@ -44,6 +44,8 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
 
     worker.status = statusChange.status
     if (settings.epochLength) {
+      // On-chain: withdraw requires block.number >= deregisteredAt + lockPeriod(),
+      // where lockPeriod() == networkController.epochLength() (the deprecated field).
       worker.locked = true
       worker.lockEnd = Number(deregistedAt) + (settings.lockPeriod ?? settings.epochLength)
     } else {

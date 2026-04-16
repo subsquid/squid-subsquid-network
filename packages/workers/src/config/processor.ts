@@ -1,13 +1,11 @@
 import {
   NETWORK_CONTROLLER_TEMPLATE_KEY,
-  REWARD_TREASURY_TEMPLATE_KEY,
   STAKING_TEMPLATE_KEY,
   WORKER_REGISTRATION_TEMPLATE_KEY,
   network,
 } from '@sqd/shared'
 import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
 import * as NetworkController from '@sqd/shared/lib/abi/NetworkController'
-import * as RewardTreasury from '@sqd/shared/lib/abi/RewardTreasury'
 import * as Router from '@sqd/shared/lib/abi/Router'
 import * as Staking from '@sqd/shared/lib/abi/Staking'
 import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
@@ -68,7 +66,6 @@ builder.addLog(STAKING_TEMPLATE_KEY, {
       Staking.events.Claimed.topic,
       Staking.events.Deposited.topic,
       Staking.events.Withdrawn.topic,
-      Staking.events.Rewarded.topic,
     ],
   },
 })
@@ -95,11 +92,6 @@ builder.addLog(NETWORK_CONTROLLER_TEMPLATE_KEY, {
       NetworkController.events.LockPeriodUpdated.topic,
     ],
   },
-})
-
-builder.addLog(REWARD_TREASURY_TEMPLATE_KEY, {
-  range: { from: network.range.from },
-  where: { topic0: [RewardTreasury.events.Claimed.topic] },
 })
 
 export const processor = builder.build()

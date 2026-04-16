@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import {
   type LogItem,
   createAccountId,
@@ -36,7 +34,12 @@ export const handleRewardsClaimed = createHandlerOld({
 
     return timed(ctx, async (elapsed) => {
       const worker = await workerDeferred.getOrFail()
-      assert(worker.ownerId === accountId)
+
+      if (worker.ownerId !== accountId) {
+        ctx.log.warn(
+          `rewards claim for worker(${worker.id}): claimer ${accountId} != owner ${worker.ownerId}`,
+        )
+      }
 
       worker.claimableReward = 0n
       worker.claimedReward += amount

@@ -66,6 +66,9 @@ export const handleDeposited = createHandler((ctx, item) => {
 
     delegation.deposit += amount
     if (settings.epochLength) {
+      // On-chain lock is: nextEpoch() + epochLength * epochsLockedAfterStake.
+      // This assumes epochsLockedAfterStake == 1; if it changes on-chain
+      // (via Staking.EpochsLockChanged), this calculation will diverge.
       delegation.locked = true
       delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength)
       delegation.lockEnd = delegation.lockStart + (settings.lockPeriod ?? settings.epochLength)

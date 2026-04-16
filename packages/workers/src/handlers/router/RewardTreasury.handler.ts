@@ -1,5 +1,4 @@
 import {
-  REWARD_TREASURY_TEMPLATE_KEY,
   createHandler,
   isContract,
   isLog,
@@ -16,16 +15,11 @@ export const rewardTreasurySetHandler = createHandler((ctx, item) => {
 
   const log = item.value
   const { rewardTreasury } = Router.events.RewardTreasurySet.decode(log)
-  const blockHeight = item.value.block.height
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
 
   return async () => {
     const settings = await settingsDeferred.getOrFail()
-
-    const oldAddress = settings.contracts.rewardTreasury
-    if (oldAddress) ctx.templates.remove(REWARD_TREASURY_TEMPLATE_KEY, oldAddress, blockHeight)
-    ctx.templates.add(REWARD_TREASURY_TEMPLATE_KEY, rewardTreasury, blockHeight)
 
     settings.contracts = new Contracts(undefined, {
       ...settings.contracts.toJSON(),

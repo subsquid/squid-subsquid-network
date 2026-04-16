@@ -105,6 +105,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
               worker: { id: In(workerIdsWithStakerReward) },
               status: Not(DelegationStatus.WITHDRAWN),
             },
+            relations: { worker: true },
           })
         : []
     const delegationsByWorker = new Map<string, Delegation[]>()
@@ -161,6 +162,10 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
       }
 
       if (payout.stakerReward > 0) {
+        // NB: on-chain, Staking.distribute() accumulates cumulatedRewardsPerShare across rounds
+        // and computes per-staker rewards at checkpoint time. Here we recompute per-share for each
+        // distribution independently, which may diverge by up to 1 wei per delegation per round
+        // due to integer division ordering. Acceptable for display/indexing purposes.
         const rewardsPerShare = worker.totalDelegation
           ? (payout.stakerReward * 10n ** 18n) / worker.totalDelegation
           : 0n
@@ -251,6 +256,17 @@ function distributeReward(
   return { delegations, rewards }
 }
 
+/**
+ * Expands the on-chain (fromBlock, toBlock) range to the actual L1 block interval
+ * the reward period covers. The off-chain reward calculator was changed over time
+ * to submit compressed block ranges (covering N epochs in a single commit), while
+ * the contract enforces contiguous `fromBlock == lastBlockRewarded + 1`. The
+ * multiplier compensates for this compression so the indexer can resolve the correct
+ * L1 Block entities and compute accurate time-weighted APR.
+ *
+ * If the reward calculator changes its epoch-packing strategy again, a new threshold
+ * and multiplier must be added here.
+ */
 function getNormalizedInteval(event: { fromBlock: number; toBlock: number }) {
   let multiplier = 1
   switch (network.name) {
