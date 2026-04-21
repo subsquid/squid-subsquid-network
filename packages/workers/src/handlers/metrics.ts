@@ -247,7 +247,10 @@ async function applyOnlineUpdate(ctx: MappingContext, data: OnlineFetched) {
 const metricsUpdateInterval = 30 * MINUTE_MS
 let lastMetricsFetchAt = -1
 let lastAppliedHourTimestamp = -1
-let aggregatesPending = false
+// Start true so aggregates are always recomputed on the first caught_up after
+// startup, even when no new stats chunks are available (e.g. after a code
+// deployment).
+let aggregatesPending = true
 /** True while we are chaining chunk downloads until caught_up (interval ignored). */
 let metricsBurstActive = false
 
@@ -536,6 +539,7 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
 
   const workerMap = new Map(workers.map((w) => [w.id, w]))
   const seenWorkerIds = new Set<string>()
+  const HOUR_MS = 60 * 60 * 1000
 
   for (const row of rows) {
     const worker = workerMap.get(row.worker_id)
@@ -549,12 +553,20 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
     worker.queries24Hours = count24h > 0 ? BigInt(row.total_queries_24h) : null
     worker.servedData24Hours = count24h > 0 ? BigInt(row.total_served_data_24h) : null
     worker.scannedData24Hours = count24h > 0 ? BigInt(row.total_scanned_data_24h) : null
-    worker.uptime24Hours = count24h > 0 ? Number(row.uptime_sum_24h) / count24h : null
+    const expectedHours24h = Math.max(
+      0,
+      (now.getTime() - Math.max(worker.createdAt.getTime(), oneDayAgo.getTime())) / HOUR_MS,
+    )
+    const expectedHours90d = Math.max(
+      0,
+      (now.getTime() - Math.max(worker.createdAt.getTime(), ninetyDaysAgo.getTime())) / HOUR_MS,
+    )
+    worker.uptime24Hours = expectedHours24h > 0 ? Number(row.uptime_sum_24h) / expectedHours24h : null
 
     worker.queries90Days = count90d > 0 ? BigInt(row.total_queries_90d) : null
     worker.servedData90Days = count90d > 0 ? BigInt(row.total_served_data_90d) : null
     worker.scannedData90Days = count90d > 0 ? BigInt(row.total_scanned_data_90d) : null
-    worker.uptime90Days = count90d > 0 ? Number(row.uptime_sum_90d) / count90d : null
+    worker.uptime90Days = expectedHours90d > 0 ? Number(row.uptime_sum_90d) / expectedHours90d : null
   }
 
   for (const worker of workers) {
