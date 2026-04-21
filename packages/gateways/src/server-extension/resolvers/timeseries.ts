@@ -1,49 +1,21 @@
-import { DateTime, BigInteger } from '@subsquid/graphql-server'
-import { max, min } from 'date-fns'
+import { type GroupSize, getGroupSize, network } from '@sqd/shared'
+import { BigInteger, DateTime } from '@subsquid/graphql-server'
+import { max } from 'date-fns'
 import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
 import { EntityManager } from 'typeorm'
-import { type GroupSize, getGroupSize } from '@sqd/shared'
 
-let cachedFirstEventTimestamp: Date | null = null
+const INITIAL_TIMESTAMP =
+  network.name === 'mainnet' ? new Date('2024-03-25T16:55:45Z') : new Date('2024-01-10T00:32:20Z')
 
-async function getFirstEventTimestamp(manager: EntityManager): Promise<Date | null> {
-  if (cachedFirstEventTimestamp) {
-    return cachedFirstEventTimestamp
-  }
-
-  const result = await manager.query('SELECT MIN(timestamp) as min_timestamp FROM pool_event')
-  if (result[0]?.min_timestamp) {
-    cachedFirstEventTimestamp = new Date(result[0].min_timestamp)
-  }
-
-  return cachedFirstEventTimestamp
+function normalizeTimeRange(from?: Date, to?: Date): { from: Date; to: Date } {
+  const now = new Date()
+  const normalizedTo = to != null && to < now ? to : now
+  const normalizedFrom = from != null && from > INITIAL_TIMESTAMP ? from : INITIAL_TIMESTAMP
+  return { from: normalizedFrom, to: normalizedTo }
 }
 
-async function normalizeTimeRange(
-  manager: EntityManager,
-  from?: Date,
-  to?: Date,
-): Promise<{ from: Date; to: Date }> {
-  const firstEvent = await getFirstEventTimestamp(manager)
-  const defaultFrom = firstEvent || new Date('2020-01-01')
-
-  const initialFrom = from || defaultFrom
-  const normalizedFrom = from && firstEvent ? max([from, firstEvent]) : initialFrom
-
-  const normalizedTo = min([to || new Date(), new Date()])
-  const finalFrom = min([normalizedFrom, normalizedTo])
-
-  return { from: finalFrom, to: normalizedTo }
-}
-
-function getGroupSizeInfo(
-  from: Date,
-  to: Date,
-  step?: string,
-): GroupSize {
-  return getGroupSize(
-    step ? step : { from, to, maxPoints: 50 },
-  )
+function getGroupSizeInfo(from: Date, to: Date, step?: string): GroupSize {
+  return getGroupSize(step ? step : { from, to, maxPoints: 50 })
 }
 
 function msToInterval(ms: number): string {
@@ -140,13 +112,12 @@ async function prepareTimeseriesContext(
   step?: string,
   poolId?: string,
 ): Promise<{ groupSize: GroupSize; alignedFrom: Date; alignedTo: Date }> {
-  let { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+  let { from, to } = normalizeTimeRange(fromArg, toArg)
 
   if (poolId) {
-    const poolResult = await manager.query(
-      'SELECT created_at FROM portal_pool WHERE id = $1',
-      [poolId],
-    )
+    const poolResult = await manager.query('SELECT created_at FROM portal_pool WHERE id = $1', [
+      poolId,
+    ])
     if (poolResult[0]?.created_at) {
       const poolCreatedAt = new Date(poolResult[0].created_at)
       from = max([from, poolCreatedAt])
@@ -428,7 +399,7 @@ export class PoolApyTimeseriesResolver {
       let apy = 0
 
       if (capacity > 0n) {
-        apy = (Number(rewardRate) * secondsPerYear / 1000) / Number(capacity)
+        apy = (Number(rewardRate) * secondsPerYear) / 1000 / Number(capacity)
       }
 
       return new PoolApyEntry({

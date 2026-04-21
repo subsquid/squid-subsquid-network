@@ -50,7 +50,7 @@ scale:
   dedicated: true
   addons:
     postgres:
-      storage: 10G
-      profile: small
+      storage: 30G
+      profile: medium
   processor:
     profile: medium

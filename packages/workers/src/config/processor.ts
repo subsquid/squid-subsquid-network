@@ -26,6 +26,11 @@ const builder = new DataSourceBuilder()
     },
   })
   .setBlockRange({ from: network.range.from })
+  // The processor intentionally delivers only log-bearing blocks. Epoch
+  // tracking in `main.ts` runs once per batch and replays every boundary the
+  // batch crossed, so it tolerates arbitrary gaps between delivered blocks.
+  // Reward-window resolution (`Distributed.handler.ts`, `metrics.ts`) looks up
+  // `Block` rows by `l1BlockNumber`-nearest and is likewise gap-tolerant.
 
 if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({
@@ -33,6 +38,11 @@ if (process.env.PORTAL_ENDPOINT) {
     maxBytes: 100 * 1024 * 1024,
   })
 }
+
+// NOTE: master subscribed to `Staking.Rewarded` and `RewardTreasury.Claimed`,
+// but neither had a workers-side handler — they only caused Transfer/Account
+// bookkeeping handled by the `token` package. Dropped here to avoid the extra
+// portal bandwidth.
 
 builder.addLog({
   range: network.contracts.RewardsDistribution.range,

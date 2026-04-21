@@ -15,5 +15,5 @@ export const handlers = [
 export { ensureWorkerStatusApplyQueue, processWorkerStatusApplyQueue } from './worker'
 export { ensureWorkerUnlock, processWorkerUnlockQueue } from './worker'
 export { ensureDelegationUnlockQueue, processDelegationUnlockQueue } from './staking'
-export { ensureWorkerCapQueue, updateWorkersCap } from './cap'
+export { flushAprRecalc, markAprDirty, recalculateWorkerAprs, refreshWorkerCap } from './cap'
 export { updateWorkersOnline, updateWorkersMetrics, updateWorkerRewardStats } from './metrics'

@@ -69,10 +69,7 @@ type PortalPool
   capacityHistory: [PoolCapacityChange!]! @derivedFrom(field: "pool")
 }
 
-type PoolProvider
-  @entity
-  @index(fields: ["pool", "providerId"])
-{
+type PoolProvider @entity @index(fields: ["pool", "providerId"]) {
   "pool address + provider address"
   id: ID!
   pool: PortalPool!

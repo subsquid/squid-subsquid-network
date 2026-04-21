@@ -27,6 +27,8 @@ type Settings @entity {
   currentEpoch: Int
   utilizedStake: BigInt!
   baseApr: Float!
+
+  statsChunkCursor: DateTime
 }
 
 type Commitment @entity {

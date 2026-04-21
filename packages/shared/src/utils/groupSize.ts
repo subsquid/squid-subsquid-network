@@ -2,9 +2,17 @@ import { differenceInMilliseconds } from 'date-fns'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export type GroupSize = { label: string; days: number; ms: number; unit: 'hour' | 'day' | 'week' | 'month' }
+export type GroupSize = {
+  label: string
+  days: number
+  ms: number
+  unit: 'hour' | 'day' | 'week' | 'month'
+}
 
-const UNIT_MS: Record<string, { ms: number; unit: GroupSize['unit']; singular: string; plural: string }> = {
+const UNIT_MS: Record<
+  string,
+  { ms: number; unit: GroupSize['unit']; singular: string; plural: string }
+> = {
   h: { ms: 60 * 60 * 1000, unit: 'hour', singular: 'hour', plural: 'hours' },
   d: { ms: 24 * 60 * 60 * 1000, unit: 'day', singular: 'day', plural: 'days' },
   w: { ms: 7 * 24 * 60 * 60 * 1000, unit: 'week', singular: 'week', plural: 'weeks' },
@@ -14,7 +22,9 @@ const UNIT_MS: Record<string, { ms: number; unit: GroupSize['unit']; singular: s
 function parseBucketSize(bucket: string): GroupSize {
   const match = bucket.match(/^(\d+)([hdwM])$/)
   if (!match) {
-    throw new Error(`Invalid bucket size format: ${bucket}. Expected format: <number><unit> (e.g., 1h, 3d, 2w, 1M)`)
+    throw new Error(
+      `Invalid bucket size format: ${bucket}. Expected format: <number><unit> (e.g., 1h, 3d, 2w, 1M)`,
+    )
   }
 
   const [, numStr, unitChar] = match
@@ -22,7 +32,9 @@ function parseBucketSize(bucket: string): GroupSize {
   const unitInfo = UNIT_MS[unitChar]
 
   if (!unitInfo) {
-    throw new Error(`Invalid unit: ${unitChar}. Valid units: h (hour), d (day), w (week), M (month)`)
+    throw new Error(
+      `Invalid unit: ${unitChar}. Valid units: h (hour), d (day), w (week), M (month)`,
+    )
   }
 
   const label = `${num} ${num === 1 ? unitInfo.singular : unitInfo.plural}`

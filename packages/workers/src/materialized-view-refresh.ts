@@ -16,6 +16,7 @@ const MATERIALIZED_VIEWS = [
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000
 
 export async function startMaterializedViewRefresh(manager: EntityManager): Promise<void> {
+  console.log('Starting materialized view refresh')
   try {
     for (const viewName of MATERIALIZED_VIEWS) {
       await manager.query(`REFRESH MATERIALIZED VIEW ${viewName}`)

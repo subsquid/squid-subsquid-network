@@ -1,8 +1,10 @@
+import { type GroupSize, getGroupSize, network } from '@sqd/shared'
 import { DateTime } from '@subsquid/graphql-server'
-import { max, min } from 'date-fns'
 import { Arg, Field, ObjectType, Query, Resolver, registerEnumType } from 'type-graphql'
 import { EntityManager } from 'typeorm'
-import { type GroupSize, getGroupSize } from '@sqd/shared'
+
+const INITIAL_TIMESTAMP =
+  network.name === 'mainnet' ? new Date('2024-03-25T16:55:45Z') : new Date('2024-01-10T00:32:20Z')
 
 enum TvlType {
   WORKER = 'WORKER',
@@ -15,46 +17,15 @@ registerEnumType(TvlType, {
   name: 'TvlType',
 })
 
-let cachedFirstTransferTimestamp: Date | null = null
-
-async function getFirstTransferTimestamp(manager: EntityManager): Promise<Date | null> {
-  if (cachedFirstTransferTimestamp) {
-    return cachedFirstTransferTimestamp
-  }
-
-  const result = await manager.query('SELECT MIN(timestamp) as min_timestamp FROM transfer')
-  if (result[0]?.min_timestamp) {
-    cachedFirstTransferTimestamp = new Date(result[0].min_timestamp)
-  }
-
-  return cachedFirstTransferTimestamp
+function normalizeTimeRange(from?: Date, to?: Date): { from: Date; to: Date } {
+  const now = new Date()
+  const normalizedTo = to != null && to < now ? to : now
+  const normalizedFrom = from != null && from > INITIAL_TIMESTAMP ? from : INITIAL_TIMESTAMP
+  return { from: normalizedFrom, to: normalizedTo }
 }
 
-async function normalizeTimeRange(
-  manager: EntityManager,
-  from?: Date,
-  to?: Date,
-): Promise<{ from: Date; to: Date }> {
-  const firstTransfer = await getFirstTransferTimestamp(manager)
-  const defaultFrom = firstTransfer || new Date('2020-01-01')
-
-  const initialFrom = from || defaultFrom
-  const normalizedFrom = from && firstTransfer ? max([from, firstTransfer]) : initialFrom
-
-  const normalizedTo = min([to || new Date(), new Date()])
-  const finalFrom = min([normalizedFrom, normalizedTo])
-
-  return { from: finalFrom, to: normalizedTo }
-}
-
-function getGroupSizeInfo(
-  from: Date,
-  to: Date,
-  step?: string,
-): GroupSize {
-  return getGroupSize(
-    step ? step : { from, to, maxPoints: 50 },
-  )
+function getGroupSizeInfo(from: Date, to: Date, step?: string): GroupSize {
+  return getGroupSize(step ? step : { from, to, maxPoints: 50 })
 }
 
 function stepInterval(groupSize: GroupSize): string {
@@ -116,7 +87,9 @@ function binJoin(dayColumn: string, seriesColumn: string, groupSize: GroupSize):
 class HoldersCountEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<HoldersCountEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<HoldersCountEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -125,7 +98,9 @@ class HoldersCountTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<HoldersCountTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<HoldersCountTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -139,7 +114,7 @@ export class HoldersCountTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<HoldersCountTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -191,7 +166,9 @@ export class HoldersCountTimeseriesResolver {
 class TvlEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => BigInt, { nullable: true }) value!: bigint | null
-  constructor(props: Partial<TvlEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<TvlEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -200,7 +177,9 @@ class LockedValueTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<LockedValueTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<LockedValueTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 function getTvlTypeFilter(type: TvlType): string {
@@ -228,7 +207,7 @@ export class LockedValueTimeseriesResolver {
     @Arg('type', () => TvlType, { nullable: true }) type?: TvlType,
   ): Promise<LockedValueTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     let raw
@@ -327,14 +306,18 @@ class TransferCountByTypeValue {
   @Field(() => Number) transfer!: number
   @Field(() => Number) reward!: number
   @Field(() => Number) release!: number
-  constructor(props: Partial<TransferCountByTypeValue>) { Object.assign(this, props) }
+  constructor(props: Partial<TransferCountByTypeValue>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
 class TransferCountByType {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => TransferCountByTypeValue, { nullable: true }) value!: TransferCountByTypeValue | null
-  constructor(props: Partial<TransferCountByType>) { Object.assign(this, props) }
+  constructor(props: Partial<TransferCountByType>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -343,7 +326,9 @@ class TransfersByTypeTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<TransfersByTypeTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<TransfersByTypeTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -357,7 +342,7 @@ export class TransfersByTypeTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<TransfersByTypeTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -416,7 +401,9 @@ export class TransfersByTypeTimeseriesResolver {
 class UniqueAccountsEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<UniqueAccountsEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<UniqueAccountsEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -425,7 +412,9 @@ class UniqueAccountsTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<UniqueAccountsTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<UniqueAccountsTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -439,7 +428,7 @@ export class UniqueAccountsTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<UniqueAccountsTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -480,7 +469,9 @@ export class UniqueAccountsTimeseriesResolver {
 class AccountBalanceEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => BigInt, { nullable: true }) value!: bigint | null
-  constructor(props: Partial<AccountBalanceEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<AccountBalanceEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -489,7 +480,9 @@ class AccountBalanceTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<AccountBalanceTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<AccountBalanceTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -504,7 +497,7 @@ export class AccountBalanceTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<AccountBalanceTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(

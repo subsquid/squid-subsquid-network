@@ -15,7 +15,6 @@ import {
   toPercent,
 } from '@sqd/shared'
 import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
-import type { Log } from '../../types'
 
 import {
   Block,
@@ -29,6 +28,16 @@ import {
   WorkerStatus,
 } from '~/model'
 
+type Payout = {
+  workerId: string
+  workerReward: bigint
+  workerApr: number
+  stakerReward: bigint
+  stakerApr: number
+}
+
+const SHARE_SCALE = 10n ** 18n
+
 export const rewardsDistributedHandler = createHandler((ctx, item) => {
   if (!isContract(item, network.contracts.RewardsDistribution)) return
   if (!isLog(item)) return
@@ -37,7 +46,25 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
   const log = item.value
   const event = RewardsDistribution.events.Distributed.decode(log)
 
-  const recipientIds = event.recipients.map((r) => createWorkerId(r))
+  // Build payouts and the subset with non-zero staker reward from event data directly,
+  // so the delegation lookup can be issued without waiting for worker resolution.
+  const recipientIds: string[] = new Array(event.recipients.length)
+  const payouts = new Map<string, Payout>()
+  const workerIdsWithStakerReward: string[] = []
+  for (let i = 0; i < event.recipients.length; i++) {
+    const workerId = createWorkerId(event.recipients[i])
+    const stakerReward = event.stakerRewards[i]
+    recipientIds[i] = workerId
+    payouts.set(workerId, {
+      workerId,
+      workerReward: event.workerRewards[i],
+      workerApr: 0,
+      stakerReward,
+      stakerApr: 0,
+    })
+    if (stakerReward > 0n) workerIdsWithStakerReward.push(workerId)
+  }
+
   const deferredRecipients = recipientIds.map((id) => ctx.store.defer(Worker, id))
 
   return async () => {
@@ -48,66 +75,42 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
       toBlock: Number(event.toBlock),
     })
 
-    let fromBlock = await ctx.store.findOne(Block, {
-      where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.fromBlock) },
-      order: { height: 'DESC' },
-    })
+    // All four reads are independent — issue them concurrently so the store/driver can
+    // pipeline, rather than paying four sequential round-trips.
+    const [resolvedWorkers, fromBlockCandidate, toBlockCandidate, allDelegations] =
+      await Promise.all([
+        Promise.all(deferredRecipients.map((w) => w.get())),
+        ctx.store.findOne(Block, {
+          where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.fromBlock) },
+          order: { height: 'DESC' },
+        }),
+        ctx.store.findOne(Block, {
+          where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.toBlock) },
+          order: { height: 'DESC' },
+        }),
+        workerIdsWithStakerReward.length > 0
+          ? ctx.store.find(Delegation, {
+              where: {
+                worker: { id: In(workerIdsWithStakerReward) },
+                status: Not(DelegationStatus.WITHDRAWN),
+              },
+              relations: { worker: true },
+            })
+          : Promise.resolve<Delegation[]>([]),
+      ])
+
+    let fromBlock = fromBlockCandidate
     if (!fromBlock) {
+      // Cold-start fallback: the reward period predates any Block we have indexed.
       fromBlock = await ctx.store.findOne(Block, { where: {}, order: { height: 'ASC' } })
       assert(fromBlock)
     }
+    const toBlock = toBlockCandidate ?? fromBlock
 
-    let toBlock = await ctx.store.findOne(Block, {
-      where: { l1BlockNumber: LessThanOrEqual(normalizedInterval.toBlock) },
-      order: { height: 'DESC' },
-    })
-    if (!toBlock) {
-      toBlock = fromBlock
-    }
-
-    const activeWorkers = await Promise.all(deferredRecipients.map((w) => w.get())).then((ws) =>
-      ws.filter((w): w is Worker => w != null && w.status !== WorkerStatus.WITHDRAWN),
+    const activeWorkers = resolvedWorkers.filter(
+      (w): w is Worker => w != null && w.status !== WorkerStatus.WITHDRAWN,
     )
 
-    const delegations: Delegation[] = []
-    const rewards: (WorkerReward | DelegationReward)[] = []
-
-    const payouts = recipientIds
-      .map((workerId, i) => ({
-        workerId,
-        workerReward: event.workerRewards[i],
-        workerApr: 0,
-        stakerReward: event.stakerRewards[i],
-        stakerApr: 0,
-      }))
-      .reduce(
-        (r, p) => r.set(p.workerId, p),
-        new Map<
-          string,
-          {
-            workerId: string
-            workerReward: bigint
-            workerApr: number
-            stakerReward: bigint
-            stakerApr: number
-          }
-        >(),
-      )
-
-    const workerIdsWithStakerReward = activeWorkers
-      .filter((w) => (payouts.get(w.id)?.stakerReward ?? 0n) > 0n)
-      .map((w) => w.id)
-
-    const allDelegations =
-      workerIdsWithStakerReward.length > 0
-        ? await ctx.store.find(Delegation, {
-            where: {
-              worker: { id: In(workerIdsWithStakerReward) },
-              status: Not(DelegationStatus.WITHDRAWN),
-            },
-            relations: { worker: true },
-          })
-        : []
     const delegationsByWorker = new Map<string, Delegation[]>()
     for (const d of allDelegations) {
       const wid = d.worker.id
@@ -119,24 +122,22 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
       arr.push(d)
     }
 
+    const delegations: Delegation[] = []
+    const rewards: (WorkerReward | DelegationReward)[] = []
+
+    const fromTs = fromBlock.timestamp.getTime()
+    const toTs = toBlock.timestamp.getTime()
+    const eventTs = new Date(log.block.timestamp)
+    const eventHeight = log.block.height
+
     for (const worker of activeWorkers) {
-      if (worker.createdAt.getTime() >= toBlock.timestamp.getTime()) continue
+      if (worker.createdAt.getTime() >= toTs) continue
 
-      let payout = payouts.get(worker.id)
-      if (!payout) {
-        payout = {
-          workerId: worker.id,
-          workerReward: 0n,
-          workerApr: 0,
-          stakerReward: 0n,
-          stakerApr: 0,
-        }
-        payouts.set(worker.id, payout)
-      }
+      // Guaranteed to exist: `activeWorkers` is filtered from `recipientIds`,
+      // and every recipient id seeded the payouts map above.
+      const payout = payouts.get(worker.id)!
 
-      const interval =
-        toBlock.timestamp.getTime() -
-        Math.max(fromBlock.timestamp.getTime(), worker.createdAt.getTime())
+      const interval = toTs - Math.max(fromTs, worker.createdAt.getTime())
 
       if (interval > 0) {
         payout.workerApr = worker.bond
@@ -161,13 +162,13 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
           : payout.workerApr / 2
       }
 
-      if (payout.stakerReward > 0) {
+      if (payout.stakerReward > 0n) {
         // NB: on-chain, Staking.distribute() accumulates cumulatedRewardsPerShare across rounds
         // and computes per-staker rewards at checkpoint time. Here we recompute per-share for each
         // distribution independently, which may diverge by up to 1 wei per delegation per round
         // due to integer division ordering. Acceptable for display/indexing purposes.
         const rewardsPerShare = worker.totalDelegation
-          ? (payout.stakerReward * 10n ** 18n) / worker.totalDelegation
+          ? (payout.stakerReward * SHARE_SCALE) / worker.totalDelegation
           : 0n
 
         const workerDelegations = delegationsByWorker.get(worker.id) ?? []
@@ -175,31 +176,42 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
           ctx.log.warn(`missing delegation for worker(${worker.id})`)
         }
 
-        const dr = distributeReward(log, workerDelegations, {
-          rewardsPerShare,
-          apr: payout.stakerApr,
-        })
+        const paddedWorkerId = worker.id.padStart(5, '0')
+        for (let i = 0; i < workerDelegations.length; i++) {
+          const delegation = workerDelegations[i]
+          const amount = (delegation.deposit * rewardsPerShare) / SHARE_SCALE
+          delegation.claimableReward += amount
 
-        rewards.push(...dr.rewards)
-        delegations.push(...dr.delegations)
+          rewards.push(
+            new DelegationReward({
+              id: `${log.id}-${paddedWorkerId}-${i.toString().padStart(5, '0')}`,
+              blockNumber: eventHeight,
+              timestamp: eventTs,
+              delegation,
+              amount,
+              apr: payout.stakerApr,
+            }),
+          )
+          delegations.push(delegation)
+        }
       }
 
       worker.claimableReward += payout.workerReward
       worker.totalDelegationRewards += payout.stakerReward
 
-      if (payout.workerReward > 0) {
-        const reward = new WorkerReward({
-          id: `${log.id}-${worker.id.padStart(5, '0')}`,
-          blockNumber: log.block.height,
-          timestamp: new Date(log.block.timestamp),
-          worker,
-          amount: payout.workerReward,
-          stakersReward: payout.stakerReward,
-          apr: payout.workerApr,
-          stakerApr: payout.stakerApr,
-        })
-
-        rewards.push(reward)
+      if (payout.workerReward > 0n) {
+        rewards.push(
+          new WorkerReward({
+            id: `${log.id}-${worker.id.padStart(5, '0')}`,
+            blockNumber: eventHeight,
+            timestamp: eventTs,
+            worker,
+            amount: payout.workerReward,
+            stakersReward: payout.stakerReward,
+            apr: payout.workerApr,
+            stakerApr: payout.stakerApr,
+          }),
+        )
       }
     }
 
@@ -208,9 +220,9 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
     await ctx.store.track(
       new Commitment({
         id: createCommitmentId(event.fromBlock, event.toBlock),
-        from: fromBlock?.timestamp,
+        from: fromBlock.timestamp,
         fromBlock: normalizedInterval.fromBlock,
-        to: toBlock?.timestamp,
+        to: toBlock.timestamp,
         toBlock: normalizedInterval.toBlock,
         recipients: [...payouts.values()].map((p) => new CommitmentRecipient(p)),
       }),
@@ -221,40 +233,6 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
     )
   }
 })
-
-function distributeReward(
-  log: Log,
-  delegations: Delegation[],
-  {
-    rewardsPerShare,
-    apr,
-  }: {
-    rewardsPerShare: bigint
-    apr: number
-  },
-) {
-  const rewards: DelegationReward[] = []
-
-  for (let i = 0; i < delegations.length; i++) {
-    const delegation = delegations[i]
-
-    const amount = (delegation.deposit * rewardsPerShare) / 10n ** 18n
-    delegation.claimableReward += amount
-
-    const reward = new DelegationReward({
-      id: `${log.id}-${delegation.worker.id.padStart(5, '0')}-${i.toString().padStart(5, '0')}`,
-      blockNumber: log.block.height,
-      timestamp: new Date(log.block.timestamp),
-      delegation,
-      amount,
-      apr,
-    })
-
-    rewards.push(reward)
-  }
-
-  return { delegations, rewards }
-}
 
 /**
  * Expands the on-chain (fromBlock, toBlock) range to the actual L1 block interval

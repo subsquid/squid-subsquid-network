@@ -17,7 +17,7 @@ import * as Staking from '@sqd/shared/lib/abi/Staking'
 
 import { Delegation, DelegationStatus, DelegationStatusChange, Settings, Worker } from '~/model'
 import { createDelegation } from '../../helpers'
-import { addToWorkerCapQueue } from '../cap'
+import { refreshWorkerCap } from '../cap'
 import { addToDelegationUnlockQueue } from './DelegationUnlock.queue'
 
 export const handleDeposited = createHandler((ctx, item) => {
@@ -39,10 +39,6 @@ export const handleDeposited = createHandler((ctx, item) => {
   const accountId = createAccountId(stakerAccount)
 
   const delegationId = createDelegationId(workerId, accountId)
-  const delegationDeferred = ctx.store.defer(Delegation, {
-    id: delegationId,
-    relations: { worker: true },
-  })
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
 
@@ -100,7 +96,7 @@ export const handleDeposited = createHandler((ctx, item) => {
     }
     worker.totalDelegation += amount
 
-    await addToWorkerCapQueue(ctx, worker.id)
+    refreshWorkerCap(worker, settings)
 
     ctx.log.info(
       `operator(${accountId}) delegated ${toHumanSQD(amount)} to worker(${worker.id}) (${elapsed()}ms)`,

@@ -2,6 +2,7 @@ import assert from 'assert'
 import type { MappingContext } from '@sqd/shared'
 import { Queue, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
 import { resetWorkerStats } from '../../helpers'
+import { markAprDirty } from '../cap'
 
 export const WORKER_STATUS_APPLY_QUEUE = 'worker-status-apply'
 
@@ -63,10 +64,20 @@ export async function processWorkerStatusApplyQueue(
     }
 
     const worker = statusChange.worker
+    const previousStatus = worker.status
     worker.status = statusChange.status
 
     if (worker.status === WorkerStatus.DEREGISTERED) {
       resetWorkerStats(worker)
+    }
+
+    // Any transition into or out of ACTIVE changes the `utilizedStake` sum
+    // driving the APR rollup. Mark dirty so `flushAprRecalc` runs this batch.
+    if (
+      previousStatus !== worker.status &&
+      (previousStatus === WorkerStatus.ACTIVE || worker.status === WorkerStatus.ACTIVE)
+    ) {
+      markAprDirty()
     }
 
     ctx.log.info(`status of worker(${worker.id}) changed to ${worker.status}`)

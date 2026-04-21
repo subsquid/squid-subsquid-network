@@ -29,8 +29,10 @@ export const handleDeposited = createHandler((ctx, item) => {
     pool.tvlTotal += event.amount
     pool.tvlStable += event.amount
 
-    const provider = await ctx.store.getOrCreate(PoolProvider, providerEntityId, (id) =>
-      new PoolProvider({ id, pool, providerId, deposited: 0n }),
+    const provider = await ctx.store.getOrCreate(
+      PoolProvider,
+      providerEntityId,
+      (id) => new PoolProvider({ id, pool, providerId, deposited: 0n }),
     )
     provider.deposited += event.amount
 

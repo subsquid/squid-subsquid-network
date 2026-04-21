@@ -15,7 +15,7 @@ import {
 import * as Staking from '@sqd/shared/lib/abi/Staking'
 
 import { Delegation, DelegationStatus, DelegationStatusChange, Settings } from '~/model'
-import { addToWorkerCapQueue } from '../cap'
+import { refreshWorkerCap } from '../cap'
 
 export const handleWithdrawn = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -65,7 +65,7 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     }
     worker.totalDelegation -= amount
 
-    await addToWorkerCapQueue(ctx, worker.id)
+    refreshWorkerCap(worker, settings)
 
     ctx.log.info(
       `operator(${accountId}) undelegated ${toHumanSQD(amount)} from worker(${worker.id}) (${elapsed()}ms)`,

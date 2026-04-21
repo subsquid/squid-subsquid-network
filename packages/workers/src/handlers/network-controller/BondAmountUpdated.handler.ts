@@ -17,5 +17,9 @@ export const handleBondAmountUpdated = createHandler((ctx, item) => {
     const settings = await settingsDeferred.getOrFail()
     settings.bondAmount = bondAmount
     ctx.log.info(`set bond amount ${bondAmount}`)
+    // Caps depend on `bondAmount` but are refreshed lazily: each active
+    // worker is re-capped on the next `updateWorkerRewardStats` cycle (see
+    // metrics.ts), and individual workers are re-capped inline on every
+    // deposit/withdraw via `refreshWorkerCap`.
   }
 })

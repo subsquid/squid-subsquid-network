@@ -1,3 +1,5 @@
+import assert from 'assert'
+
 import {
   type LogItem,
   createAccountId,
@@ -35,11 +37,17 @@ export const handleRewardsClaimed = createHandlerOld({
     return timed(ctx, async (elapsed) => {
       const worker = await workerDeferred.getOrFail()
 
-      if (worker.ownerId !== accountId) {
-        ctx.log.warn(
-          `rewards claim for worker(${worker.id}): claimer ${accountId} != owner ${worker.ownerId}`,
-        )
-      }
+      // The rewards-distributor `Claimed` event is only ever emitted for the
+      // worker owner (`RewardsDistribution.claim(workerId)` reverts if the
+      // caller is not the registrar). A mismatch here means either the worker
+      // ownership record is stale (an in-flight `Registered` update was
+      // missed) or the event is being routed to the wrong worker. Either way,
+      // `claimableReward = 0n` below would zero an unrelated worker's balance
+      // and produce silently wrong aggregates, so fail loudly instead.
+      assert(
+        worker.ownerId === accountId,
+        `rewards claim for worker(${worker.id}): claimer ${accountId} != ownerId ${worker.ownerId}`,
+      )
 
       worker.claimableReward = 0n
       worker.claimedReward += amount

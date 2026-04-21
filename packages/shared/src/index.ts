@@ -67,6 +67,9 @@ export {
 export type { Task } from './utils/queue'
 export { TaskQueue } from './utils/queue'
 
+export type { AsyncTaskResult } from './utils/async-task'
+export { AsyncTask } from './utils/async-task'
+
 export { getGroupSize } from './utils/groupSize'
 export type { GroupSize } from './utils/groupSize'
 

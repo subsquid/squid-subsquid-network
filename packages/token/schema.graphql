@@ -17,6 +17,11 @@ type Account @entity {
   transfersTo: [Transfer!] @derivedFrom(field: "to")
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
 
+  # DEPRECATED: always 0 in the split architecture. The worker-side handlers
+  # that used to increment this counter (staking/Deposited, rewards/Claimed,
+  # rewards/Distributed) now live in the `workers` package and no longer touch
+  # `Account` entities. Drop in a follow-up migration once no frontend query
+  # still reads this field.
   claimableDelegationCount: Int!
 }
 

@@ -10,6 +10,7 @@ import {
 import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { Settings, Worker, WorkerStatus, WorkerStatusChange } from '~/model'
+import { markAprDirty } from '../cap'
 import { addToWorkerStatusApplyQueue } from './WorkerStatusApply.queue'
 import { addToWorkerUnlockQueue } from './WorkerUnlock.queue'
 
@@ -31,6 +32,10 @@ export const handleWorkerDeregistered = createHandler((ctx, item) => {
 
     const worker = await workerDeferred.getOrFail()
     if (worker.status === WorkerStatus.DEREGISTERING) return
+
+    // Transition ACTIVE → DEREGISTERING removes the worker from the
+    // `utilizedStake` sum used by the APR rollup (see `cap.ts:recalculateWorkerAprs`).
+    if (worker.status === WorkerStatus.ACTIVE) markAprDirty()
 
     const statusChange = new WorkerStatusChange({
       id: createWorkerStatusId(workerId, log.block.l1BlockNumber),

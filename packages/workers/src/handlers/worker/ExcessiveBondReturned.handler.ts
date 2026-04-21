@@ -10,6 +10,7 @@ import {
 import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
 
 import { Worker } from '~/model'
+import { markAprDirty } from '../cap'
 
 export const handleExcessiveBondReturned = createHandlerOld({
   filter(_, item): item is LogItem {
@@ -27,6 +28,12 @@ export const handleExcessiveBondReturned = createHandlerOld({
     return timed(ctx, async (elapsed) => {
       const worker = await workerDeferred.getOrFail()
       worker.bond -= amount
+
+      // Bond contributes directly to `utilizedStake`; a change on an active
+      // worker must trigger the batch-level APR rollup even though the cap
+      // formula itself (which uses `settings.bondAmount`, not `worker.bond`)
+      // is unaffected by this event.
+      markAprDirty()
 
       ctx.log.info(
         `worker(${worker.id}) returned excessive bond ${toHumanSQD(amount)} (${elapsed()}ms)`,

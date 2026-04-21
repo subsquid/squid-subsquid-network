@@ -1,41 +1,39 @@
+import { type GroupSize, getGroupSize, network } from '@sqd/shared'
 import { DateTime } from '@subsquid/graphql-server'
-import { max, min } from 'date-fns'
 import { Arg, Field, ObjectType, Query, Resolver } from 'type-graphql'
 import { EntityManager } from 'typeorm'
-import { type GroupSize, getGroupSize } from '@sqd/shared'
 
-let cachedFirstTransferTimestamp: Date | null = null
+/**
+ * Timestamp of the first `network.contracts.Router` deployment on each
+ * supported network — used as the default lower bound for time-series
+ * queries when the caller does not supply `from`.
+ *
+ * Master used `MIN(transfer.timestamp)` resolved via a DB probe, which was
+ * both expensive (extra query per request) and brittle once the `Transfer`
+ * entity moved to the `token` package. The fixed constants below reproduce
+ * the same effective bound without the cross-package dependency; update them
+ * only when deploying the workers indexer to a new network.
+ *
+ * Sources:
+ *   mainnet → first Router deployment block timestamp on Arbitrum One
+ *   tethys  → first Router deployment block timestamp on Arbitrum Sepolia
+ */
+const INITIAL_TIMESTAMP =
+  network.name === 'mainnet' ? new Date('2024-03-25T16:55:45Z') : new Date('2024-01-10T00:32:20Z')
 
-async function getFirstTimestamp(manager: EntityManager, table: string): Promise<Date | null> {
-  const result = await manager.query(`SELECT MIN(timestamp) as min_timestamp FROM ${table}`)
-  return result[0]?.min_timestamp ? new Date(result[0].min_timestamp) : null
+export function normalizeTimeRange(from?: Date, to?: Date): { from: Date; to: Date } {
+  const now = new Date()
+  const normalizedTo = to != null && to < now ? to : now
+  // Clamp `from` so the returned range always starts at or after the indexer's
+  // earliest observable data. Callers passing `from` from the frontend's date
+  // picker routinely ask for multi-year ranges; without this clamp every
+  // daily-bucket aggregate would materialize thousands of empty rows.
+  const normalizedFrom = from != null && from > INITIAL_TIMESTAMP ? from : INITIAL_TIMESTAMP
+  return { from: normalizedFrom, to: normalizedTo }
 }
 
-async function normalizeTimeRange(
-  manager: EntityManager,
-  from?: Date,
-  to?: Date,
-): Promise<{ from: Date; to: Date }> {
-  const firstTs = await getFirstTimestamp(manager, 'worker_reward')
-  const defaultFrom = firstTs || new Date('2020-01-01')
-
-  const initialFrom = from || defaultFrom
-  const normalizedFrom = from && firstTs ? max([from, firstTs]) : initialFrom
-
-  const normalizedTo = min([to || new Date(), new Date()])
-  const finalFrom = min([normalizedFrom, normalizedTo])
-
-  return { from: finalFrom, to: normalizedTo }
-}
-
-function getGroupSizeInfo(
-  from: Date,
-  to: Date,
-  step?: string,
-): GroupSize {
-  return getGroupSize(
-    step ? step : { from, to, maxPoints: 50 },
-  )
+function getGroupSizeInfo(from: Date, to: Date, step?: string): GroupSize {
+  return getGroupSize(step ? step : { from, to, maxPoints: 50 })
 }
 
 function stepInterval(groupSize: GroupSize): string {
@@ -110,13 +108,8 @@ function buildWorkerFilter(workerId?: string): {
   }
 }
 
-async function prepareTimeseriesContext(
-  manager: EntityManager,
-  fromArg?: Date,
-  toArg?: Date,
-  step?: string,
-) {
-  const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+function prepareTimeseriesContext(fromArg?: Date, toArg?: Date, step?: string) {
+  const { from, to } = normalizeTimeRange(fromArg, toArg)
   const groupSize = getGroupSizeInfo(from, to, step)
   return { groupSize, from, to }
 }
@@ -127,7 +120,9 @@ async function prepareTimeseriesContext(
 class ActiveWorkersEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<ActiveWorkersEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<ActiveWorkersEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -136,7 +131,9 @@ class ActiveWorkersTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<ActiveWorkersTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<ActiveWorkersTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -150,7 +147,7 @@ export class ActiveWorkersTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<ActiveWorkersTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -202,7 +199,9 @@ export class ActiveWorkersTimeseriesResolver {
 class OperatorsEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<OperatorsEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<OperatorsEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -211,7 +210,9 @@ class UniqueOperatorsTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<UniqueOperatorsTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<UniqueOperatorsTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -225,7 +226,7 @@ export class UniqueOperatorsTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<UniqueOperatorsTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -277,7 +278,9 @@ export class UniqueOperatorsTimeseriesResolver {
 class DelegationsEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<DelegationsEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<DelegationsEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -286,7 +289,9 @@ class DelegationsTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<DelegationsTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<DelegationsTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -300,7 +305,7 @@ export class DelegationsTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<DelegationsTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -352,7 +357,9 @@ export class DelegationsTimeseriesResolver {
 class DelegatorsEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<DelegatorsEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<DelegatorsEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -361,7 +368,9 @@ class DelegatorsTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<DelegatorsTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<DelegatorsTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -375,7 +384,7 @@ export class DelegatorsTimeseriesResolver {
     @Arg('step', { nullable: true }) step?: string,
   ): Promise<DelegatorsTimeseries> {
     const manager = await this.tx()
-    const { from, to } = await normalizeTimeRange(manager, fromArg, toArg)
+    const { from, to } = normalizeTimeRange(fromArg, toArg)
     const groupSize = getGroupSizeInfo(from, to, step)
 
     const raw = await manager.query(
@@ -427,7 +436,9 @@ export class DelegatorsTimeseriesResolver {
 class QueriesCountEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<QueriesCountEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<QueriesCountEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -436,7 +447,9 @@ class QueriesCountTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<QueriesCountTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<QueriesCountTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -451,7 +464,7 @@ export class QueriesCountTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<QueriesCountTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
     const params = workerId ? [from, to, workerId] : [from, to]
@@ -492,7 +505,9 @@ export class QueriesCountTimeseriesResolver {
 class ServedDataEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<ServedDataEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<ServedDataEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -501,7 +516,9 @@ class ServedDataTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<ServedDataTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<ServedDataTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -516,7 +533,7 @@ export class ServedDataTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<ServedDataTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
     const params = workerId ? [from, to, workerId] : [from, to]
@@ -557,7 +574,9 @@ export class ServedDataTimeseriesResolver {
 class StoredDataEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<StoredDataEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<StoredDataEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -566,7 +585,9 @@ class StoredDataTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<StoredDataTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<StoredDataTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -581,7 +602,7 @@ export class StoredDataTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<StoredDataTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
     const params = workerId ? [from, to, workerId] : [from, to]
@@ -629,7 +650,9 @@ export class StoredDataTimeseriesResolver {
 class UptimeEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => Number, { nullable: true }) value!: number | null
-  constructor(props: Partial<UptimeEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<UptimeEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -638,7 +661,9 @@ class UptimeTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<UptimeTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<UptimeTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -653,7 +678,7 @@ export class UptimeTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<UptimeTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     const { filter: workerFilter } = buildWorkerFilter(workerId)
     const params = workerId ? [from, to, workerId] : [from, to]
@@ -696,14 +721,18 @@ export class UptimeTimeseriesResolver {
 class RewardValue {
   @Field(() => BigInt) workerReward!: bigint
   @Field(() => BigInt) stakerReward!: bigint
-  constructor(props: Partial<RewardValue>) { Object.assign(this, props) }
+  constructor(props: Partial<RewardValue>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
 class RewardEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => RewardValue, { nullable: true }) value!: RewardValue | null
-  constructor(props: Partial<RewardEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<RewardEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -712,7 +741,9 @@ class RewardTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<RewardTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<RewardTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -727,7 +758,7 @@ export class RewardTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<RewardTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     const workerFilter = workerId ? sql`AND worker_id = $3` : ''
     const params = workerId ? [from, to, workerId] : [from, to]
@@ -779,14 +810,18 @@ export class RewardTimeseriesResolver {
 class AprValue {
   @Field(() => Number) workerApr!: number
   @Field(() => Number) stakerApr!: number
-  constructor(props: Partial<AprValue>) { Object.assign(this, props) }
+  constructor(props: Partial<AprValue>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
 class AprEntry {
   @Field(() => DateTime) timestamp!: Date
   @Field(() => AprValue, { nullable: true }) value!: AprValue | null
-  constructor(props: Partial<AprEntry>) { Object.assign(this, props) }
+  constructor(props: Partial<AprEntry>) {
+    Object.assign(this, props)
+  }
 }
 
 @ObjectType()
@@ -795,7 +830,9 @@ class AprTimeseries {
   @Field(() => Number) step!: number
   @Field(() => DateTime) from!: Date
   @Field(() => DateTime) to!: Date
-  constructor(props: Partial<AprTimeseries>) { Object.assign(this, props) }
+  constructor(props: Partial<AprTimeseries>) {
+    Object.assign(this, props)
+  }
 }
 
 @Resolver()
@@ -810,7 +847,7 @@ export class AprTimeseriesResolver {
     @Arg('workerId', { nullable: true }) workerId?: string,
   ): Promise<AprTimeseries> {
     const manager = await this.tx()
-    const { groupSize, from, to } = await prepareTimeseriesContext(manager, fromArg, toArg, step)
+    const { groupSize, from, to } = prepareTimeseriesContext(fromArg, toArg, step)
 
     let raw
 
