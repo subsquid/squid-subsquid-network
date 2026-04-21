@@ -1,0 +1,128 @@
+enum GatewayStatus {
+  REGISTERED
+  DEREGISTERED
+  UNKNOWN
+}
+
+type Gateway @entity {
+  id: ID!
+  createdAt: DateTime!
+  ownerId: String! @index
+  stake: GatewayStake!
+  status: GatewayStatus!
+  statusHistory: [GatewayStatusChange!]! @derivedFrom(field: "gateway")
+  name: String
+  website: String
+  email: String
+  description: String
+  endpointUrl: String
+}
+
+type GatewayStatusChange @entity {
+  gateway: Gateway!
+  status: GatewayStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+}
+
+type GatewayStake @entity {
+  id: ID!
+  ownerId: String! @index
+  autoExtension: Boolean!
+  gateways: [Gateway!]! @derivedFrom(field: "stake")
+  amount: BigInt!
+  computationUnits: BigInt!
+  computationUnitsPending: BigInt
+  locked: Boolean!
+  lockStart: Int
+  lockEnd: Int
+}
+
+type PortalPool
+  @entity
+  @index(fields: ["createdAt"])
+  @index(fields: ["tvlTotal"])
+  @index(fields: ["tvlStable"])
+{
+  id: ID!
+
+  createdAt: DateTime!
+  createdAtBlock: Int!
+  closedAt: DateTime
+  closedAtBlock: Int
+
+  operator: String! @index
+  rewardToken: String!
+  tokenSuffix: String!
+  metadata: String
+
+  capacity: BigInt!
+  rewardRate: BigInt!
+  totalRewardsToppedUp: BigInt!
+
+  tvlTotal: BigInt!
+  tvlStable: BigInt!
+
+  providers: [PoolProvider!]! @derivedFrom(field: "pool")
+  events: [PoolEvent!]! @derivedFrom(field: "pool")
+  distributionRateHistory: [PoolDistributionRateChange!]! @derivedFrom(field: "pool")
+  capacityHistory: [PoolCapacityChange!]! @derivedFrom(field: "pool")
+}
+
+type PoolProvider @entity @index(fields: ["pool", "providerId"]) {
+  "pool address + provider address"
+  id: ID!
+  pool: PortalPool!
+  providerId: String! @index
+  deposited: BigInt!
+}
+
+enum PoolEventType {
+  DEPOSIT
+  WITHDRAWAL
+  EXIT
+  TOPUP
+  CLAIM
+}
+
+type PoolEvent
+  @entity
+  @index(fields: ["pool", "timestamp"])
+  @index(fields: ["pool", "eventType", "timestamp"])
+{
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  eventType: PoolEventType!
+
+  amount: BigInt!
+  providerId: String
+}
+
+type PoolDistributionRateChange @entity @index(fields: ["pool", "timestamp"]) {
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  oldRate: BigInt!
+  newRate: BigInt!
+}
+
+type PoolCapacityChange @entity @index(fields: ["pool", "timestamp"]) {
+  id: ID!
+
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+
+  pool: PortalPool!
+  oldCapacity: BigInt!
+  newCapacity: BigInt!
+}

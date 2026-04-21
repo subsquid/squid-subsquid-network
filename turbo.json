@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turborepo.dev/schema.v2.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["lib/**"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "codegen": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "migration:generate": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "proc": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "api": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

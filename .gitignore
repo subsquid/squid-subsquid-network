@@ -1,5 +1,7 @@
-/node_modules
-/lib
+node_modules
+lib
+dist
+.turbo
 /builds
 /tools/*.js
 /tools/*.js.map
@@ -10,6 +12,7 @@
 /.idea
 
 *.secrets
+.env
 
 *.log
 

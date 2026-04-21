@@ -1,0 +1,6 @@
+export const STAKING_TEMPLATE_KEY = 'staking'
+export const WORKER_REGISTRATION_TEMPLATE_KEY = 'worker_registration'
+export const NETWORK_CONTROLLER_TEMPLATE_KEY = 'network_controller'
+export const REWARD_TREASURY_TEMPLATE_KEY = 'reward_treasury'
+export const VESTING_TEMPLATE_KEY = 'vesting'
+export const PORTAL_POOL_TEMPLATE_KEY = 'portal_pool'

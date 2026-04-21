@@ -1,0 +1,38 @@
+import * as SQD from '../abi/SQD'
+import { network } from '../config/network'
+import type { Log } from '../processor'
+
+export function findTransfer(
+  logs: Log[],
+  filter: { from?: string; to?: string; amount?: bigint; logIndex: number },
+) {
+  for (const log of logs) {
+    if (filter.logIndex !== log.logIndex) continue
+    if (log.address !== network.contracts.SQD.address) continue
+    if (!SQD.events.Transfer.is(log)) continue
+
+    const event = SQD.events.Transfer.decode(log)
+    if (filter.from != null && event.from !== filter.from) continue
+    if (filter.to != null && event.to !== filter.to) continue
+    if (filter.amount != null && event.value !== filter.amount) continue
+
+    return { log, event }
+  }
+}
+
+export function findTransferInTx(
+  logs: Log[],
+  filter: { from?: string; to?: string; amount?: bigint },
+) {
+  for (const log of logs) {
+    if (log.address !== network.contracts.SQD.address) continue
+    if (!SQD.events.Transfer.is(log)) continue
+
+    const event = SQD.events.Transfer.decode(log)
+    if (filter.from != null && event.from !== filter.from) continue
+    if (filter.to != null && event.to !== filter.to) continue
+    if (filter.amount != null && event.value !== filter.amount) continue
+
+    return { log, event }
+  }
+}

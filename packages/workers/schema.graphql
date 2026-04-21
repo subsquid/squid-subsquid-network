@@ -1,0 +1,256 @@
+type Contracts {
+  router: String
+  networkController: String
+  staking: String
+  workerRegistration: String
+  rewardTreasury: String
+  distributedRewardsDistribution: String
+  gatewayRegistry: String
+  rewardCalculation: String
+  softCap: String
+  vestingFactory: String
+  temporaryHoldingFactory: String
+  portalPoolFactory: String
+}
+
+type Settings @entity {
+  id: ID!
+  bondAmount: BigInt
+  delegationLimitCoefficient: Float!
+  epochLength: Int
+  minimalWorkerVersion: String
+  recommendedWorkerVersion: String
+  lockPeriod: Int
+
+  contracts: Contracts!
+
+  currentEpoch: Int
+  utilizedStake: BigInt!
+  baseApr: Float!
+
+  statsChunkCursor: DateTime
+}
+
+type Commitment @entity {
+  id: ID!
+  from: DateTime!
+  fromBlock: Int!
+  to: DateTime! @index
+  toBlock: Int!
+  recipients: [CommitmentRecipient!]!
+}
+
+type CommitmentRecipient {
+  workerId: ID!
+  workerReward: BigInt!
+  workerApr: Float!
+  stakerReward: BigInt!
+  stakerApr: Float!
+}
+
+type Block @entity {
+  id: ID!
+  hash: String!
+  height: Int! @index
+  timestamp: DateTime! @index
+  l1BlockNumber: Int @index
+}
+
+enum WorkerStatus {
+  REGISTERING
+  ACTIVE
+  DEREGISTERING
+  DEREGISTERED
+  WITHDRAWN
+  UNKNOWN
+}
+
+type WorkerDayUptime {
+  timestamp: DateTime!
+  uptime: Float!
+}
+
+type Worker
+  @entity
+  @index(fields: ["id", "createdAt", "status"])
+  @index(fields: ["status", "online"])
+{
+  id: ID!
+
+  peerId: String! @index
+  ownerId: String! @index
+  bond: BigInt!
+  createdAt: DateTime!
+
+  locked: Boolean
+  lockStart: Int
+  lockEnd: Int
+
+  name: String
+  website: String
+  email: String
+  description: String
+
+  status: WorkerStatus!
+  statusHistory: [WorkerStatusChange!]! @derivedFrom(field: "worker")
+
+  claimableReward: BigInt!
+  rewards: [WorkerReward!] @derivedFrom(field: "worker")
+  claimedReward: BigInt!
+
+  apr: Float
+  stakerApr: Float
+
+  totalDelegation: BigInt!
+  capedDelegation: BigInt!
+  delegationCount: Int!
+  delegations: [Delegation!] @derivedFrom(field: "worker")
+  totalDelegationRewards: BigInt!
+
+  online: Boolean @index
+  dialOk: Boolean
+  jailed: Boolean
+  jailReason: String
+
+  version: String
+
+  storedData: BigInt
+
+  queries24Hours: BigInt
+  queries90Days: BigInt
+
+  servedData24Hours: BigInt
+  servedData90Days: BigInt
+
+  scannedData24Hours: BigInt
+  scannedData90Days: BigInt
+
+  uptime24Hours: Float
+  uptime90Days: Float
+
+  trafficWeight: Float
+  liveness: Float
+  dTenure: Float
+
+  dayUptimes: [WorkerDayUptime!]
+  snapshots: [WorkerSnapshot!] @derivedFrom(field: "worker")
+}
+
+type WorkerStatusChange
+  @entity
+  @index(fields: ["pending", "timestamp"])
+  @index(fields: ["status", "timestamp"])
+  @index(fields: ["worker", "blockNumber"])
+{
+  worker: Worker!
+  status: WorkerStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+  pending: Boolean!
+}
+
+type WorkerReward
+  @entity
+  @index(fields: ["worker", "timestamp"])
+  @index(fields: ["timestamp", "apr"])
+  @index(fields: ["timestamp", "stakerApr"])
+{
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  worker: Worker!
+
+  amount: BigInt!
+  apr: Float!
+  stakersReward: BigInt!
+  stakerApr: Float!
+}
+
+type WorkerSnapshot @entity @index(fields: ["worker", "timestamp"]) {
+  id: ID!
+  worker: Worker!
+  timestamp: DateTime!
+  uptime: Float!
+  epoch: Epoch!
+}
+
+type WorkerMetrics @entity @index(fields: ["timestamp"]) @index(fields: ["worker", "timestamp"]) {
+  id: ID!
+  worker: Worker!
+  timestamp: DateTime!
+  uptime: Float!
+  pings: Int!
+  storedData: BigInt!
+  queries: Int!
+  servedData: BigInt!
+  scannedData: BigInt!
+}
+
+type Delegation @entity {
+  id: ID!
+
+  ownerId: String! @index
+  worker: Worker!
+
+  status: DelegationStatus!
+  statusHistory: [DelegationStatusChange!]! @derivedFrom(field: "delegation")
+
+  deposit: BigInt!
+  locked: Boolean
+  lockStart: Int
+  lockEnd: Int
+
+  claimableReward: BigInt!
+  rewards: [DelegationReward!] @derivedFrom(field: "delegation")
+  claimedReward: BigInt!
+}
+
+enum DelegationStatus {
+  ACTIVE
+  WITHDRAWN
+  UNKNOWN
+}
+
+type DelegationStatusChange
+  @entity
+  @index(fields: ["pending", "timestamp"])
+  @index(fields: ["status", "timestamp"])
+  @index(fields: ["delegation", "blockNumber"])
+{
+  delegation: Delegation!
+  status: DelegationStatus!
+  timestamp: DateTime
+  blockNumber: Int!
+  pending: Boolean!
+}
+
+type DelegationReward @entity {
+  id: ID!
+
+  blockNumber: Int!
+  timestamp: DateTime! @index
+
+  delegation: Delegation!
+
+  amount: BigInt!
+  apr: Float!
+}
+
+enum EpochStatus {
+  PLANNED
+  STARTED
+  ENDED
+}
+
+type Epoch @entity {
+  id: ID!
+  number: Int!
+  start: Int!
+  startedAt: DateTime
+  end: Int!
+  endedAt: DateTime
+  status: EpochStatus!
+  activeWorkerIds: [String!]
+}
