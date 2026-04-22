@@ -4,7 +4,7 @@ import { compareAsc } from 'date-fns'
 import { In, MoreThanOrEqual } from 'typeorm'
 
 import type { MappingContext } from '@sqd/shared'
-import { AsyncTask, DAY_MS, MINUTE_MS, joinUrl, network, toPercent, toStartOfInterval } from '@sqd/shared'
+import { AsyncTask, DAY_MS, HOUR_MS, MINUTE_MS, joinUrl, network, toPercent, toStartOfHour, toStartOfInterval } from '@sqd/shared'
 import type { BlockHeader } from '../types'
 
 import { recalculateWorkerAprs, refreshWorkerCap } from './cap'
@@ -236,17 +236,25 @@ async function applyOnlineUpdate(ctx: MappingContext, data: OnlineFetched) {
 // Workers metrics
 // =============================================================================
 //
-// The stats endpoint exposes a list of hourly chunks. Cursor:
-// `lastAppliedHourTimestamp`. **One batch → one step**: wait on pending HTTP,
-// stash a finished response, apply a stashed result to the DB, or start the
-// next HTTP fetch (including a deferred fetch after applying a chunk).
+// The stats endpoint exposes a list of chunks, **one chunk per UTC day**, each
+// containing hourly records. Today's chunk accumulates hours as the day goes
+// on, so it must be refetched until the next day's chunk appears. Each chunk
+// is downloaded whole and applied with `replace: true` — later fetches of the
+// same (still-growing) day idempotently overwrite already-persisted rows.
+//
+// Cursor: `statsChunkCursor` — UTC day start of the earliest chunk that still
+// needs to be (re)processed. Older chunks (those with a successor in the
+// status list) get processed once and the cursor advances past them. The
+// latest chunk keeps being re-fetched on every poll interval. **One batch →
+// one step**: wait on pending HTTP, stash a finished response, apply a
+// stashed result to the DB, or start the next HTTP fetch.
 //
 // Head-only `updateWorkers*` calls run from the batch `complete` phase in
 // main.ts.
 
 const metricsUpdateInterval = 30 * MINUTE_MS
 let lastMetricsFetchAt = -1
-let lastAppliedHourTimestamp = -1
+let statsChunkCursor = -1
 // Start true so aggregates are always recomputed on the first caught_up after
 // startup, even when no new stats chunks are available (e.g. after a code
 // deployment).
@@ -272,25 +280,31 @@ type WorkerStat = {
 type ChunkMeta = { timestamp: string; name: string }
 
 type StatsChunkResult =
-  | { kind: 'chunk'; chunkTimestamp: number; chunkName: string; data: WorkerStat[] }
+  | {
+      kind: 'chunk'
+      chunkTimestamp: number
+      chunkName: string
+      data: WorkerStat[]
+      isLatest: boolean
+    }
   | { kind: 'caught_up' }
 
 /** Background HTTP slot for `/workers/stats/*` (one in-flight fetch at a time). */
 let metricsFetchSlot: AsyncTask<StatsChunkResult | null> | null = null
 
-async function refreshHourCursor(ctx: MappingContext) {
+async function refreshChunkCursor(ctx: MappingContext) {
   const settings = await ctx.store.getOrFail(Settings, network.name)
   const dbTimestamp = settings.statsChunkCursor?.getTime() ?? -1
-  if (dbTimestamp > lastAppliedHourTimestamp) {
+  if (dbTimestamp > statsChunkCursor) {
     statsLog.debug(
       `stats cursor restored from DB: ${formatTimestamp(dbTimestamp)} ` +
-        `(was ${formatTimestamp(lastAppliedHourTimestamp)})`,
+        `(was ${formatTimestamp(statsChunkCursor)})`,
     )
-    lastAppliedHourTimestamp = dbTimestamp
+    statsChunkCursor = dbTimestamp
   }
 }
 
-async function persistHourCursor(ctx: MappingContext, timestamp: number) {
+async function persistChunkCursor(ctx: MappingContext, timestamp: number) {
   const settings = await ctx.store.getOrFail(Settings, network.name)
   settings.statsChunkCursor = new Date(timestamp)
 }
@@ -311,24 +325,35 @@ async function fetchNextStatsChunk(
     return null
   }
 
-  const next = statsStatus.chunks
-    .filter((c) => new Date(c.timestamp).getTime() > cursor)
-    .sort((a, b) => compareAsc(a.timestamp, b.timestamp))[0]
+  // A chunk spans a full UTC day (`chunk.timestamp` is the day's start). Pick
+  // the earliest chunk at or after the cursor. The cursor marks the first day
+  // we still need to (re)process; once an older day's chunk is complete (i.e.
+  // a successor chunk exists), we advance the cursor past it. The latest
+  // chunk keeps being re-fetched and its hours re-applied on each poll.
+  const sortedChunks = [...statsStatus.chunks].sort((a, b) => compareAsc(a.timestamp, b.timestamp))
+  const candidateIndex = sortedChunks.findIndex(
+    (c) => new Date(c.timestamp).getTime() >= cursor,
+  )
 
-  if (!next) {
+  if (candidateIndex < 0) {
     statsLog.debug(
-      `no chunks newer than ${formatTimestamp(cursor)} ` +
+      `no chunks at or after ${formatTimestamp(cursor)} ` +
         `(server snapshot at ${formatTimestamp(new Date(statsStatus.timestamp).getTime())})`,
     )
     return { kind: 'caught_up' }
   }
 
+  const next = sortedChunks[candidateIndex]
+  const isLatest = candidateIndex === sortedChunks.length - 1
   const chunkTimestamp = new Date(next.timestamp).getTime()
-  statsLog.debug(`downloading stats chunk ${next.name} for ${formatTimestamp(chunkTimestamp)}`)
+  statsLog.debug(
+    `downloading stats chunk ${next.name} for day ${formatTimestamp(chunkTimestamp)}` +
+      (isLatest ? ' (latest chunk — may be partial)' : ''),
+  )
   const data = await fetchMetricsChunk(statsUrl, next.name)
   if (data == null) return null
 
-  return { kind: 'chunk', chunkTimestamp, chunkName: next.name, data }
+  return { kind: 'chunk', chunkTimestamp, chunkName: next.name, data, isLatest }
 }
 
 function fetchMetricsChunk(statsUrl: string, name: string): Promise<WorkerStat[] | null> {
@@ -356,20 +381,18 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
   if (metricsFetchSlot == null) {
     if (!metricsBurstActive && block.timestamp - lastMetricsFetchAt < metricsUpdateInterval) return
     const syncingMoreChunks = metricsBurstActive
-    await refreshHourCursor(ctx)
+    await refreshChunkCursor(ctx)
     if (!syncingMoreChunks) {
       statsLog.info(
-        `polling stats endpoint for chunks newer than ${formatTimestamp(lastAppliedHourTimestamp)}`,
+        `polling stats endpoint for chunks at or after ${formatTimestamp(statsChunkCursor)}`,
       )
     } else {
       statsLog.info(
-        `syncing stats: fetching next chunk after hour cursor ${formatTimestamp(lastAppliedHourTimestamp)}`,
+        `syncing stats: fetching next chunk at or after ${formatTimestamp(statsChunkCursor)}`,
       )
     }
     metricsBurstActive = true
-    metricsFetchSlot = AsyncTask.start(() =>
-      fetchNextStatsChunk(statsUrl, lastAppliedHourTimestamp),
-    )
+    metricsFetchSlot = AsyncTask.start(() => fetchNextStatsChunk(statsUrl, statsChunkCursor))
   }
 
   const result = metricsFetchSlot.get()
@@ -390,21 +413,41 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
         chunkResult.chunkTimestamp,
         chunkResult.chunkName,
       )
-      if (chunkResult.chunkTimestamp > lastAppliedHourTimestamp) {
-        lastAppliedHourTimestamp = chunkResult.chunkTimestamp
-        await persistHourCursor(ctx, lastAppliedHourTimestamp)
-      }
       aggregatesPending = true
-      metricsBurstActive = true
+      if (!chunkResult.isLatest) {
+        // Older chunk fully covered by newer chunks — advance cursor past it
+        // so we don't redownload it next time.
+        const nextCursor = chunkResult.chunkTimestamp + DAY_MS
+        if (nextCursor > statsChunkCursor) {
+          statsChunkCursor = nextCursor
+          await persistChunkCursor(ctx, statsChunkCursor)
+        }
+        metricsBurstActive = true
+        return
+      }
+      // Latest chunk reached — we're caught up with the server for this cycle.
+      // The latest chunk (today's) keeps being refetched on each poll interval
+      // so newly-added hours get picked up; its cursor is not advanced.
+      metricsBurstActive = false
+      lastMetricsFetchAt = block.timestamp
+      if (aggregatesPending) {
+        aggregatesPending = false
+        statsLog.info(
+          `applied latest stats chunk ${chunkResult.chunkName} ` +
+            `(day ${formatTimestamp(chunkResult.chunkTimestamp)}); ` +
+            `recomputing 24h/90d aggregates`,
+        )
+        await updateWorkerAggregatedMetrics(ctx)
+      }
       return
     }
-    // caught_up
+    // caught_up — no chunks match; run pending aggregates if any.
     metricsBurstActive = false
     lastMetricsFetchAt = block.timestamp
     if (aggregatesPending) {
       aggregatesPending = false
       statsLog.info(
-        `applied all available chunks up to ${formatTimestamp(lastAppliedHourTimestamp)}; ` +
+        `no stats chunks to apply (cursor ${formatTimestamp(statsChunkCursor)}); ` +
           `recomputing 24h/90d aggregates`,
       )
       await updateWorkerAggregatedMetrics(ctx)
@@ -414,9 +457,7 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
 
   statsLog.warn(result.error as Error)
   metricsBurstActive = false
-  metricsFetchSlot = AsyncTask.start(() =>
-    fetchNextStatsChunk(statsUrl, lastAppliedHourTimestamp),
-  )
+  metricsFetchSlot = AsyncTask.start(() => fetchNextStatsChunk(statsUrl, statsChunkCursor))
 }
 
 async function applyMetricsChunk(
@@ -430,9 +471,7 @@ async function applyMetricsChunk(
     cacheEntities: false,
   })
   const workersMap = new Map(workers.map((w) => [w.peerId, w]))
-  const cursor = new Date(lastAppliedHourTimestamp > 0 ? lastAppliedHourTimestamp : 0)
 
-  let alreadyApplied = 0
   let beforeWorkerRegistration = 0
   const workerMetrics: WorkerMetrics[] = []
   for (const stat of chunkData) {
@@ -452,10 +491,6 @@ async function applyMetricsChunk(
         : hour
       const hourTimestamp = new Date(hour.timestamp)
 
-      if (compareAsc(hourTimestamp, cursor) <= 0) {
-        alreadyApplied++
-        continue
-      }
       if (compareAsc(hourTimestamp, worker.createdAt) < 0) {
         beforeWorkerRegistration++
         continue
@@ -481,22 +516,22 @@ async function applyMetricsChunk(
 
   await ctx.store.track(workerMetrics, { replace: true })
 
-  const ignored: string[] = []
-  if (alreadyApplied) ignored.push(`${alreadyApplied} already in DB`)
-  if (beforeWorkerRegistration) {
-    ignored.push(`${beforeWorkerRegistration} from before worker registration`)
-  }
+  const ignored = beforeWorkerRegistration
+    ? `; ignored ${beforeWorkerRegistration} hours before worker registration`
+    : ''
   statsLog.info(
-    `stored ${workerMetrics.length} new hourly metrics from ${chunkData.length} workers ` +
-      `(chunk ${chunkName}, hour ${formatTimestamp(chunkTimestamp)})` +
-      (ignored.length ? `; ignored: ${ignored.join(', ')}` : ''),
+    `upserted ${workerMetrics.length} hourly metrics from ${chunkData.length} workers ` +
+      `(chunk ${chunkName}, day ${formatTimestamp(chunkTimestamp)})${ignored}`,
   )
 }
 
 async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
-  const now = new Date()
-  const oneDayAgo = new Date(now.getTime() - DAY_MS)
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * DAY_MS)
+  // Exclude the current (in-progress) hour: the window ends at the start of
+  // the current hour, so partial data for the running hour never affects the
+  // 24h / 90d aggregates.
+  const windowEnd = new Date(toStartOfHour(Date.now()))
+  const oneDayAgo = new Date(windowEnd.getTime() - DAY_MS)
+  const ninetyDaysAgo = new Date(windowEnd.getTime() - 90 * DAY_MS)
 
   // Flush pending tracked WorkerMetrics so the raw query below sees them.
   await ctx.store.sync()
@@ -529,9 +564,9 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
       COALESCE(SUM(uptime), 0)                                       AS uptime_sum_90d,
       COUNT(*)                                                       AS uptime_count_90d
     FROM worker_metrics
-    WHERE timestamp >= $2
+    WHERE timestamp >= $2 AND timestamp < $3
     GROUP BY worker_id`,
-    [oneDayAgo, ninetyDaysAgo],
+    [oneDayAgo, ninetyDaysAgo, windowEnd],
   )
 
   const workers = await ctx.store.find(Worker, {
@@ -540,7 +575,6 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
 
   const workerMap = new Map(workers.map((w) => [w.id, w]))
   const seenWorkerIds = new Set<string>()
-  const HOUR_MS = 60 * 60 * 1000
 
   for (const row of rows) {
     const worker = workerMap.get(row.worker_id)
@@ -556,11 +590,11 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
     worker.scannedData24Hours = count24h > 0 ? BigInt(row.total_scanned_data_24h) : null
     const expectedHours24h = Math.max(
       0,
-      (now.getTime() - Math.max(worker.createdAt.getTime(), oneDayAgo.getTime())) / HOUR_MS,
+      (windowEnd.getTime() - Math.max(worker.createdAt.getTime(), oneDayAgo.getTime())) / HOUR_MS,
     )
     const expectedHours90d = Math.max(
       0,
-      (now.getTime() - Math.max(worker.createdAt.getTime(), ninetyDaysAgo.getTime())) / HOUR_MS,
+      (windowEnd.getTime() - Math.max(worker.createdAt.getTime(), ninetyDaysAgo.getTime())) / HOUR_MS,
     )
     worker.uptime24Hours = expectedHours24h > 0 ? Number(row.uptime_sum_24h) / expectedHours24h : null
 
@@ -585,7 +619,7 @@ async function updateWorkerAggregatedMetrics(ctx: MappingContext) {
 
   statsLog.info(
     `24h/90d aggregated metrics recomputed for ${workers.length} workers ` +
-      `(hour cursor ${formatTimestamp(lastAppliedHourTimestamp)})`,
+      `(chunk cursor ${formatTimestamp(statsChunkCursor)})`,
   )
 }
 
