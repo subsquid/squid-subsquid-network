@@ -358,7 +358,6 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
     const syncingMoreChunks = metricsBurstActive
     await refreshHourCursor(ctx)
     if (!syncingMoreChunks) {
-      lastMetricsFetchAt = block.timestamp
       statsLog.info(
         `polling stats endpoint for chunks newer than ${formatTimestamp(lastAppliedHourTimestamp)}`,
       )
@@ -381,6 +380,7 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
     const chunkResult = result.value
     if (chunkResult == null) {
       metricsBurstActive = false
+      lastMetricsFetchAt = block.timestamp
       return
     }
     if (chunkResult.kind === 'chunk') {
@@ -400,6 +400,7 @@ export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHead
     }
     // caught_up
     metricsBurstActive = false
+    lastMetricsFetchAt = block.timestamp
     if (aggregatesPending) {
       aggregatesPending = false
       statsLog.info(
