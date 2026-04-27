@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@belopash/typeorm-store": "2.0.0-rc.7",
+    "@belopash/typeorm-store": "2.0.0-rc.8",
     "@oxc-project/runtime": "^0.125.0",
     "@sqd/shared": "workspace:*",
     "@subsquid/batch-processor": "0.2.0-portal-api.d5861e",
