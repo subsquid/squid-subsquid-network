@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 import { BigDecimal } from '@subsquid/big-decimal'
-import { In, LessThanOrEqual, Not } from 'typeorm'
+import { In, LessThanOrEqual } from 'typeorm'
 
 import {
   YEAR_MS,
@@ -22,10 +22,8 @@ import {
   CommitmentRecipient,
   Delegation,
   DelegationReward,
-  DelegationStatus,
   Worker,
   WorkerReward,
-  WorkerStatus,
 } from '~/model'
 
 type Payout = {
@@ -90,10 +88,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
         }),
         workerIdsWithStakerReward.length > 0
           ? ctx.store.find(Delegation, {
-              where: {
-                worker: { id: In(workerIdsWithStakerReward) },
-                status: Not(DelegationStatus.WITHDRAWN),
-              },
+              where: { worker: { id: In(workerIdsWithStakerReward) } },
               relations: { worker: true },
             })
           : Promise.resolve<Delegation[]>([]),
@@ -107,9 +102,12 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
     }
     const toBlock = toBlockCandidate ?? fromBlock
 
-    const activeWorkers = resolvedWorkers.filter(
-      (w): w is Worker => w != null && w.status !== WorkerStatus.WITHDRAWN,
-    )
+    // Withdrawn workers/delegations are intentionally NOT filtered out: an on-chain
+    // Distributed event covers a past block range and can legitimately credit a
+    // worker that withdrew during/after that range. The contract still allows the
+    // (former) operator to claim those rewards, so we must keep accumulating
+    // claimableReward and emitting WorkerReward / DelegationReward rows for them.
+    const knownWorkers = resolvedWorkers.filter((w): w is Worker => w != null)
 
     const delegationsByWorker = new Map<string, Delegation[]>()
     for (const d of allDelegations) {
@@ -130,10 +128,10 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
     const eventTs = new Date(log.block.timestamp)
     const eventHeight = log.block.height
 
-    for (const worker of activeWorkers) {
+    for (const worker of knownWorkers) {
       if (worker.createdAt.getTime() >= toTs) continue
 
-      // Guaranteed to exist: `activeWorkers` is filtered from `recipientIds`,
+      // Guaranteed to exist: `knownWorkers` is filtered from `recipientIds`,
       // and every recipient id seeded the payouts map above.
       const payout = payouts.get(worker.id)!
 
