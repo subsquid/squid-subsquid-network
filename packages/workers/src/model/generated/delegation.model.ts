@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, Index as Index_, ManyToOne as ManyToOne_, OneToMany as OneToMany_, BigIntColumn as BigIntColumn_, BooleanColumn as BooleanColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, StringColumn as StringColumn_, Index as Index_, ManyToOne as ManyToOne_, Relation as Relation_, OneToMany as OneToMany_, BigIntColumn as BigIntColumn_, BooleanColumn as BooleanColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {DelegationStatus} from "./_delegationStatus"
 import {DelegationStatusChange} from "./delegationStatusChange.model"
@@ -19,13 +19,13 @@ export class Delegation {
 
     @Index_()
     @ManyToOne_(() => Worker, {nullable: true})
-    worker!: Worker
+    worker!: Relation_<Worker>
 
     @Column_("varchar", {length: 9, nullable: false})
     status!: DelegationStatus
 
     @OneToMany_(() => DelegationStatusChange, e => e.delegation)
-    statusHistory!: DelegationStatusChange[]
+    statusHistory!: Relation_<DelegationStatusChange[]>
 
     @BigIntColumn_({nullable: false})
     deposit!: bigint
@@ -43,7 +43,7 @@ export class Delegation {
     claimableReward!: bigint
 
     @OneToMany_(() => DelegationReward, e => e.delegation)
-    rewards!: DelegationReward[]
+    rewards!: Relation_<DelegationReward[]>
 
     @BigIntColumn_({nullable: false})
     claimedReward!: bigint

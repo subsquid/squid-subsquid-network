@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, Relation as Relation_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 import {Delegation} from "./delegation.model"
 import {DelegationStatus} from "./_delegationStatus"
 
@@ -15,7 +15,7 @@ export class DelegationStatusChange {
     id!: string
 
     @ManyToOne_(() => Delegation, {nullable: true})
-    delegation!: Delegation
+    delegation!: Relation_<Delegation>
 
     @Column_("varchar", {length: 9, nullable: false})
     status!: DelegationStatus

@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, Relation as Relation_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_, BooleanColumn as BooleanColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {WorkerStatus} from "./_workerStatus"
 
@@ -15,7 +15,7 @@ export class WorkerStatusChange {
     id!: string
 
     @ManyToOne_(() => Worker, {nullable: true})
-    worker!: Worker
+    worker!: Relation_<Worker>
 
     @Column_("varchar", {length: 13, nullable: false})
     status!: WorkerStatus

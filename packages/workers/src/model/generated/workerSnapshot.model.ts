@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, ManyToOne as ManyToOne_, Relation as Relation_, DateTimeColumn as DateTimeColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 import {Epoch} from "./epoch.model"
 
@@ -13,7 +13,7 @@ export class WorkerSnapshot {
     id!: string
 
     @ManyToOne_(() => Worker, {nullable: true})
-    worker!: Worker
+    worker!: Relation_<Worker>
 
     @DateTimeColumn_({nullable: false})
     timestamp!: Date
@@ -23,5 +23,5 @@ export class WorkerSnapshot {
 
     @Index_()
     @ManyToOne_(() => Epoch, {nullable: true})
-    epoch!: Epoch
+    epoch!: Relation_<Epoch>
 }

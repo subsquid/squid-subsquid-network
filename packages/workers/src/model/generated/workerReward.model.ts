@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, ManyToOne as ManyToOne_, Relation as Relation_, BigIntColumn as BigIntColumn_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import {Worker} from "./worker.model"
 
 @Index_(["worker", "timestamp"], {unique: false})
@@ -20,7 +20,7 @@ export class WorkerReward {
     timestamp!: Date
 
     @ManyToOne_(() => Worker, {nullable: true})
-    worker!: Worker
+    worker!: Relation_<Worker>
 
     @BigIntColumn_({nullable: false})
     amount!: bigint

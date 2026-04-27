@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_, DateTimeColumn as DateTimeColumn_, BooleanColumn as BooleanColumn_, IntColumn as IntColumn_, OneToMany as OneToMany_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, StringColumn as StringColumn_, BigIntColumn as BigIntColumn_, DateTimeColumn as DateTimeColumn_, BooleanColumn as BooleanColumn_, IntColumn as IntColumn_, OneToMany as OneToMany_, Relation as Relation_, FloatColumn as FloatColumn_} from "@subsquid/typeorm-store"
 import * as marshal from "./marshal"
 import {WorkerStatus} from "./_workerStatus"
 import {WorkerStatusChange} from "./workerStatusChange.model"
@@ -57,13 +57,13 @@ export class Worker {
     status!: WorkerStatus
 
     @OneToMany_(() => WorkerStatusChange, e => e.worker)
-    statusHistory!: WorkerStatusChange[]
+    statusHistory!: Relation_<WorkerStatusChange[]>
 
     @BigIntColumn_({nullable: false})
     claimableReward!: bigint
 
     @OneToMany_(() => WorkerReward, e => e.worker)
-    rewards!: WorkerReward[]
+    rewards!: Relation_<WorkerReward[]>
 
     @BigIntColumn_({nullable: false})
     claimedReward!: bigint
@@ -84,7 +84,7 @@ export class Worker {
     delegationCount!: number
 
     @OneToMany_(() => Delegation, e => e.worker)
-    delegations!: Delegation[]
+    delegations!: Relation_<Delegation[]>
 
     @BigIntColumn_({nullable: false})
     totalDelegationRewards!: bigint
@@ -145,5 +145,5 @@ export class Worker {
     dayUptimes!: (WorkerDayUptime)[] | undefined | null
 
     @OneToMany_(() => WorkerSnapshot, e => e.worker)
-    snapshots!: WorkerSnapshot[]
+    snapshots!: Relation_<WorkerSnapshot[]>
 }
