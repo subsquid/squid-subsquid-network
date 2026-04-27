@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: sqd-workers-mainnet
-slot: v1
+slot: v1-a
 description: Subsquid network workers indexer
 build:
   package_manager: pnpm
