@@ -7,7 +7,17 @@ import {
   timed,
 } from '@sqd/shared'
 import * as TemporaryHoldingFactory from '@sqd/shared/lib/abi/TemporaryHoldingFactory'
-import { Queue, TemporaryHolding } from '~/model'
+import { Account, AccountType, Queue, TemporaryHolding } from '~/model'
+
+function baseAccount(id: string, opts?: { owner?: Account; type?: AccountType }) {
+  return new Account({
+    id,
+    balance: 0n,
+    claimableDelegationCount: 0,
+    type: AccountType.USER,
+    ...opts,
+  })
+}
 
 export const TEMPORARY_HOLDING_UNLOCK_QUEUE = 'temporary-holding-unlock'
 
@@ -28,18 +38,56 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
   } = TemporaryHoldingFactory.events.TemporaryHoldingCreated.decode(item.value)
 
   const holdingId = createAccountId(holdingAddress)
+  const beneficiaryId = createAccountId(beneficiaryAddress)
+  const adminId = createAccountId(adminAddress)
+
   ctx.store.defer(TemporaryHolding, holdingId)
+  ctx.store.defer(Account, beneficiaryId)
+  ctx.store.defer(Account, adminId)
+  ctx.store.defer(Account, { id: holdingId, relations: { owner: true } })
 
   return timed(ctx, async (elapsed) => {
+    const beneficiary = await ctx.store.getOrCreate(Account, beneficiaryId, (id) => {
+      ctx.log.info(`created account(${id})`)
+      return baseAccount(id, { type: AccountType.USER })
+    })
+    await ctx.store.getOrCreate(Account, adminId, (id) => {
+      ctx.log.info(`created account(${id})`)
+      return baseAccount(id, { type: AccountType.USER })
+    })
+
+    const holdingAccount = await ctx.store.getOrCreate(
+      Account,
+      { id: holdingId, relations: { owner: true } },
+      (id) => {
+        ctx.log.info(`created account(${id})`)
+        return baseAccount(id, {
+          type: AccountType.TEMPORARY_HOLDING,
+          owner: beneficiary,
+        })
+      },
+    )
+
+    if (
+      holdingAccount.type !== AccountType.TEMPORARY_HOLDING ||
+      holdingAccount.owner?.id !== beneficiary.id
+    ) {
+      holdingAccount.type = AccountType.TEMPORARY_HOLDING
+      holdingAccount.owner = beneficiary
+    }
+
     const holding = await ctx.store.getOrCreate(TemporaryHolding, holdingId, (id) => {
       return new TemporaryHolding({
         id,
-        beneficiary: createAccountId(beneficiaryAddress),
-        admin: createAccountId(adminAddress),
+        beneficiary: beneficiaryId,
+        admin: adminId,
         unlockedAt: new Date(Number(unlockTimestamp) * 1000),
         locked: true,
       })
     })
+
+    holding.beneficiary = beneficiaryId
+    holding.admin = adminId
 
     ctx.log.info(
       `created temporary_holding(${holding.id}) for ${holding.beneficiary} (${elapsed()}ms)`,
@@ -68,6 +116,7 @@ export async function ensureTemporaryHoldingUnlockQueue(ctx: MappingContext) {
 
   for (const task of queue.tasks) {
     ctx.store.defer(TemporaryHolding, task.id)
+    ctx.store.defer(Account, { id: task.id, relations: { owner: true } })
   }
 }
 
@@ -94,9 +143,28 @@ export async function processTemporaryHoldingUnlockQueue(
     }
 
     holding.locked = false
-    processed++
 
-    ctx.log.info(`temporary_holding(${holding.id}) unlocked`)
+    ctx.store.defer(Account, { id: holding.id, relations: { owner: true } })
+    ctx.store.defer(Account, holding.admin)
+
+    const holdingAccount = await ctx.store.get(Account, {
+      id: holding.id,
+      relations: { owner: true },
+    })
+    if (holdingAccount && holdingAccount.type === AccountType.TEMPORARY_HOLDING) {
+      const adminAccount = await ctx.store.getOrCreate(Account, holding.admin, (id) => {
+        ctx.log.info(`created account(${id})`)
+        return baseAccount(id, { type: AccountType.USER })
+      })
+      holdingAccount.owner = adminAccount
+      ctx.log.info(
+        `temporary_holding(${holding.id}) unlocked, owner → admin(${holding.admin})`,
+      )
+    } else {
+      ctx.log.info(`temporary_holding(${holding.id}) unlocked`)
+    }
+
+    processed++
   }
 
   queue.tasks = tasks

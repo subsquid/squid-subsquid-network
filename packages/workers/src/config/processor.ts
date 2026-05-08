@@ -36,6 +36,9 @@ if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({
     url: assertNotNull(process.env.PORTAL_ENDPOINT),
     maxBytes: 100 * 1024 * 1024,
+    http: {
+      retryAttempts: Infinity,
+    }
   })
 }
 

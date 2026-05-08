@@ -142,9 +142,10 @@ export async function recalculateWorkerAprs(ctx: MappingContext): Promise<void> 
     const currentApr = workerReward.div(worker.bond).mul(100).toNumber()
 
     const stakerReward = actualYield.mul(worker.capedDelegation / 2n)
-    const currentStakerApr = worker.totalDelegation
+    let currentStakerApr = worker.totalDelegation
       ? stakerReward.div(worker.totalDelegation).mul(100).toNumber()
       : currentApr / 2
+    currentStakerApr = Math.min(currentStakerApr, currentApr / 2)
 
     const agg = aggregateByWorker.get(worker.id)
     const historyCount = agg ? Number(agg.n) : 0

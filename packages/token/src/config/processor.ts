@@ -14,6 +14,7 @@ import * as RewardTreasury from '@sqd/shared/lib/abi/RewardTreasury'
 import * as Router from '@sqd/shared/lib/abi/Router'
 import * as SQD from '@sqd/shared/lib/abi/SQD'
 import * as Staking from '@sqd/shared/lib/abi/Staking'
+import * as TemporaryHoldingFactory from '@sqd/shared/lib/abi/TemporaryHoldingFactory'
 import * as Vesting from '@sqd/shared/lib/abi/SubsquidVesting'
 import * as VestingFactory from '@sqd/shared/lib/abi/VestingFactory'
 import * as WorkerRegistry from '@sqd/shared/lib/abi/WorkerRegistration'
@@ -34,6 +35,7 @@ const builder = new DataSourceBuilder()
     },
   })
   .setBlockRange(network.range)
+  .includeAllBlocks()
 
 if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({
@@ -109,6 +111,15 @@ builder.addLog({
     address: [network.contracts.VestingFactory.address],
     topic0: [VestingFactory.events.VestingCreated.topic],
   },
+})
+
+builder.addLog({
+  range: network.contracts.TemporaryHoldingFactory.range,
+  where: {
+    address: [network.contracts.TemporaryHoldingFactory.address],
+    topic0: [TemporaryHoldingFactory.events.TemporaryHoldingCreated.topic],
+  },
+  include: { transaction: true },
 })
 
 if (network.name === 'tethys') {

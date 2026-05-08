@@ -64,6 +64,9 @@ export const handleWithdrawn = createHandler((ctx, item) => {
       worker.delegationCount -= 1
     }
     worker.totalDelegation -= amount
+    if (worker.totalDelegation < 0n) {
+      throw new Error(`worker(${worker.id}) totalDelegation underflow after withdraw (computed ${worker.totalDelegation})`)
+    }
 
     refreshWorkerCap(worker, settings)
 

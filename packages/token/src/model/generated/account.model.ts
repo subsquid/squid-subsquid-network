@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, OneToMany as OneToMany_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, BigIntColumn as BigIntColumn_, ManyToOne as ManyToOne_, Index as Index_, Relation as Relation_, OneToMany as OneToMany_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
 import {AccountType} from "./_accountType"
 import {AccountTransfer} from "./accountTransfer.model"
 import {Transfer} from "./transfer.model"
@@ -20,19 +20,19 @@ export class Account {
 
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
-    owner!: Account | undefined | null
+    owner!: Relation_<Account> | undefined | null
 
     @OneToMany_(() => Account, e => e.owner)
-    owned!: Account[]
+    owned!: Relation_<Account[]>
 
     @OneToMany_(() => AccountTransfer, e => e.account)
-    transfers!: AccountTransfer[]
+    transfers!: Relation_<AccountTransfer[]>
 
     @OneToMany_(() => Transfer, e => e.to)
-    transfersTo!: Transfer[]
+    transfersTo!: Relation_<Transfer[]>
 
     @OneToMany_(() => Transfer, e => e.from)
-    transfersFrom!: Transfer[]
+    transfersFrom!: Relation_<Transfer[]>
 
     @IntColumn_({nullable: false})
     claimableDelegationCount!: number

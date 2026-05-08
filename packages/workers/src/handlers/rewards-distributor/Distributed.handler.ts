@@ -158,6 +158,7 @@ export const rewardsDistributedHandler = createHandler((ctx, item) => {
               true,
             )
           : payout.workerApr / 2
+        payout.stakerApr = Math.min(payout.stakerApr, payout.workerApr / 2)
       }
 
       if (payout.stakerReward > 0n) {

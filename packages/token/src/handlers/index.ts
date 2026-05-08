@@ -12,14 +12,25 @@ import {
   stakingSetHandler,
   workerRegistrationSetHandler,
 } from './Router.handler'
+import {
+  ensureTemporaryHoldingUnlockQueue,
+  handleTemporaryHoldingCreated,
+  processTemporaryHoldingUnlockQueue,
+} from './TemporaryHoldingCreated.handler'
 import { handleTransfer } from './Transfer.handler'
 import { handleVestingCreated } from './VestingCreated.handler'
 import { handleVestingReleased } from './VestingRelease.handler'
+import { handleVestingTransferred } from './VestingTransferred.handler'
 import {
   handleExcessiveBondReturned,
   handleWorkerRegistered,
   handleWorkerWithdrawn,
 } from './WorkerStaking.handler'
+
+export {
+  ensureTemporaryHoldingUnlockQueue,
+  processTemporaryHoldingUnlockQueue,
+} from './TemporaryHoldingCreated.handler'
 
 export const handlers = [
   handleTransfer,
@@ -39,5 +50,7 @@ export const handlers = [
   workerRegistrationSetHandler,
   rewardTreasurySetHandler,
   handleVestingCreated,
+  handleVestingTransferred,
+  handleTemporaryHoldingCreated,
   handleVestingReleased,
 ]

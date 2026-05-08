@@ -20,7 +20,11 @@ import {
 import type { BlockData } from './types'
 
 import { processor } from './config/processor'
-import { handlers } from './handlers'
+import {
+  ensureTemporaryHoldingUnlockQueue,
+  handlers,
+  processTemporaryHoldingUnlockQueue,
+} from './handlers'
 
 const logger = createLogger('sqd:token')
 
@@ -60,9 +64,17 @@ run(processor, new TypeormDatabaseWithCache({ supportHotBlocks: true }), async (
     }
   })
 
+  tasks.push(async () => {
+    await ensureTemporaryHoldingUnlockQueue(ctx)
+  })
+
   let handlerTaskCount = 0
   for (const block of ctx.blocks) {
     const items = sortItems(block)
+
+    tasks.push(async () => {
+      await processTemporaryHoldingUnlockQueue(ctx, block.header)
+    })
 
     for (const item of items) {
       for (const handler of handlers) {

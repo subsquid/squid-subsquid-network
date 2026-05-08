@@ -1,7 +1,7 @@
 manifestVersion: subsquid.io/v0.1
 name: sqd-token-testnet
-slot: v1
-description: Subsquid network token indexer
+slot: v1-a
+description: Subsquid network token and vestings indexer
 build:
   package_manager: pnpm
 deploy:

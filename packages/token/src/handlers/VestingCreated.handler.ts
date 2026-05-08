@@ -9,7 +9,7 @@ import {
 } from '@sqd/shared'
 import * as VestingFactory from '@sqd/shared/lib/abi/VestingFactory'
 
-import { Account, AccountType } from '~/model'
+import { Account, AccountType, Vesting } from '~/model'
 
 function createAccount(id: string, opts?: { owner?: Account; type?: AccountType }) {
   return new Account({
@@ -29,11 +29,13 @@ export const handleVestingCreated = createHandler((ctx, item) => {
   const { vesting: vestingAddress, beneficiary: beneficiaryAddress } =
     VestingFactory.events.VestingCreated.decode(item.value)
 
-  const ownerDeferred = ctx.store.defer(Account, createAccountId(beneficiaryAddress))
-  const vestingDeferred = ctx.store.defer(Account, {
-    id: createAccountId(vestingAddress),
+  ctx.store.defer(Account, createAccountId(beneficiaryAddress))
+  const vestingId = createAccountId(vestingAddress)
+  ctx.store.defer(Account, {
+    id: vestingId,
     relations: { owner: true },
   })
+  ctx.store.defer(Vesting, vestingId)
 
   return timed(ctx, async (elapsed) => {
     const owner = await ctx.store.getOrCreate(
@@ -44,18 +46,21 @@ export const handleVestingCreated = createHandler((ctx, item) => {
         return createAccount(id, { type: AccountType.USER })
       },
     )
-    const vesting = await ctx.store.getOrCreate(
+    const vestingAccount = await ctx.store.getOrCreate(
       Account,
-      { id: createAccountId(vestingAddress), relations: { owner: true } },
+      { id: vestingId, relations: { owner: true } },
       (id) => {
         ctx.log.info(`created account(${id})`)
         return createAccount(id, { type: AccountType.VESTING, owner })
       },
     )
 
-    if (vesting.type !== AccountType.VESTING || vesting.owner?.id !== owner.id) {
-      vesting.type = AccountType.VESTING
-      vesting.owner = owner
+    if (
+      vestingAccount.type !== AccountType.VESTING ||
+      vestingAccount.owner?.id !== owner.id
+    ) {
+      vestingAccount.type = AccountType.VESTING
+      vestingAccount.owner = owner
     }
 
     ctx.templates.add(
@@ -64,6 +69,17 @@ export const handleVestingCreated = createHandler((ctx, item) => {
       item.value.block.height,
     )
 
-    ctx.log.info(`created vesting(${vesting.id}) for account(${owner.id}) (${elapsed()}ms)`)
+    const vestingRow = await ctx.store.getOrCreate(Vesting, vestingId, (id) => {
+      return new Vesting({
+        id,
+        beneficiary: createAccountId(beneficiaryAddress),
+        createdAt: new Date(item.value.block.timestamp),
+      })
+    })
+    vestingRow.beneficiary = createAccountId(beneficiaryAddress)
+
+    ctx.log.info(
+      `created vesting(${vestingAccount.id}) for account(${owner.id}) (${elapsed()}ms)`,
+    )
   })
 })

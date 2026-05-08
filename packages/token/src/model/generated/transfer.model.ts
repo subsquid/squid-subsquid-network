@@ -1,4 +1,4 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, StringColumn as StringColumn_, ManyToOne as ManyToOne_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
+import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, Index as Index_, IntColumn as IntColumn_, DateTimeColumn as DateTimeColumn_, StringColumn as StringColumn_, ManyToOne as ManyToOne_, Relation as Relation_, BigIntColumn as BigIntColumn_} from "@subsquid/typeorm-store"
 import {TransferType} from "./_transferType"
 import {Account} from "./account.model"
 
@@ -28,11 +28,11 @@ export class Transfer {
 
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
-    from!: Account
+    from!: Relation_<Account>
 
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})
-    to!: Account
+    to!: Relation_<Account>
 
     @BigIntColumn_({nullable: false})
     amount!: bigint
