@@ -51,30 +51,10 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
       ctx.log.info(`created account(${id})`)
       return baseAccount(id, { type: AccountType.USER })
     })
-    await ctx.store.getOrCreate(Account, adminId, (id) => {
+    const admin = await ctx.store.getOrCreate(Account, adminId, (id) => {
       ctx.log.info(`created account(${id})`)
       return baseAccount(id, { type: AccountType.USER })
     })
-
-    const holdingAccount = await ctx.store.getOrCreate(
-      Account,
-      { id: holdingId, relations: { owner: true } },
-      (id) => {
-        ctx.log.info(`created account(${id})`)
-        return baseAccount(id, {
-          type: AccountType.TEMPORARY_HOLDING,
-          owner: beneficiary,
-        })
-      },
-    )
-
-    if (
-      holdingAccount.type !== AccountType.TEMPORARY_HOLDING ||
-      holdingAccount.owner?.id !== beneficiary.id
-    ) {
-      holdingAccount.type = AccountType.TEMPORARY_HOLDING
-      holdingAccount.owner = beneficiary
-    }
 
     const holding = await ctx.store.getOrCreate(TemporaryHolding, holdingId, (id) => {
       return new TemporaryHolding({
@@ -88,6 +68,21 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
 
     holding.beneficiary = beneficiaryId
     holding.admin = adminId
+
+    // Preserve admin ownership when replaying a creation event for an already-unlocked holding.
+    const owner = holding.locked ? beneficiary : admin
+
+    const holdingAccount = await ctx.store.getOrCreate(
+      Account,
+      { id: holdingId, relations: { owner: true } },
+      (id) => {
+        ctx.log.info(`created account(${id})`)
+        return baseAccount(id, { type: AccountType.TEMPORARY_HOLDING, owner })
+      },
+    )
+
+    holdingAccount.type = AccountType.TEMPORARY_HOLDING
+    holdingAccount.owner = owner
 
     ctx.log.info(
       `created temporary_holding(${holding.id}) for ${holding.beneficiary} (${elapsed()}ms)`,
@@ -144,25 +139,24 @@ export async function processTemporaryHoldingUnlockQueue(
 
     holding.locked = false
 
-    ctx.store.defer(Account, { id: holding.id, relations: { owner: true } })
-    ctx.store.defer(Account, holding.admin)
-
-    const holdingAccount = await ctx.store.get(Account, {
-      id: holding.id,
-      relations: { owner: true },
+    const admin = await ctx.store.getOrCreate(Account, holding.admin, (id) => {
+      ctx.log.info(`created account(${id})`)
+      return baseAccount(id, { type: AccountType.USER })
     })
-    if (holdingAccount && holdingAccount.type === AccountType.TEMPORARY_HOLDING) {
-      const adminAccount = await ctx.store.getOrCreate(Account, holding.admin, (id) => {
+
+    const holdingAccount = await ctx.store.getOrCreate(
+      Account,
+      { id: holding.id, relations: { owner: true } },
+      (id) => {
         ctx.log.info(`created account(${id})`)
-        return baseAccount(id, { type: AccountType.USER })
-      })
-      holdingAccount.owner = adminAccount
-      ctx.log.info(
-        `temporary_holding(${holding.id}) unlocked, owner → admin(${holding.admin})`,
-      )
-    } else {
-      ctx.log.info(`temporary_holding(${holding.id}) unlocked`)
-    }
+        return baseAccount(id, { type: AccountType.TEMPORARY_HOLDING, owner: admin })
+      },
+    )
+
+    holdingAccount.type = AccountType.TEMPORARY_HOLDING
+    holdingAccount.owner = admin
+
+    ctx.log.info(`temporary_holding(${holding.id}) unlocked, owner → admin(${holding.admin})`)
 
     processed++
   }
