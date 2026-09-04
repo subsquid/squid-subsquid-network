@@ -32,6 +32,7 @@ export {
   createHandler,
   createHandlerOld,
   timed,
+  trackRelationUpdate,
 } from './base'
 export type { Handler, MappingContext } from './base'
 

@@ -24,6 +24,21 @@ export function createHandler(fn: Handler): Handler {
   return fn
 }
 
+/**
+ * Persist an entity whose only change is a relation.
+ *
+ * The store auto-upserts a loaded entity when it differs from its load-time snapshot, but that
+ * snapshot covers `metadata.nonVirtualColumns` only, and TypeORM marks relation-derived foreign
+ * key columns virtual. A relation-only assignment is therefore invisible to the dirty check and
+ * is silently dropped. Call this after any such assignment to force the write.
+ */
+export function trackRelationUpdate<E extends { id: string }>(
+  ctx: MappingContext,
+  entity: E,
+): Promise<void> {
+  return ctx.store.track(entity, { replace: true })
+}
+
 export function timed(ctx: MappingContext, fn: (elapsed: () => number) => Promise<void>): Task {
   return async () => {
     const start = performance.now()

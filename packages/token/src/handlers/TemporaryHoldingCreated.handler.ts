@@ -5,6 +5,7 @@ import {
   isLog,
   network,
   timed,
+  trackRelationUpdate,
 } from '@sqd/shared'
 import * as TemporaryHoldingFactory from '@sqd/shared/lib/abi/TemporaryHoldingFactory'
 import { Account, AccountType, Queue, TemporaryHolding } from '~/model'
@@ -83,6 +84,7 @@ export const handleTemporaryHoldingCreated = createHandler((ctx, item) => {
 
     holdingAccount.type = AccountType.TEMPORARY_HOLDING
     holdingAccount.owner = owner
+    await trackRelationUpdate(ctx, holdingAccount)
 
     ctx.log.info(
       `created temporary_holding(${holding.id}) for ${holding.beneficiary} (${elapsed()}ms)`,
@@ -155,6 +157,7 @@ export async function processTemporaryHoldingUnlockQueue(
 
     holdingAccount.type = AccountType.TEMPORARY_HOLDING
     holdingAccount.owner = admin
+    await trackRelationUpdate(ctx, holdingAccount)
 
     ctx.log.info(`temporary_holding(${holding.id}) unlocked, owner → admin(${holding.admin})`)
 

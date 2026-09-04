@@ -6,6 +6,7 @@ import {
   network,
   normalizeAddress,
   timed,
+  trackRelationUpdate,
 } from '@sqd/shared'
 import * as VestingFactory from '@sqd/shared/lib/abi/VestingFactory'
 
@@ -61,6 +62,7 @@ export const handleVestingCreated = createHandler((ctx, item) => {
     ) {
       vestingAccount.type = AccountType.VESTING
       vestingAccount.owner = owner
+      await trackRelationUpdate(ctx, vestingAccount)
     }
 
     ctx.templates.add(
