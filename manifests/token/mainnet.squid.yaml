@@ -1,6 +1,6 @@
 manifestVersion: subsquid.io/v0.1
 name: sqd-token-mainnet
-slot: v1-a
+slot: v1-b
 description: Subsquid network token and vestings indexer
 build:
   package_manager: pnpm
