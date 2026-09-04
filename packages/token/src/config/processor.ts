@@ -5,6 +5,7 @@ import {
   VESTING_TEMPLATE_KEY,
   WORKER_REGISTRATION_TEMPLATE_KEY,
   network,
+  portalHeaders,
 } from '@sqd/shared'
 import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
 import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
@@ -41,6 +42,9 @@ if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({
     url: assertNotNull(process.env.PORTAL_ENDPOINT),
     minBytes: 40 * 1024 * 1024,
+    http: {
+      headers: portalHeaders(),
+    },
   })
 }
 

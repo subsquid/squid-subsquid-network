@@ -1,4 +1,4 @@
-import { PORTAL_POOL_TEMPLATE_KEY, network } from '@sqd/shared'
+import { PORTAL_POOL_TEMPLATE_KEY, network, portalHeaders } from '@sqd/shared'
 import * as GatewayRegistry from '@sqd/shared/lib/abi/GatewayRegistry'
 import * as PortalPoolFactory from '@sqd/shared/lib/abi/PortalPoolFactory'
 import * as PortalPoolImplementation from '@sqd/shared/lib/abi/PortalPoolImplementation'
@@ -25,6 +25,9 @@ if (process.env.PORTAL_ENDPOINT) {
   builder.setPortal({
     url: assertNotNull(process.env.PORTAL_ENDPOINT),
     minBytes: 40 * 1024 * 1024,
+    http: {
+      headers: portalHeaders(),
+    },
   })
 }
 

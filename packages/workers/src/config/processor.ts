@@ -3,6 +3,7 @@ import {
   STAKING_TEMPLATE_KEY,
   WORKER_REGISTRATION_TEMPLATE_KEY,
   network,
+  portalHeaders,
 } from '@sqd/shared'
 import * as RewardsDistribution from '@sqd/shared/lib/abi/DistributedRewardsDistribution'
 import * as NetworkController from '@sqd/shared/lib/abi/NetworkController'
@@ -38,7 +39,8 @@ if (process.env.PORTAL_ENDPOINT) {
     maxBytes: 100 * 1024 * 1024,
     http: {
       retryAttempts: Infinity,
-    }
+      headers: portalHeaders(),
+    },
   })
 }
 

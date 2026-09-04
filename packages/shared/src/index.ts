@@ -2,6 +2,7 @@
 export { network } from './config/network'
 export type { ContractConfig, NetworkConfig } from './config/network'
 export { client } from './config/rpc-client'
+export { portalHeaders } from './config/portal'
 
 // Template keys
 export {
