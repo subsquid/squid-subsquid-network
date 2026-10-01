@@ -1,10 +1,12 @@
 import { HttpClient, HttpError, HttpTimeoutError } from '@subsquid/http-client'
 import { createLogger } from '@subsquid/logger'
 import { compareAsc } from 'date-fns'
+import ms from 'ms'
 import { In, MoreThanOrEqual } from 'typeorm'
 
 import type { MappingContext } from '@sqd/shared'
-import { AsyncTask, DAY_MS, HOUR_MS, MINUTE_MS, SECOND_MS, joinUrl, network, toPercent, toStartOfHour, toStartOfInterval } from '@sqd/shared'
+import { AsyncTask, DAY_MS, HOUR_MS, MINUTE_MS, joinUrl, network, toPercent, toStartOfHour, toStartOfInterval } from '@sqd/shared'
+import { env } from '../config/env'
 import type { BlockHeader } from '../types'
 
 import { recalculateWorkerAprs, refreshWorkerCap } from './cap'
@@ -22,7 +24,7 @@ const statsLog = createLogger('sqd:workers:metrics:stats')
 const rewardsLog = createLogger('sqd:workers:metrics:rewards')
 
 const client = new HttpClient({
-  baseUrl: process.env.NETWORK_STATS_URL,
+  baseUrl: env.NETWORK_STATS_URL,
   httpTimeout: 2 * MINUTE_MS,
 })
 
@@ -128,9 +130,9 @@ async function fetchOnlineSnapshot(
 }
 
 export async function updateWorkersOnline(ctx: MappingContext, block: BlockHeader) {
-  const statsUrl = process.env.NETWORK_STATS_URL
+  const statsUrl = env.NETWORK_STATS_URL
   if (!statsUrl) return
-  const schedulerUrl = process.env.SCHEDULER_URL
+  const schedulerUrl = env.SCHEDULER_URL
 
   if (!onlineStartupLogged) {
     onlineStartupLogged = true
@@ -375,7 +377,7 @@ function fetchMetricsChunk(statsUrl: string, name: string): Promise<WorkerStat[]
 }
 
 export async function updateWorkersMetrics(ctx: MappingContext, block: BlockHeader) {
-  const statsUrl = process.env.NETWORK_STATS_URL
+  const statsUrl = env.NETWORK_STATS_URL
   if (!statsUrl) return
 
   if (metricsFetchSlot == null) {
@@ -658,8 +660,6 @@ let rewardDataSlot: AsyncTask<RewardData> | null = null
 
 // Wall-clock backoff after a failed fetch: every retry restarts the whole
 // cycle, and `/rewards` is expensive for reward-monitor to compute.
-const rewardRetryBaseDelay = 30 * SECOND_MS
-const rewardRetryMaxDelay = 10 * MINUTE_MS
 let rewardFailures = 0
 let rewardRetryAt = 0
 
@@ -690,12 +690,15 @@ function handleRewardFetchError(e: unknown) {
   if (!(e instanceof HttpError || e instanceof HttpTimeoutError)) throw e
 
   rewardFailures += 1
-  const delay = Math.min(rewardRetryBaseDelay * 2 ** (rewardFailures - 1), rewardRetryMaxDelay)
+  const delay = Math.min(
+    env.REWARDS_MONITOR_RETRY_MIN * 2 ** (rewardFailures - 1),
+    env.REWARDS_MONITOR_RETRY_MAX,
+  )
   rewardRetryAt = Date.now() + delay
 
   rewardsLog.warn(e)
   rewardsLog.info(
-    `rewards fetch failed ${rewardFailures} time(s) in a row; retrying in ${delay / SECOND_MS}s`,
+    `rewards fetch failed ${rewardFailures} time(s) in a row; retrying in ${ms(delay)}`,
   )
 }
 
@@ -718,7 +721,7 @@ function requestRewards(monitorUrl: string, startL1: number, endL1: number): Pro
 }
 
 export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockHeader) {
-  const monitorUrl = process.env.REWARDS_MONITOR_API_URL
+  const monitorUrl = env.REWARDS_MONITOR_API_URL
   if (!monitorUrl) return
 
   if (!rewardsStartupLogged) {
