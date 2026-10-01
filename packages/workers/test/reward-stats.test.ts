@@ -8,8 +8,11 @@ const { get } = vi.hoisted(() => {
   process.env.NETWORK = 'mainnet'
   process.env.RPC_ENDPOINT = 'http://rpc.invalid'
   process.env.REWARDS_MONITOR_API_URL = 'http://monitor.invalid'
+  process.env.REWARDS_MONITOR_RETRY_MIN = '5s'
   return { get: vi.fn() }
 })
+
+const RETRY_MIN = 5_000
 
 vi.mock('@subsquid/http-client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@subsquid/http-client')>()
@@ -100,11 +103,11 @@ describe('updateWorkerRewardStats', () => {
     expect(calls('/currentApy/')).toBe(1)
 
     await batches(20)
-    vi.setSystemTime(START + 29_000)
+    vi.setSystemTime(START + RETRY_MIN - 1)
     await batches(5)
     expect(get).toHaveBeenCalledTimes(3)
 
-    vi.setSystemTime(START + 30_000)
+    vi.setSystemTime(START + RETRY_MIN)
     await batches(3)
 
     expect(calls('/config')).toBe(2)
@@ -121,15 +124,15 @@ describe('updateWorkerRewardStats', () => {
     })
 
     await batches(3)
-    vi.setSystemTime(START + 30_000)
+    vi.setSystemTime(START + RETRY_MIN)
     await batches(3)
     expect(calls('/config')).toBe(2)
 
-    vi.setSystemTime(START + 30_000 + 59_000)
+    vi.setSystemTime(START + RETRY_MIN + 2 * RETRY_MIN - 1)
     await batches(3)
     expect(calls('/config')).toBe(2)
 
-    vi.setSystemTime(START + 30_000 + 60_000)
+    vi.setSystemTime(START + RETRY_MIN + 2 * RETRY_MIN)
     await batches(3)
     expect(calls('/config')).toBe(3)
     expect(calls('/rewards/')).toBe(1)
