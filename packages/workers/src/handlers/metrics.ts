@@ -4,7 +4,7 @@ import { compareAsc } from 'date-fns'
 import { In, MoreThanOrEqual } from 'typeorm'
 
 import type { MappingContext } from '@sqd/shared'
-import { AsyncTask, DAY_MS, HOUR_MS, MINUTE_MS, joinUrl, network, toPercent, toStartOfHour, toStartOfInterval } from '@sqd/shared'
+import { AsyncTask, DAY_MS, HOUR_MS, MINUTE_MS, SECOND_MS, joinUrl, network, toPercent, toStartOfHour, toStartOfInterval } from '@sqd/shared'
 import type { BlockHeader } from '../types'
 
 import { recalculateWorkerAprs, refreshWorkerCap } from './cap'
@@ -649,16 +649,72 @@ type RewardStat = {
 }
 
 type RewardConfig = { rewardEpochLength: number }
-type RewardData = { rewards: { workers: RewardStat[] }; apy: { apy: number } }
+type Rewards = { workers: RewardStat[] }
+type RewardData = { rewards: Rewards; apy: { apy: number } }
 
 let rewardCycleSnapshotTs = 0
 let rewardConfigSlot: AsyncTask<RewardConfig> | null = null
 let rewardDataSlot: AsyncTask<RewardData> | null = null
 
+// Wall-clock backoff after a failed fetch: every retry restarts the whole
+// cycle, and `/rewards` is expensive for reward-monitor to compute.
+const rewardRetryBaseDelay = 30 * SECOND_MS
+const rewardRetryMaxDelay = 10 * MINUTE_MS
+let rewardFailures = 0
+let rewardRetryAt = 0
+
+// `/rewards` for one L1 window does not change, so a retry after a failed
+// `/currentApy` reuses it, including a request that is still in flight.
+let rewardsRequest: { startL1: number; endL1: number; promise: Promise<Rewards> } | null = null
+
 function resetRewardPipeline() {
   rewardCycleSnapshotTs = 0
   rewardConfigSlot = null
   rewardDataSlot = null
+}
+
+function startRewardCycle(monitorUrl: string, block: BlockHeader) {
+  const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval)
+  if (snapshotTimestamp > lastRewardMetricsUpdateTimestamp) {
+    lastRewardMetricsUpdateTimestamp = snapshotTimestamp
+  }
+  rewardCycleSnapshotTs = snapshotTimestamp
+  rewardsLog.info(`fetching workers rewards snapshot for ${formatTimestamp(snapshotTimestamp)}`)
+  rewardConfigSlot = AsyncTask.start(
+    () => client.get(joinUrl(monitorUrl, `/config`)) as Promise<RewardConfig>,
+  )
+}
+
+function handleRewardFetchError(e: unknown) {
+  resetRewardPipeline()
+  if (!(e instanceof HttpError || e instanceof HttpTimeoutError)) throw e
+
+  rewardFailures += 1
+  const delay = Math.min(rewardRetryBaseDelay * 2 ** (rewardFailures - 1), rewardRetryMaxDelay)
+  rewardRetryAt = Date.now() + delay
+
+  rewardsLog.warn(e)
+  rewardsLog.info(
+    `rewards fetch failed ${rewardFailures} time(s) in a row; retrying in ${delay / SECOND_MS}s`,
+  )
+}
+
+function requestRewards(monitorUrl: string, startL1: number, endL1: number): Promise<Rewards> {
+  const cached = rewardsRequest
+  if (cached && cached.startL1 === startL1 && cached.endL1 === endL1) {
+    rewardsLog.debug(`reusing /rewards for L1 blocks ${startL1}..${endL1}`)
+    return cached.promise
+  }
+
+  const promise = client.get(
+    joinUrl(monitorUrl, `/rewards/${startL1}/${endL1}`),
+  ) as Promise<Rewards>
+  const request = { startL1, endL1, promise }
+  rewardsRequest = request
+  promise.catch(() => {
+    if (rewardsRequest === request) rewardsRequest = null
+  })
+  return promise
 }
 
 export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockHeader) {
@@ -679,6 +735,7 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
 
     if (result.state === 'fulfilled') {
       rewardDataSlot = null
+      rewardFailures = 0
       const { rewards, apy } = result.value
       rewardsLog.debug(
         `applying rewards snapshot for ${formatTimestamp(rewardCycleSnapshotTs)}: ` +
@@ -708,17 +765,8 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       return
     }
 
-    const e = result.error
-    resetRewardPipeline()
-    if (e instanceof HttpError || e instanceof HttpTimeoutError) {
-      rewardsLog.warn(e)
-      rewardCycleSnapshotTs = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval)
-      rewardConfigSlot = AsyncTask.start(
-        () => client.get(joinUrl(monitorUrl, `/config`)) as Promise<RewardConfig>,
-      )
-      return
-    }
-    throw e
+    handleRewardFetchError(result.error)
+    return
   }
 
   // Config slot: on fulfilled resolve L1 window inline, then start data slot.
@@ -762,9 +810,7 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       rewardsLog.debug(`downloading rewards and APY for L1 blocks ${startL1}..${endL1}`)
       rewardDataSlot = AsyncTask.start(async () => {
         const [rewards, apy] = await Promise.all([
-          client.get(joinUrl(monitorUrl, `/rewards/${startL1}/${endL1}`)) as Promise<{
-            workers: RewardStat[]
-          }>,
+          requestRewards(monitorUrl, startL1, endL1),
           client.get(joinUrl(monitorUrl, `/currentApy/${startL1}`)) as Promise<{ apy: number }>,
         ])
         return { rewards, apy }
@@ -772,30 +818,20 @@ export async function updateWorkerRewardStats(ctx: MappingContext, block: BlockH
       return
     }
 
-    const e = result.error
-    rewardConfigSlot = null
-    resetRewardPipeline()
-    if (e instanceof HttpError || e instanceof HttpTimeoutError) {
-      rewardsLog.warn(e)
-      rewardCycleSnapshotTs = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval)
-      rewardConfigSlot = AsyncTask.start(
-        () => client.get(joinUrl(monitorUrl, `/config`)) as Promise<RewardConfig>,
-      )
-      return
-    }
-    throw e
+    handleRewardFetchError(result.error)
+    return
   }
 
-  // Idle — start config fetch when the poll interval allows.
+  // Idle — after a failure wait out the backoff, otherwise the poll interval.
+  if (rewardRetryAt > 0) {
+    if (Date.now() < rewardRetryAt) return
+
+    rewardRetryAt = 0
+    startRewardCycle(monitorUrl, block)
+    return
+  }
+
   if (block.timestamp - rewardMetricsUpdateInterval <= lastRewardMetricsUpdateTimestamp) return
 
-  const snapshotTimestamp = toStartOfInterval(block.timestamp, rewardMetricsUpdateInterval)
-  if (snapshotTimestamp > lastRewardMetricsUpdateTimestamp) {
-    lastRewardMetricsUpdateTimestamp = snapshotTimestamp
-  }
-  rewardCycleSnapshotTs = snapshotTimestamp
-  rewardsLog.info(`fetching workers rewards snapshot for ${formatTimestamp(snapshotTimestamp)}`)
-  rewardConfigSlot = AsyncTask.start(
-    () => client.get(joinUrl(monitorUrl, `/config`)) as Promise<RewardConfig>,
-  )
+  startRewardCycle(monitorUrl, block)
 }
