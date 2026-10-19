@@ -116,6 +116,7 @@ export type BlockHeader = _BlockHeader<Fields>
 export type Log = _Log<Fields>
 export type Transaction = _Transaction<Fields>
 
-export type ProcessorContext<Store> = DataHandlerContext<BlockData, Store> & {
+// The database here has no template support, so run() passes a context without templates
+export type ProcessorContext<Store> = Omit<DataHandlerContext<BlockData, Store>, 'templates'> & {
   log: Logger
 }
