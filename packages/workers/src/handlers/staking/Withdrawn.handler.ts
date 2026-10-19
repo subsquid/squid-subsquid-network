@@ -28,6 +28,10 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     staker: stakerAccount,
     amount,
   } = Staking.events.Withdrawn.decode(log)
+  // Staking.withdraw(worker, 0) succeeds for any worker id and any caller and
+  // moves nothing, so the delegation may not exist. Treat it as a no-op, the
+  // same way zero-amount deposits are skipped.
+  if (amount === 0n) return
 
   const workerId = createWorkerId(workerIndex)
   const accountId = createAccountId(stakerAccount)
