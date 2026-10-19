@@ -35,6 +35,8 @@ export const handleWithdrawn = createHandler((ctx, item) => {
     staker: stakerAccount,
     amount,
   } = Staking.events.Withdrawn.decode(log)
+  // withdraw(worker, 0) succeeds for any worker id, so the delegation may not exist
+  if (amount === 0n) return
 
   const workerId = createWorkerId(workerIndex)
   const accountId = createAccountId(stakerAccount)
