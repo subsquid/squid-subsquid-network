@@ -1,6 +1,7 @@
 import assert from 'assert'
 
 import {
+  type MappingContext,
   STAKING_TEMPLATE_KEY,
   createAccountId,
   createDelegationId,
@@ -11,7 +12,6 @@ import {
   network,
   timed,
   toHumanSQD,
-  toNextEpochStart,
 } from '@sqd/shared'
 import * as Staking from '@sqd/shared/lib/abi/Staking'
 
@@ -19,6 +19,22 @@ import { Delegation, DelegationStatus, DelegationStatusChange, Settings, Worker 
 import { createDelegation } from '../../helpers'
 import { refreshWorkerCap } from '../cap'
 import { addToDelegationUnlockQueue } from './DelegationUnlock.queue'
+import { computeDelegationLock } from './lock'
+
+async function applyDepositLock(
+  ctx: MappingContext,
+  delegation: Delegation,
+  settings: Settings,
+  l1BlockNumber: number,
+) {
+  const lock = computeDelegationLock(l1BlockNumber, settings)
+  delegation.locked = lock.locked
+  delegation.lockStart = lock.lockStart
+  delegation.lockEnd = lock.lockEnd
+  if (lock.locked) {
+    await addToDelegationUnlockQueue(ctx, delegation.id)
+  }
+}
 
 export const handleDeposited = createHandler((ctx, item) => {
   if (!isLog(item)) return
@@ -31,16 +47,37 @@ export const handleDeposited = createHandler((ctx, item) => {
     staker: stakerAccount,
     amount,
   } = Staking.events.Deposited.decode(log)
-  if (amount === 0n) return
 
   const workerId = createWorkerId(workerIndex)
-  const workerDeferred = ctx.store.defer(Worker, workerId)
-
   const accountId = createAccountId(stakerAccount)
-
   const delegationId = createDelegationId(workerId, accountId)
 
   const settingsDeferred = ctx.store.defer(Settings, network.name)
+
+  // Staking.deposit(worker, 0) moves no tokens but still rewrites the staker's unlock block for
+  // that worker, so it re-locks an existing delegation for a full lock period. Nothing else
+  // changes: no new delegation, no status change, no worker totals.
+  if (amount === 0n) {
+    const delegationDeferred = ctx.store.defer(Delegation, {
+      id: delegationId,
+      relations: { worker: true },
+    })
+
+    return timed(ctx, async (elapsed) => {
+      const delegation = await delegationDeferred.get()
+      // Nothing is staked, so there is nothing to lock (the contract accepts the call anyway).
+      if (!delegation || delegation.deposit === 0n) return
+
+      const settings = await settingsDeferred.getOrFail()
+      await applyDepositLock(ctx, delegation, settings, log.block.l1BlockNumber)
+
+      ctx.log.info(
+        `operator(${accountId}) re-locked delegation(${delegation.id}) until L1 block ${delegation.lockEnd} with a zero-amount deposit (${elapsed()}ms)`,
+      )
+    })
+  }
+
+  const workerDeferred = ctx.store.defer(Worker, workerId)
 
   return timed(ctx, async (elapsed) => {
     const settings = await settingsDeferred.getOrFail()
@@ -61,19 +98,7 @@ export const handleDeposited = createHandler((ctx, item) => {
     )
 
     delegation.deposit += amount
-    if (settings.epochLength) {
-      // On-chain lock is: nextEpoch() + epochLength * epochsLockedAfterStake.
-      // This assumes epochsLockedAfterStake == 1; if it changes on-chain
-      // (via Staking.EpochsLockChanged), this calculation will diverge.
-      delegation.locked = true
-      delegation.lockStart = toNextEpochStart(log.block.l1BlockNumber, settings.epochLength)
-      delegation.lockEnd = delegation.lockStart + (settings.lockPeriod ?? settings.epochLength)
-      await addToDelegationUnlockQueue(ctx, delegation.id)
-    } else {
-      delegation.locked = false
-      delegation.lockStart = log.block.l1BlockNumber
-      delegation.lockEnd = log.block.l1BlockNumber
-    }
+    await applyDepositLock(ctx, delegation, settings, log.block.l1BlockNumber)
 
     if (delegation.status !== DelegationStatus.ACTIVE) {
       delegation.status = DelegationStatus.ACTIVE
